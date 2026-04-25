@@ -19,6 +19,23 @@ The Termux package installs under `$PREFIX/libexec/codex-cli-voice-android/` and
 
 `codex-voice` uses the OpenAI Realtime API. The launcher intentionally refuses to start unless you pass `--allow-realtime` or set `CODEX_VOICE_ALLOW_REALTIME=1`.
 
+## Manual Installation (On-Device)
+
+If you are installing this directly on your Android device (no PC required):
+1. Install [Termux](https://f-droid.org/packages/com.termux/) via F-Droid.
+2. Download the latest `codex-cli-voice-android-rust-vX.X.X.tar.gz` from the GitHub Releases page to your phone's Downloads folder.
+3. Open Termux and run:
+   ```bash
+   # Grant Termux access to your phone's storage
+   termux-setup-storage
+   
+   # Extract the tarball into Termux's root prefix
+   tar -xzf ~/storage/downloads/codex-cli-voice-android-rust-*.tar.gz -C $PREFIX
+   
+   # Verify installation
+   codex --version
+   ```
+
 ## Repository Guide
 
 - [BUILD.md](BUILD.md): host setup and build commands.
