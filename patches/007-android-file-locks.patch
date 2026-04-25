@@ -1,0 +1,162 @@
+diff --git a/codex-rs/arg0/src/lib.rs b/codex-rs/arg0/src/lib.rs
+index 38f88452a..9f3ff7eb2 100644
+--- a/codex-rs/arg0/src/lib.rs
++++ b/codex-rs/arg0/src/lib.rs
+@@ -309,7 +309,14 @@ pub fn prepend_path_entry_for_codex_aliases() -> std::io::Result<Arg0PathEntryGu
+         .create(true)
+         .truncate(false)
+         .open(&lock_path)?;
+-    lock_file.try_lock()?;
++    if let Err(err) = lock_file.try_lock() {
++        let io_err: std::io::Error = err.into();
++        if cfg!(target_os = "android") && io_err.kind() == std::io::ErrorKind::Unsupported {
++            // Android/Termux does not support flock; proceed without this best-effort alias lock.
++        } else {
++            return Err(io_err);
++        }
++    }
+ 
+     for filename in &[
+         APPLY_PATCH_ARG0,
+@@ -431,7 +438,15 @@ fn try_lock_dir(dir: &Path) -> std::io::Result<Option<File>> {
+     match lock_file.try_lock() {
+         Ok(()) => Ok(Some(lock_file)),
+         Err(std::fs::TryLockError::WouldBlock) => Ok(None),
+-        Err(err) => Err(err.into()),
++        Err(err) => {
++            let io_err: std::io::Error = err.into();
++            if cfg!(target_os = "android") && io_err.kind() == std::io::ErrorKind::Unsupported {
++                // Treat unsupported flock as transient alias-dir contention on Android.
++                Ok(None)
++            } else {
++                Err(io_err)
++            }
++        }
+     }
+ }
+ 
+diff --git a/codex-rs/core/src/installation_id.rs b/codex-rs/core/src/installation_id.rs
+index e9e5445c8..baaec289b 100644
+--- a/codex-rs/core/src/installation_id.rs
++++ b/codex-rs/core/src/installation_id.rs
+@@ -1,4 +1,5 @@
+ use std::fs::OpenOptions;
++use std::io::ErrorKind;
+ use std::io::Read;
+ use std::io::Result;
+ use std::io::Seek;
+@@ -16,6 +17,10 @@ use uuid::Uuid;
+ 
+ pub(crate) const INSTALLATION_ID_FILENAME: &str = "installation_id";
+ 
++fn lock_is_optional(err: &std::io::Error) -> bool {
++    cfg!(target_os = "android") && err.kind() == ErrorKind::Unsupported
++}
++
+ pub(crate) async fn resolve_installation_id(codex_home: &AbsolutePathBuf) -> Result<String> {
+     let path = codex_home.join(INSTALLATION_ID_FILENAME);
+     fs::create_dir_all(codex_home).await?;
+@@ -29,7 +34,12 @@ pub(crate) async fn resolve_installation_id(codex_home: &AbsolutePathBuf) -> Res
+         }
+ 
+         let mut file = options.open(&path)?;
+-        file.lock()?;
++        if let Err(err) = file.lock() {
++            if !lock_is_optional(&err) {
++                return Err(err);
++            }
++            tracing::warn!("flock unsupported on Android; proceeding without lock (installation_id)");
++        }
+ 
+         #[cfg(unix)]
+         {
+diff --git a/codex-rs/core/src/message_history.rs b/codex-rs/core/src/message_history.rs
+index 3458ec730..d9ff6d8ef 100644
+--- a/codex-rs/core/src/message_history.rs
++++ b/codex-rs/core/src/message_history.rs
+@@ -148,7 +148,35 @@ pub async fn append_entry(text: &str, conversation_id: &ThreadId, config: &Confi
+                 Err(std::fs::TryLockError::WouldBlock) => {
+                     std::thread::sleep(RETRY_SLEEP);
+                 }
+-                Err(e) => return Err(e.into()),
++                Err(e) => {
++                    let io_err: std::io::Error = e.into();
++                    if cfg!(target_os = "android") && io_err.kind() == std::io::ErrorKind::Unsupported {
++                        tracing::warn!("flock unsupported on Android; using lock file fallback (message_history append)");
++                        let lock_path = path.as_path().with_extension("lock");
++                        let mut _lock_guard = None;
++                        for _ in 0..10 {
++                            match std::fs::OpenOptions::new().write(true).create_new(true).open(&lock_path) {
++                                Ok(f) => { _lock_guard = Some(f); break; }
++                                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
++                                    std::thread::sleep(RETRY_SLEEP);
++                                }
++                                Err(err) => return Err(err),
++                            }
++                        }
++                        if _lock_guard.is_none() {
++                            tracing::warn!("Failed to acquire lock file, proceeding without lock");
++                        }
++                        history_file.seek(SeekFrom::End(0))?;
++                        history_file.write_all(line.as_bytes())?;
++                        history_file.flush()?;
++                        enforce_history_limit(&mut history_file, history_max_bytes)?;
++                        if _lock_guard.is_some() {
++                            let _ = std::fs::remove_file(&lock_path);
++                        }
++                        return Ok(());
++                    }
++                    return Err(io_err);
++                }
+             }
+         }
+ 
+@@ -387,7 +415,22 @@ fn lookup_history_entry(path: &Path, log_id: u64, offset: usize) -> Option<Histo
+                 std::thread::sleep(RETRY_SLEEP);
+             }
+             Err(e) => {
+-                tracing::warn!(error = %e, "failed to acquire shared lock on history file");
++                let io_err: std::io::Error = e.into();
++                if cfg!(target_os = "android") && io_err.kind() == std::io::ErrorKind::Unsupported {
++                    // Read without lock on Android.
++                    let reader = BufReader::new(&file);
++                    for (idx, line_res) in reader.lines().enumerate() {
++                        let line = match line_res {
++                            Ok(l) => l,
++                            Err(_) => return None,
++                        };
++                        if idx == offset {
++                            return serde_json::from_str::<HistoryEntry>(&line).ok();
++                        }
++                    }
++                    return None;
++                }
++                tracing::warn!(error = %io_err, "failed to acquire shared lock on history file");
+                 return None;
+             }
+         }
+diff --git a/codex-rs/execpolicy/src/amend.rs b/codex-rs/execpolicy/src/amend.rs
+index e25fd1bd9..cefc533c6 100644
+--- a/codex-rs/execpolicy/src/amend.rs
++++ b/codex-rs/execpolicy/src/amend.rs
+@@ -154,10 +154,16 @@ fn append_locked_line(policy_path: &Path, line: &str) -> Result<(), AmendError>
+             path: policy_path.to_path_buf(),
+             source,
+         })?;
+-    file.lock().map_err(|source| AmendError::LockPolicyFile {
+-        path: policy_path.to_path_buf(),
+-        source,
+-    })?;
++    if let Err(err) = file.lock() {
++        if cfg!(target_os = "android") && err.kind() == std::io::ErrorKind::Unsupported {
++            // Android/Termux does not support flock; append without policy-file locking.
++        } else {
++            return Err(AmendError::LockPolicyFile {
++                path: policy_path.to_path_buf(),
++                source: err,
++            });
++        }
++    }
+ 
+     file.seek(SeekFrom::Start(0))
+         .map_err(|source| AmendError::SeekPolicyFile {

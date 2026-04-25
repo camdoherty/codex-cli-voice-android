@@ -1,0 +1,40 @@
+diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
+index eaec50175..1f7eb315b 100644
+--- a/codex-rs/Cargo.toml
++++ b/codex-rs/Cargo.toml
+@@ -63,7 +63,7 @@ members = [
+     "otel",
+     "tui",
+     "tools",
+-    "v8-poc",
++
+     "utils/absolute-path",
+     "utils/cargo-bin",
+     "git-utils",
+@@ -306,7 +306,7 @@ ratatui = "0.29.0"
+ ratatui-macros = "0.6.0"
+ regex = "1.12.3"
+ regex-lite = "0.1.8"
+-reqwest = { version = "0.12", features = ["cookies"] }
++reqwest = { version = "0.12", default-features = false, features = ["charset", "cookies", "http2", "macos-system-configuration", "rustls-tls"] }
+ rmcp = { version = "0.15.0", default-features = false }
+ runfiles = { git = "https://github.com/dzbarsky/rules_rust", rev = "b56cbaa8465e74127f1ea216f813cd377295ad81" }
+ rustls = { version = "0.23", default-features = false, features = [
+@@ -456,14 +456,11 @@ debug = 0
+ strip = true
+ 
+ [profile.release]
+-lto = "fat"
++lto = false
++opt-level = "z"
+ split-debuginfo = "off"
+-# Because we bundle some of these executables with the TypeScript CLI, we
+-# remove everything to make the binary as small as possible.
+ strip = "symbols"
+-
+-# See https://github.com/openai/codex/issues/1411 for details.
+-codegen-units = 1
++codegen-units = 16
+ 
+ [profile.ci-test]
+ debug = 1         # Reduce debug symbol size

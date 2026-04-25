@@ -1,0 +1,14 @@
+.env
+*.apk
+*.aab
+*.metadata
+*.tar.gz
+*.tar.gz.sha256
+*.sha256
+android-toolchain/
+codex-build-*/
+codex-cargo-cache/
+android-aec-shim/.gradle/
+android-aec-shim/build/
+android-aec-shim/app/build/
+.DS_Store

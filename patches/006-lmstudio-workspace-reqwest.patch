@@ -1,0 +1,13 @@
+diff --git a/codex-rs/lmstudio/Cargo.toml b/codex-rs/lmstudio/Cargo.toml
+index 66ae4dc5f..4d18afa69 100644
+--- a/codex-rs/lmstudio/Cargo.toml
++++ b/codex-rs/lmstudio/Cargo.toml
+@@ -12,7 +12,7 @@ path = "src/lib.rs"
+ [dependencies]
+ codex-core = { path = "../core" }
+ codex-model-provider-info = { path = "../model-provider-info" }
+-reqwest = { version = "0.12", features = ["json", "stream"] }
++reqwest = { workspace = true, features = ["json", "stream"] }
+ serde_json = "1"
+ tokio = { version = "1", features = ["rt"] }
+ tracing = { version = "0.1.44", features = ["log"] }

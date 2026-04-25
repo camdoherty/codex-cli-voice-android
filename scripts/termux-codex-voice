@@ -1,0 +1,61 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -euo pipefail
+
+ALLOW_REALTIME="${CODEX_VOICE_ALLOW_REALTIME:-}"
+FILTERED_ARGS=()
+
+for arg in "$@"; do
+    case "$arg" in
+        --allow-realtime|--allow-api-billing)
+            ALLOW_REALTIME=1
+            ;;
+        *)
+            FILTERED_ARGS+=("$arg")
+            ;;
+    esac
+done
+
+if [ "$ALLOW_REALTIME" != "1" ]; then
+    cat >&2 <<'EOF'
+codex-voice starts OpenAI Realtime API billing.
+
+Use the low-cost voice-intake path for daily triage. To run this premium
+Realtime path anyway, use one of:
+
+  codex-voice --allow-realtime
+  CODEX_VOICE_ALLOW_REALTIME=1 codex-voice
+EOF
+    exit 2
+fi
+
+KEY_FILE="${OPENAI_API_KEY_FILE:-$HOME/.oaienv}"
+
+if [ -z "${OPENAI_API_KEY:-}" ]; then
+    if [ ! -f "$KEY_FILE" ]; then
+        echo "Missing API key file: $KEY_FILE" >&2
+        exit 1
+    fi
+
+    if grep -Eq "^(export[[:space:]]+)?OPENAI_API_KEY=" "$KEY_FILE"; then
+        set -a
+        # shellcheck disable=SC1090
+        . "$KEY_FILE"
+        set +a
+    else
+        OPENAI_API_KEY="$(sed -n '/^[[:space:]]*#/d;/^[[:space:]]*$/d;{s/\r$//;p;q}' "$KEY_FILE")"
+        export OPENAI_API_KEY
+    fi
+fi
+
+if [ -z "${OPENAI_API_KEY:-}" ]; then
+    echo "OPENAI_API_KEY is empty" >&2
+    exit 1
+fi
+
+export CODEX_ANDROID_AUDIO_WS_URL="${CODEX_ANDROID_AUDIO_WS_URL:-ws://127.0.0.1:8765/v1/audio}"
+
+exec codex \
+    --enable realtime_conversation \
+    -c 'realtime.transport="websocket"' \
+    "${FILTERED_ARGS[@]}" \
+    2> >(grep -v -F "WARNING: flock unsupported on Android;" >&2)

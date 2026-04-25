@@ -1,0 +1,13 @@
+diff --git a/codex-rs/feedback/Cargo.toml b/codex-rs/feedback/Cargo.toml
+index 94af597f6..05564d626 100644
+--- a/codex-rs/feedback/Cargo.toml
++++ b/codex-rs/feedback/Cargo.toml
+@@ -11,7 +11,7 @@ workspace = true
+ anyhow = { workspace = true }
+ codex-login = { workspace = true }
+ codex-protocol = { workspace = true }
+-sentry = { version = "0.46" }
++sentry = { version = "0.46", default-features = false, features = ["backtrace", "contexts", "panic", "rustls", "reqwest", "tracing"] }
+ tracing = { workspace = true }
+ tracing-subscriber = { workspace = true }
+ 

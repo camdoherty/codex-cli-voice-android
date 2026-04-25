@@ -1,0 +1,28 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -euo pipefail
+
+KEY_FILE="${OPENAI_API_KEY_FILE:-$HOME/.oaienv}"
+
+if [ -z "${OPENAI_API_KEY:-}" ]; then
+    if [ ! -f "$KEY_FILE" ]; then
+        echo "Missing API key file: $KEY_FILE" >&2
+        exit 1
+    fi
+
+    if grep -Eq "^(export[[:space:]]+)?OPENAI_API_KEY=" "$KEY_FILE"; then
+        set -a
+        # shellcheck disable=SC1090
+        . "$KEY_FILE"
+        set +a
+    else
+        OPENAI_API_KEY="$(sed -n '/^[[:space:]]*#/d;/^[[:space:]]*$/d;{s/\r$//;p;q}' "$KEY_FILE")"
+        export OPENAI_API_KEY
+    fi
+fi
+
+if [ -z "${OPENAI_API_KEY:-}" ]; then
+    echo "OPENAI_API_KEY is empty" >&2
+    exit 1
+fi
+
+exec codex "$@" 2> >(grep -v -F "WARNING: flock unsupported on Android;" >&2)

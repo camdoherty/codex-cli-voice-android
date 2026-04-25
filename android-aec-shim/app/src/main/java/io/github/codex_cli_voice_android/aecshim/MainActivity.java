@@ -1,0 +1,117 @@
+package io.github.codex_cli_voice_android.aecshim;
+
+import android.Manifest;
+import android.app.Activity;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public final class MainActivity extends Activity {
+    private TextView statusView;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        root.setPadding(pad, pad, pad, pad);
+
+        TextView title = new TextView(this);
+        title.setText("Codex AEC Shim\nws://127.0.0.1:8765/v1/audio");
+        title.setTextSize(20);
+        root.addView(title);
+
+        Button permissions = new Button(this);
+        permissions.setText("Grant Permissions");
+        permissions.setOnClickListener(v -> requestNeededPermissions());
+        root.addView(permissions);
+
+        Button start = new Button(this);
+        start.setText("Start Foreground Service");
+        start.setOnClickListener(v -> startShimService());
+        root.addView(start);
+
+        Button stop = new Button(this);
+        stop.setText("Stop Service");
+        stop.setOnClickListener(v -> {
+            stopService(new Intent(this, AecShimService.class));
+            refreshStatus();
+        });
+        root.addView(stop);
+
+        Button refresh = new Button(this);
+        refresh.setText("Refresh Status");
+        refresh.setOnClickListener(v -> refreshStatus());
+        root.addView(refresh);
+
+        statusView = new TextView(this);
+        statusView.setTextSize(14);
+        statusView.setTextIsSelectable(true);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(statusView);
+        root.addView(scroll, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1));
+
+        setContentView(root);
+        requestNeededPermissions();
+        refreshStatus();
+    }
+
+    private void requestNeededPermissions() {
+        List<String> missing = new ArrayList<>();
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            missing.add(Manifest.permission.RECORD_AUDIO);
+        }
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            missing.add(Manifest.permission.POST_NOTIFICATIONS);
+        }
+        if (!missing.isEmpty()) {
+            requestPermissions(missing.toArray(new String[0]), 7);
+        }
+    }
+
+    private void startShimService() {
+        if (!hasRecordAudioPermission()) {
+            AecShimState.lastError = "Grant microphone permission before starting service";
+            requestNeededPermissions();
+            refreshStatus();
+            return;
+        }
+        Intent intent = new Intent(this, AecShimService.class);
+        if (Build.VERSION.SDK_INT >= 26) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+        statusView.postDelayed(this::refreshStatus, 500);
+    }
+
+    private void refreshStatus() {
+        statusView.setText(AecShimState.summary());
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        refreshStatus();
+    }
+
+    private boolean hasRecordAudioPermission() {
+        return checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+    }
+}
