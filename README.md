@@ -21,20 +21,30 @@ The Termux package installs under `$PREFIX/libexec/codex-cli-voice-android/` and
 
 ## Manual Installation (On-Device)
 
-If you are installing this directly on your Android device (no PC required):
-1. Install [Termux](https://f-droid.org/packages/com.termux/) via F-Droid.
-2. Download the latest `codex-cli-voice-android-rust-vX.X.X.tar.gz` from the GitHub Releases page to your phone's Downloads folder.
-3. Open Termux and run:
-   ```bash
-   # Grant Termux access to your phone's storage
-   termux-setup-storage
-   
-   # Extract the tarball into Termux's root prefix
-   tar -xzf ~/storage/downloads/codex-cli-voice-android-rust-*.tar.gz -C $PREFIX
-   
-   # Verify installation
-   codex --version
-   ```
+If you are installing directly on Android with no PC:
+
+1. Install [Termux](https://f-droid.org/packages/com.termux/) from F-Droid.
+2. Download the latest release assets to your phone's Downloads folder:
+   - `codex-cli-voice-android-rust-vX.X.X.tar.gz`
+   - `codex-cli-voice-android-rust-vX.X.X.tar.gz.sha256`
+   - `codex-aec-shim-debug.apk`, only required for `codex-voice`
+3. Open Termux and install the CLI:
+
+```sh
+termux-setup-storage
+cd "$HOME/storage/downloads"
+sha256sum -c codex-cli-voice-android-rust-v*.tar.gz.sha256
+tar -xzf codex-cli-voice-android-rust-v*.tar.gz -C "$PREFIX"
+codex --version
+```
+
+For voice mode, install `codex-aec-shim-debug.apk` with Android's package installer, open the app once, grant microphone permission, then run:
+
+```sh
+codex-voice --allow-realtime
+```
+
+`codex-voice` uses the OpenAI Realtime API and is billable. The launcher refuses to start without the explicit `--allow-realtime` guard.
 
 ## Repository Guide
 

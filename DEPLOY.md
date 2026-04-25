@@ -2,6 +2,8 @@
 
 The deployment helper is designed for safe iteration on a Termux target. It uploads the package, verifies the remote SHA256, creates a rollback archive, extracts into `$PREFIX`, repairs launcher symlinks, and runs non-paid smoke tests.
 
+For a no-PC, on-device install from GitHub Releases, use the manual installation section in [README.md](README.md).
+
 ## Configure Target
 
 ```bash

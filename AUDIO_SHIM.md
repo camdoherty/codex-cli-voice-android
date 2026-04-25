@@ -19,7 +19,17 @@ scripts/setup_android_toolchain.sh
 scripts/build_aec_shim_apk.sh
 ```
 
-## Install
+## Install From Release
+
+For normal use, download `codex-aec-shim-debug.apk` from the GitHub Release on the Android device and install it with Android's package installer.
+
+After installing, open the app and grant microphone permission. The service should listen on:
+
+```text
+ws://127.0.0.1:8765/v1/audio
+```
+
+## Install Locally Built APK
 
 Install the generated debug APK manually or upload it with:
 
@@ -30,12 +40,6 @@ scripts/upload_aec_shim_apk.sh
 ```
 
 The FTP upload script requires `FTP_HOST` and `FTP_USER` in `.env` or the environment.
-
-After installing, open the app and grant microphone permission. The service should listen on:
-
-```text
-ws://127.0.0.1:8765/v1/audio
-```
 
 ## Run Voice Mode
 
