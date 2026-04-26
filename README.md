@@ -1,4 +1,4 @@
-# Codex CLI + Voice (Android)
+# Codex CLI + Voice (Android Port)
 
 Codex CLI cross-compiled for `aarch64-linux-android` with an Android AEC shim for realtime, native hardware audio.
 
@@ -6,7 +6,12 @@ Status: alpha. The current validated target is upstream Codex `rust-v0.125.0`. T
 
 This repository contains build scripts, Android patches, a Termux packaging layout, deployment helpers, and the native Android audio shim. It does not vendor the upstream Codex source tree.
 
-## What This Builds
+Requires OpenAI Plus account or API key for chat.
+An API key is currently required for realtime voice mode since Plus does not expose streaming a
+
+termux-api can be used for speech-to-text and text-to-speech for half-duplex (walkie-talkie-like) voice interaction.
+
+## What This Builds`
 
 - `codex`: upstream Codex CLI, cross-compiled for Termux/Android.
 - `codex-api`: launcher that loads an OpenAI API key from `OPENAI_API_KEY` or `OPENAI_API_KEY_FILE`.
