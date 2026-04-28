@@ -13,6 +13,8 @@ import java.net.InetSocketAddress;
 
 public final class AecShimService extends Service {
     private AudioEngine audioEngine;
+    private AudioModeCoordinator audioModeCoordinator;
+    private TextVoiceController textVoiceController;
     private LoopbackAudioServer server;
 
     @Override
@@ -20,8 +22,13 @@ public final class AecShimService extends Service {
         super.onCreate();
         AecShimState.serviceRunning = true;
         createNotificationChannel();
-        audioEngine = new AudioEngine(this);
-        server = new LoopbackAudioServer(new InetSocketAddress("127.0.0.1", 8765), audioEngine);
+        audioModeCoordinator = new AudioModeCoordinator();
+        audioEngine = new AudioEngine(this, audioModeCoordinator);
+        textVoiceController = new TextVoiceController(this, audioModeCoordinator);
+        server = new LoopbackAudioServer(
+                new InetSocketAddress("127.0.0.1", 8765),
+                audioEngine,
+                textVoiceController);
     }
 
     @Override
@@ -53,6 +60,9 @@ public final class AecShimService extends Service {
         }
         if (audioEngine != null) {
             audioEngine.stop();
+        }
+        if (textVoiceController != null) {
+            textVoiceController.shutdown();
         }
         super.onDestroy();
     }

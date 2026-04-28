@@ -5,6 +5,9 @@
 *.tar.gz
 *.tar.gz.sha256
 *.sha256
+*.log
+__pycache__/
+*.pyc
 android-toolchain/
 codex-build-*/
 codex-cargo-cache/

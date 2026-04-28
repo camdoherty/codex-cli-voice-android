@@ -4,9 +4,13 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.DisplayCutout;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -26,24 +30,34 @@ public final class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
         root.setPadding(pad, pad, pad, pad);
+        root.setBackgroundColor(Color.BLACK);
+        applySystemBarInsets(root, pad);
+
+        Window window = getWindow();
+        window.setStatusBarColor(Color.BLACK);
+        window.setNavigationBarColor(Color.BLACK);
 
         TextView title = new TextView(this);
-        title.setText("Codex AEC Shim\nws://127.0.0.1:8765/v1/audio");
+        title.setText("Codex AEC Shim\nws://127.0.0.1:8765/v1/audio\nws://127.0.0.1:8765/v1/text-voice");
         title.setTextSize(20);
+        title.setTextColor(Color.rgb(142, 255, 189));
         root.addView(title);
 
         Button permissions = new Button(this);
         permissions.setText("Grant Permissions");
+        styleButton(permissions);
         permissions.setOnClickListener(v -> requestNeededPermissions());
         root.addView(permissions);
 
         Button start = new Button(this);
         start.setText("Start Foreground Service");
+        styleButton(start);
         start.setOnClickListener(v -> startShimService());
         root.addView(start);
 
         Button stop = new Button(this);
         stop.setText("Stop Service");
+        styleButton(stop);
         stop.setOnClickListener(v -> {
             stopService(new Intent(this, AecShimService.class));
             refreshStatus();
@@ -52,11 +66,13 @@ public final class MainActivity extends Activity {
 
         Button refresh = new Button(this);
         refresh.setText("Refresh Status");
+        styleButton(refresh);
         refresh.setOnClickListener(v -> refreshStatus());
         root.addView(refresh);
 
         statusView = new TextView(this);
         statusView.setTextSize(14);
+        statusView.setTextColor(Color.WHITE);
         statusView.setTextIsSelectable(true);
 
         ScrollView scroll = new ScrollView(this);
@@ -113,5 +129,25 @@ public final class MainActivity extends Activity {
 
     private boolean hasRecordAudioPermission() {
         return checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private static void styleButton(Button button) {
+        button.setTextColor(Color.WHITE);
+        button.setBackgroundColor(Color.rgb(28, 28, 28));
+    }
+
+    private static void applySystemBarInsets(View root, int basePad) {
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            int topInset = insets.getSystemWindowInsetTop();
+            if (Build.VERSION.SDK_INT >= 28) {
+                DisplayCutout cutout = insets.getDisplayCutout();
+                if (cutout != null) {
+                    topInset = Math.max(topInset, cutout.getSafeInsetTop());
+                }
+            }
+            view.setPadding(basePad, basePad + topInset, basePad, basePad);
+            return insets;
+        });
+        root.requestApplyInsets();
     }
 }

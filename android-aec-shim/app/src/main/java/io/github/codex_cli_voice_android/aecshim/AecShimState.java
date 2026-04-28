@@ -60,6 +60,8 @@ final class AecShimState {
                 + "Mic frames/drops: " + micFrames.get() + "/" + micDrops.get() + "\n"
                 + "Play frames/drops: " + playFrames.get() + "/" + playDrops.get() + "\n"
                 + "Play bytes queued/written: " + playBytesQueued.get() + "/" + playBytesWritten.get() + "\n"
+                + "\n"
+                + TextVoiceStatus.summary() + "\n"
                 + "Last error: " + (lastError.isEmpty() ? "none" : lastError);
     }
 }

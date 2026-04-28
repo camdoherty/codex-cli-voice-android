@@ -1,0 +1,7 @@
+interface:
+  display_name: "Voice Session"
+  short_description: "Start a live voice loop or speak text aloud in Termux"
+  default_prompt: "Use $tts-stt start for a live voice session, or sh scripts/tts-stt-session.sh say \"text\" for one-shot speech."
+
+policy:
+  allow_implicit_invocation: false

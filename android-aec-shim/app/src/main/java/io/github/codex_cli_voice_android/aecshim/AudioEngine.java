@@ -32,10 +32,12 @@ final class AudioEngine {
     private static final int PROTOCOL_FRAME_BYTES = PROTOCOL_RATE * FRAME_MS / 1000 * CHANNELS * BYTES_PER_SAMPLE;
 
     private final Context context;
+    private final AudioModeCoordinator modeCoordinator;
     private final AudioManager audioManager;
     private final PowerManager powerManager;
     private final ArrayBlockingQueue<byte[]> playbackQueue = new ArrayBlockingQueue<>(25);
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicBoolean cleaningUp = new AtomicBoolean(false);
 
     private Thread captureThread;
     private Thread playbackThread;
@@ -49,44 +51,73 @@ final class AudioEngine {
     private int captureRate = PROTOCOL_RATE;
     private int playbackRate = PROTOCOL_RATE;
 
-    AudioEngine(Context context) {
+    AudioEngine(Context context, AudioModeCoordinator modeCoordinator) {
         this.context = context.getApplicationContext();
+        this.modeCoordinator = modeCoordinator;
         this.audioManager = (AudioManager) this.context.getSystemService(Context.AUDIO_SERVICE);
         this.powerManager = (PowerManager) this.context.getSystemService(Context.POWER_SERVICE);
     }
 
-    synchronized void start(MicSink sink) {
+    synchronized boolean start(MicSink sink) {
         if (running.get()) {
-            return;
+            return true;
+        }
+        if (cleaningUp.get()) {
+            AecShimState.lastError = "audio stopping";
+            return false;
         }
         if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             AecShimState.lastError = "RECORD_AUDIO permission missing";
-            return;
+            return false;
+        }
+        if (!modeCoordinator.tryAcquire(AudioModeCoordinator.Mode.REALTIME_PCM, "audio")) {
+            AecShimState.lastError = "audio busy: " + modeCoordinator.modeName();
+            return false;
         }
         running.set(true);
         AecShimState.captureRunning = true;
         playbackQueue.clear();
-        configureAudioSession();
-        captureThread = new Thread(() -> captureLoop(sink), "codex-aec-capture");
-        playbackThread = new Thread(this::playbackLoop, "codex-aec-playback");
-        captureThread.start();
-        playbackThread.start();
+        try {
+            configureAudioSession();
+            captureThread = new Thread(() -> captureLoop(sink), "codex-aec-capture");
+            playbackThread = new Thread(this::playbackLoop, "codex-aec-playback");
+            captureThread.start();
+            playbackThread.start();
+            return true;
+        } catch (Exception e) {
+            AecShimState.lastError = "audio start failed: " + e.getMessage();
+            stopInternal();
+            return false;
+        }
     }
 
-    synchronized void stop() {
+    void stop() {
+        stopInternal();
+    }
+
+    private void stopInternal() {
+        if (!cleaningUp.compareAndSet(false, true)) {
+            return;
+        }
         if (!running.getAndSet(false)) {
+            cleaningUp.set(false);
             return;
         }
         AecShimState.captureRunning = false;
         playbackQueue.clear();
-        stopRecorder();
-        stopPlayer();
-        releaseEffects();
-        restoreAudioSession();
-        join(captureThread);
-        join(playbackThread);
-        captureThread = null;
-        playbackThread = null;
+        try {
+            stopRecorder();
+            stopPlayer();
+            releaseEffects();
+            restoreAudioSession();
+            join(captureThread);
+            join(playbackThread);
+        } finally {
+            captureThread = null;
+            playbackThread = null;
+            modeCoordinator.release(AudioModeCoordinator.Mode.REALTIME_PCM, "audio");
+            cleaningUp.set(false);
+        }
     }
 
     void enqueuePlayback(byte[] frame) {
@@ -118,6 +149,7 @@ final class AudioEngine {
 
     @SuppressLint("MissingPermission")
     private void captureLoop(MicSink sink) {
+        boolean shouldStop = false;
         try {
             audioRecord = createRecorder(PROTOCOL_RATE);
             if (audioRecord == null) {
@@ -125,12 +157,18 @@ final class AudioEngine {
             }
             if (audioRecord == null) {
                 AecShimState.lastError = "AudioRecord init failed for 24 kHz and 48 kHz";
-                running.set(false);
+                shouldStop = true;
+                return;
+            }
+            if (!running.get()) {
                 return;
             }
             captureRate = audioRecord.getSampleRate();
             AecShimState.captureRate = captureRate;
             attachEffects(audioRecord.getAudioSessionId());
+            if (!running.get()) {
+                return;
+            }
             int frameBytes = captureRate * FRAME_MS / 1000 * BYTES_PER_SAMPLE;
             byte[] readBuffer = new byte[frameBytes];
             audioRecord.startRecording();
@@ -144,15 +182,20 @@ final class AudioEngine {
                 sink.send(normalizeCaptureFrame(frame, captureRate));
             }
         } catch (Exception e) {
-            AecShimState.lastError = "capture failed: " + e.getMessage();
+            if (running.get()) {
+                AecShimState.lastError = "capture failed: " + e.getMessage();
+                shouldStop = true;
+            }
         } finally {
-            running.set(false);
-            AecShimState.captureRunning = false;
             stopRecorder();
+            if (shouldStop) {
+                stopInternal();
+            }
         }
     }
 
     private void playbackLoop() {
+        boolean shouldStop = false;
         try {
             audioTrack = createPlayer(PROTOCOL_RATE);
             if (audioTrack == null) {
@@ -160,7 +203,10 @@ final class AudioEngine {
             }
             if (audioTrack == null) {
                 AecShimState.lastError = "AudioTrack init failed for 24 kHz and 48 kHz";
-                running.set(false);
+                shouldStop = true;
+                return;
+            }
+            if (!running.get()) {
                 return;
             }
             playbackRate = audioTrack.getSampleRate();
@@ -181,9 +227,15 @@ final class AudioEngine {
                 }
             }
         } catch (Exception e) {
-            AecShimState.lastError = "playback failed: " + e.getMessage();
+            if (running.get()) {
+                AecShimState.lastError = "playback failed: " + e.getMessage();
+                shouldStop = true;
+            }
         } finally {
             stopPlayer();
+            if (shouldStop) {
+                stopInternal();
+            }
         }
     }
 
@@ -333,7 +385,7 @@ final class AudioEngine {
     }
 
     private static void join(Thread thread) {
-        if (thread == null) {
+        if (thread == null || thread == Thread.currentThread()) {
             return;
         }
         try {
