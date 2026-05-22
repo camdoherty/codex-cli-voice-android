@@ -1,8 +1,8 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index eaec50175..1f7eb315b 100644
+index c1258e8..70640f3 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
-@@ -63,7 +63,7 @@ members = [
+@@ -73,7 +73,7 @@ members = [
      "otel",
      "tui",
      "tools",
@@ -11,8 +11,8 @@ index eaec50175..1f7eb315b 100644
      "utils/absolute-path",
      "utils/cargo-bin",
      "git-utils",
-@@ -306,7 +306,7 @@ ratatui = "0.29.0"
- ratatui-macros = "0.6.0"
+@@ -331,7 +331,7 @@ rcgen = { version = "0.14.7", default-features = false, features = [
+ ] }
  regex = "1.12.3"
  regex-lite = "0.1.8"
 -reqwest = { version = "0.12", features = ["cookies"] }
@@ -20,8 +20,8 @@ index eaec50175..1f7eb315b 100644
  rmcp = { version = "0.15.0", default-features = false }
  runfiles = { git = "https://github.com/dzbarsky/rules_rust", rev = "b56cbaa8465e74127f1ea216f813cd377295ad81" }
  rustls = { version = "0.23", default-features = false, features = [
-@@ -456,14 +456,11 @@ debug = 0
- strip = true
+@@ -484,14 +484,11 @@ debug = "none"
+ strip = "symbols"
  
  [profile.release]
 -lto = "fat"
@@ -36,5 +36,5 @@ index eaec50175..1f7eb315b 100644
 -codegen-units = 1
 +codegen-units = 16
  
- [profile.ci-test]
- debug = 1         # Reduce debug symbol size
+ [profile.profiling]
+ inherits = "release"

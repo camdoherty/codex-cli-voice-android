@@ -5,7 +5,7 @@ set -euo pipefail
 PROJECT_NAME="Codex CLI + Voice (Android)"
 ARTIFACT_PREFIX="codex-cli-voice-android"
 INSTALL_DIR="libexec/codex-cli-voice-android"
-CODEX_TAG="${CODEX_TAG:-rust-v0.125.0}"
+CODEX_TAG="${CODEX_TAG:-rust-v0.133.0}"
 NDK_VERSION="${NDK_VERSION:-r29}"
 API_LEVEL="${API_LEVEL:-29}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -79,11 +79,14 @@ echo "📦 Staging files..."
 STAGE=$(mktemp -d)
 trap "rm -rf $STAGE" EXIT
 mkdir -p "$STAGE/$INSTALL_DIR" "$STAGE/bin"
+mkdir -p "$STAGE/$INSTALL_DIR/support/termux-skills"
 
 cp "$CARGO_TARGET_DIR/aarch64-linux-android/release/codex" \
     "$STAGE/$INSTALL_DIR/codex.bin"
 cp "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" \
     "$STAGE/$INSTALL_DIR/"
+cp -R "$SCRIPT_DIR/support/termux-skills/tts-stt" \
+    "$STAGE/$INSTALL_DIR/support/termux-skills/"
 
 # -- Wrapper script --
 cat > "$STAGE/bin/codex" <<'EOF'
@@ -106,7 +109,8 @@ chmod +x "$STAGE/bin/codex"
 
 cp "$SCRIPT_DIR/scripts/termux-codex-api" "$STAGE/bin/codex-api"
 cp "$SCRIPT_DIR/scripts/termux-codex-voice" "$STAGE/bin/codex-voice"
-chmod +x "$STAGE/bin/codex-api" "$STAGE/bin/codex-voice"
+cp "$SCRIPT_DIR/scripts/install_tts_stt_skill.sh" "$STAGE/bin/codex-install-tts-stt"
+chmod +x "$STAGE/bin/codex-api" "$STAGE/bin/codex-voice" "$STAGE/bin/codex-install-tts-stt"
 
 # -- Package --
 VERSION=$(cd "$WORK_DIR" && git describe --tags --exact-match 2>/dev/null || echo "$CODEX_TAG")

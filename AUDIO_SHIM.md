@@ -38,7 +38,7 @@ sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" \
   start
 ```
 
-Direct Termux API TTS is retained as a fallback because local Pixel 9 evidence
+Direct Termux API TTS is retained as a fallback because local Android evidence
 showed `termux-tts-speak` can hang or be silent while shim TTS remains audible.
 
 ## Build
@@ -134,7 +134,7 @@ scripts/autotest_text_voice_kokoro.py \
 ```
 
 The harness writes generated clips, frame JSONL, and `summary.json` to a
-timestamped `/tmp/pixel9-text-voice-kokoro-*` directory by default. Use
+timestamped `/tmp/codex-text-voice-kokoro-*` directory by default. Use
 `--case-set expanded` after the smoke case passes.
 
 ## Testing The Termux `tts-stt` Skill
@@ -156,8 +156,8 @@ python3 scripts/autotest_termux_tts_stt_skill.py \
   --ssh-target android-device-ssh-alias \
   --settle-ms 1000 \
   --remote-command 'PYTHONUNBUFFERED=1 timeout 45 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" --stt-backend shim stt-check --post-speech-delay 0' \
-  --clip /tmp/pixel9-text-voice-kokoro-expanded-fixtures/clips/01-smoke_current_task.wav \
-  --expected-file /tmp/pixel9-text-voice-kokoro-expanded-fixtures/clips/01-smoke_current_task.txt
+  --clip /tmp/codex-text-voice-kokoro-expanded-fixtures/clips/01-smoke_current_task.wav \
+  --expected-file /tmp/codex-text-voice-kokoro-expanded-fixtures/clips/01-smoke_current_task.txt
 ```
 
 This harness starts `tts-stt-session.sh stt-check` over SSH with unbuffered
@@ -173,4 +173,5 @@ recognition was less reliable in earlier tests.
 - The shim is functional but should be considered alpha-quality audio.
 - Realtime sessions are billable; use short validation prompts while tuning.
 - If output sounds sped up or distorted, retest with the latest shim APK and confirm the installed package matches the current build.
-- The local text-voice path is half-duplex. Wake word detection and API 33 audio-source pipe handoff remain extension seams and are not part of the current stable test path.
+- The local text-voice path is half-duplex and is the supported `$tts-stt`
+  voice path for this release.

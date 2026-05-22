@@ -7,9 +7,8 @@ operation. The live skill location on Termux is:
 $HOME/.codex/skills/tts-stt
 ```
 
-On the current Pixel test device, `$HOME` is a git repository, but `.codex/` is
-ignored. That means direct edits to the live skill are not rollback-safe unless
-they are mirrored here or moved into a tracked on-device worktree first.
+Direct edits to the live skill are not rollback-safe unless they are mirrored
+here or made in a tracked on-device worktree first.
 
 ## Safe Agent Workflow
 
@@ -17,17 +16,14 @@ they are mirrored here or moved into a tracked on-device worktree first.
    development.
 2. Make source changes in this repo mirror under `support/termux-skills/tts-stt`.
 3. Validate the mirrored scripts locally where possible.
-4. Copy the updated mirror to the phone only after review.
-5. Keep a timestamped backup of the live skill before replacement:
+4. Install the updated mirror with:
 
 ```sh
-tar -czf "$HOME/tts-stt-skill-backup-$(date +%Y%m%d-%H%M%S).tar.gz" \
-  -C "$HOME/.codex/skills" tts-stt
+scripts/install_tts_stt_skill.sh
 ```
 
-For experiments that must happen on the phone, use a separate tracked directory
-under `$HOME/dev/` and copy into `$HOME/.codex/skills/tts-stt` only after the
-change is validated.
+The installer creates a timestamped backup before replacing an existing live
+skill.
 
 ## Repeatable Voice Tests
 

@@ -20,6 +20,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class MainActivity extends Activity {
+    static final String ACTION_START_SERVICE = "io.github.codex_cli_voice_android.aecshim.START_SERVICE";
+    static final String ACTION_STOP_SERVICE = "io.github.codex_cli_voice_android.aecshim.STOP_SERVICE";
+
     private TextView statusView;
 
     @Override
@@ -58,10 +61,7 @@ public final class MainActivity extends Activity {
         Button stop = new Button(this);
         stop.setText("Stop Service");
         styleButton(stop);
-        stop.setOnClickListener(v -> {
-            stopService(new Intent(this, AecShimService.class));
-            refreshStatus();
-        });
+        stop.setOnClickListener(v -> stopShimService());
         root.addView(stop);
 
         Button refresh = new Button(this);
@@ -85,6 +85,7 @@ public final class MainActivity extends Activity {
         setContentView(root);
         requestNeededPermissions();
         refreshStatus();
+        handleLifecycleAction(getIntent());
     }
 
     private void requestNeededPermissions() {
@@ -117,6 +118,23 @@ public final class MainActivity extends Activity {
         statusView.postDelayed(this::refreshStatus, 500);
     }
 
+    private void stopShimService() {
+        stopService(new Intent(this, AecShimService.class));
+        refreshStatus();
+    }
+
+    private void handleLifecycleAction(Intent intent) {
+        if (intent == null) {
+            return;
+        }
+        String action = intent.getAction();
+        if (ACTION_START_SERVICE.equals(action)) {
+            startShimService();
+        } else if (ACTION_STOP_SERVICE.equals(action)) {
+            stopShimService();
+        }
+    }
+
     private void refreshStatus() {
         statusView.setText(AecShimState.summary());
     }
@@ -125,6 +143,13 @@ public final class MainActivity extends Activity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         refreshStatus();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleLifecycleAction(intent);
     }
 
     private boolean hasRecordAudioPermission() {

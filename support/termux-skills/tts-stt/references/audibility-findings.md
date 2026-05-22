@@ -2,7 +2,7 @@
 
 ## Scope
 
-This note records the local Pixel 9 playback evidence behind the `tts-stt`
+This note records the local Android playback evidence behind the `tts-stt`
 skill's TTS backend and fallback stream choices.
 
 ## Findings

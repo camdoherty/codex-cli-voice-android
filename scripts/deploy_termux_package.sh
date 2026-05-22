@@ -7,7 +7,8 @@ Usage: scripts/deploy_termux_package.sh <package.tar.gz> [package.tar.gz.sha256]
 
 Uploads a Codex CLI + Voice (Android) package to a Termux device over SSH, verifies
 the remote SHA256, creates a rollback backup, extracts into $PREFIX, repairs
-known launcher symlinks, and runs non-paid smoke tests.
+known launcher symlinks, installs the tts-stt skill, and runs non-paid smoke
+tests.
 
 Environment:
   PIXEL_HOST      required unless set in .env
@@ -15,6 +16,7 @@ Environment:
   PIXEL_PORT      optional, default: 8022
   PIXEL_IDENTITY  optional SSH private key path
   SSH_CONFIG      default: /dev/null
+  ALLOW_FRESH_INSTALL  set to 1 to deploy when no previous Codex install exists
 EOF
 }
 
@@ -59,6 +61,7 @@ PIXEL_PORT="${PIXEL_PORT:-8022}"
 SSH_CONFIG="${SSH_CONFIG:-/dev/null}"
 [ -n "$PIXEL_HOST" ] || { echo "PIXEL_HOST is required. Copy .env.example to .env or export it." >&2; exit 2; }
 [ -n "$PIXEL_USER" ] || { echo "PIXEL_USER is required. Copy .env.example to .env or export it." >&2; exit 2; }
+ALLOW_FRESH_INSTALL="${ALLOW_FRESH_INSTALL:-0}"
 PIXEL_TARGET="${PIXEL_USER}@${PIXEL_HOST}"
 SSH_OPTS=(-F "$SSH_CONFIG" -p "$PIXEL_PORT")
 if [ -n "${PIXEL_IDENTITY:-}" ]; then
@@ -85,9 +88,10 @@ ls -lh "$HOME/$remote_name"
 REMOTE_VERIFY
 
 echo "Backing up current install and deploying"
-ssh "${SSH_OPTS[@]}" "$PIXEL_TARGET" 'sh -s' -- "$REMOTE_NAME" <<'REMOTE_DEPLOY'
+ssh "${SSH_OPTS[@]}" "$PIXEL_TARGET" 'sh -s' -- "$REMOTE_NAME" "$ALLOW_FRESH_INSTALL" <<'REMOTE_DEPLOY'
 set -eu
 remote_name="$1"
+allow_fresh_install="$2"
 artifact="$HOME/$remote_name"
 
 tar -tzf "$artifact" >/dev/null
@@ -98,24 +102,32 @@ set --
 [ -e bin/codex ] && set -- "$@" bin/codex
 [ -e bin/codex-api ] && set -- "$@" bin/codex-api
 [ -e bin/codex-voice ] && set -- "$@" bin/codex-voice
+[ -e bin/codex-install-tts-stt ] && set -- "$@" bin/codex-install-tts-stt
 [ -e libexec/codex-cli-voice-android ] && set -- "$@" libexec/codex-cli-voice-android
 [ -e opt/codex-termux ] && set -- "$@" opt/codex-termux
-[ "$#" -gt 0 ] || {
+[ "$#" -gt 0 ] || [ "$allow_fresh_install" = "1" ] || {
     echo "No existing Codex install paths found to back up; aborting deploy" >&2
+    echo "Set ALLOW_FRESH_INSTALL=1 for a clean first install." >&2
     exit 1
 }
 
-backup="$HOME/codex-backup-before-${remote_name%.tar.gz}-$ts.tar.gz"
-tar -czf "$backup" "$@"
-tar -tzf "$backup" >/dev/null
-ln -sf "$backup" "$HOME/codex-backup-before-latest.tar.gz"
+if [ "$#" -gt 0 ]; then
+    backup="$HOME/codex-backup-before-${remote_name%.tar.gz}-$ts.tar.gz"
+    tar -czf "$backup" "$@"
+    tar -tzf "$backup" >/dev/null
+    ln -sf "$backup" "$HOME/codex-backup-before-latest.tar.gz"
+else
+    backup=""
+fi
 
 rm -rf "$PREFIX/libexec/codex-cli-voice-android" "$PREFIX/opt/codex-termux"
-rm -f "$PREFIX/bin/codex" "$PREFIX/bin/codex-api" "$PREFIX/bin/codex-voice"
+rm -f "$PREFIX/bin/codex" "$PREFIX/bin/codex-api" "$PREFIX/bin/codex-voice" "$PREFIX/bin/codex-install-tts-stt"
 tar -xzf "$artifact" -C "$PREFIX"
 
+codex-install-tts-stt
+
 mkdir -p "$HOME/scripts"
-for name in codex-api codex-voice; do
+for name in codex-api codex-voice codex-install-tts-stt; do
     if [ -e "$HOME/scripts/$name" ] && [ ! -L "$HOME/scripts/$name" ]; then
         mkdir -p "$HOME/codex-script-backups-$ts"
         mv "$HOME/scripts/$name" "$HOME/codex-script-backups-$ts/$name"
@@ -143,13 +155,19 @@ set -e
     exit 1
 }
 
-for name in codex-api codex-voice; do
+for name in codex-api codex-voice codex-install-tts-stt; do
     target="$(readlink "$HOME/scripts/$name" 2>/dev/null || true)"
     [ "$target" = "$PREFIX/bin/$name" ] || {
         echo "$HOME/scripts/$name does not point to $PREFIX/bin/$name" >&2
         exit 1
     }
 done
+
+[ -x "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" ] || {
+    echo "tts-stt skill was not installed" >&2
+    exit 1
+}
+sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status >/dev/null
 
 if strings "$PREFIX/libexec/codex-cli-voice-android/codex.bin" |
     grep -F "WARNING: flock unsupported" >/dev/null; then

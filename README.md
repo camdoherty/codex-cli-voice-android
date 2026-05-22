@@ -2,20 +2,35 @@
 
 Codex CLI cross-compiled for `aarch64-linux-android` with an Android AEC shim for realtime, native hardware audio.
 
-Status: alpha. The current validated target is upstream Codex `rust-v0.125.0`. The package has been tested on Android with Termux on a Pixel-class ARM64 device; other devices are untested.
+Status: alpha. The current validated target is upstream Codex `rust-v0.133.0`. The package has been tested on Android with Termux on a Pixel-class ARM64 device; other devices are untested.
 
 This repository contains build scripts, Android patches, a Termux packaging layout, deployment helpers, and the native Android audio shim. It does not vendor the upstream Codex source tree.
 
-Requires OpenAI Plus account or API key for chat.
-An API key is currently required for realtime voice mode since Plus does not expose streaming a
+Requires an OpenAI Plus account or API key for Codex chat.
 
-termux-api can be used for speech-to-text and text-to-speech for half-duplex (walkie-talkie-like) voice interaction.
+## Voice Modes
 
-## What This Builds`
+| Mode | Command | Cost profile | Best for |
+| --- | --- | --- | --- |
+| Local Half-Duplex Voice | `$tts-stt start` or `tts-stt-start` | Works with Plus login; no API key required for the voice path | Cheap walkie-talkie-like agent sessions |
+| Realtime Voice | `codex-voice --allow-realtime` | Uses OpenAI Realtime API billing | Native low-latency OpenAI voice |
+
+Local Half-Duplex Voice uses the Android shim `/v1/text-voice` endpoint first:
+Android `TextToSpeech` for spoken output and Android `SpeechRecognizer` for
+one-shot speech input. Termux API speech commands remain fallback paths.
+
+Realtime Voice uses the shim `/v1/audio` endpoint and streams audio through the
+OpenAI Realtime API. The launcher refuses to start unless realtime billing is
+explicitly allowed.
+
+See [VOICE_MODES.md](VOICE_MODES.md) for details.
+
+## What This Builds
 
 - `codex`: upstream Codex CLI, cross-compiled for Termux/Android.
 - `codex-api`: launcher that loads an OpenAI API key from `OPENAI_API_KEY` or `OPENAI_API_KEY_FILE`.
 - `codex-voice`: guarded realtime launcher for native Android audio through the AEC shim.
+- `codex-install-tts-stt`: installs or updates the local `$tts-stt` skill with backup.
 - `codex-aec-shim-debug.apk`: Android app/service that exposes native capture/playback to Codex over a local WebSocket.
 
 The Termux package installs under `$PREFIX/libexec/codex-cli-voice-android/` and exposes launchers in `$PREFIX/bin`.
@@ -40,10 +55,24 @@ termux-setup-storage
 cd "$HOME/storage/downloads"
 sha256sum -c codex-cli-voice-android-rust-v*.tar.gz.sha256
 tar -xzf codex-cli-voice-android-rust-v*.tar.gz -C "$PREFIX"
+codex-install-tts-stt
 codex --version
 ```
 
-For voice mode, install `codex-aec-shim-debug.apk` with Android's package installer, open the app once, grant microphone permission, then run:
+For Local Half-Duplex Voice, install the AEC shim APK, open it once, grant
+microphone permission, then start a session with one of:
+
+```sh
+sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start
+```
+
+or ask Codex to use:
+
+```text
+$tts-stt start
+```
+
+For Realtime Voice, use:
 
 ```sh
 codex-voice --allow-realtime
@@ -55,6 +84,7 @@ codex-voice --allow-realtime
 
 - [BUILD.md](BUILD.md): host setup and build commands.
 - [DEPLOY.md](DEPLOY.md): safe SSH deploy, rollback backup, and smoke tests.
+- [VOICE_MODES.md](VOICE_MODES.md): voice mode chooser, commands, and cost boundaries.
 - [AUDIO_SHIM.md](AUDIO_SHIM.md): Android AEC shim build/install/runtime notes.
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md): known issues and quick checks.
 

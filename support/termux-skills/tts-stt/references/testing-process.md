@@ -18,7 +18,7 @@ retuning timing.
   while full-loop STT fails after TTS output.
 - Treat shim STT and Termux STT as separate signals. Full-shim mode must not
   leave `termux-speech-to-text` or Termux API SpeechToText helpers running.
-- Treat shim TTS and Termux API TTS as separate signals. Current Pixel 9
+- Treat shim TTS and Termux API TTS as separate signals. Current Android
   evidence prefers shim TTS; direct `termux-tts-speak` can hang even when shim
   TTS is audible and reports completion.
 
@@ -37,7 +37,7 @@ Use placeholders in public docs and scripts:
 export SSH_TARGET=android-device-ssh-alias
 export SSH_CONFIG=/path/to/ssh_config
 export PYTHON_WITH_KOKORO=/path/to/python-with-kokoro
-export FIXTURE_DIR=/tmp/pixel9-text-voice-kokoro-expanded-fixtures
+export FIXTURE_DIR=/tmp/codex-text-voice-kokoro-expanded-fixtures
 ```
 
 ## Generate Kokoro Fixtures
@@ -107,6 +107,20 @@ ssh -F "$SSH_CONFIG" "$SSH_TARGET" '
 
 Expected result: `not running` and no voice/API helper processes.
 
+## Live Human Speech Coordination
+
+Live speech tests are invalid unless the operator is clearly notified before the listening window.
+
+Required protocol:
+
+1. Tell the user the exact phrase to say before starting the command.
+2. Start the test.
+3. Confirm the listener is armed from logs: `stt_listening` followed by the expected cue or ready message.
+4. Tell the user to speak only after the expected cue/tone.
+5. If the user was not notified in time, discard the run as invalid and retry.
+
+If the user says `stop`, treat a clean `disabled` companion state as stop-path validation. Do not count it as a failed prompt-recognition test.
+
 ## No-Speech Baseline
 
 Measure the Android recognizer no-speech window before playback tests:
@@ -118,10 +132,10 @@ python3 scripts/autotest_termux_tts_stt_skill.py \
   --baseline-only \
   --ready-text 'status: listening' \
   --remote-command 'PYTHONUNBUFFERED=1 timeout 100 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" --timeout-seconds 30 --post-speech-delay 6 start "Testing quiet listening baseline."' \
-  --summary /tmp/pixel9-termux-tts-stt-baseline-summary.json
+  --summary /tmp/codex-termux-tts-stt-baseline-summary.json
 ```
 
-The current Pixel 9 evidence showed short, variable no-speech windows:
+The current Android evidence showed short, variable no-speech windows:
 approximately 6.1 seconds on the first listen and 3.3 seconds on the second.
 This is Android/Termux SpeechRecognizer behavior, not a Python loop timeout.
 
@@ -141,7 +155,7 @@ python3 scripts/autotest_termux_tts_stt_skill.py \
   --clip "$FIXTURE_DIR/clips/01-smoke_current_task.wav" \
   --expected-file "$FIXTURE_DIR/clips/01-smoke_current_task.txt" \
   --min-recall 0.85 \
-  --summary /tmp/pixel9-shim-stt-raw-smoke-current-summary.json
+  --summary /tmp/codex-shim-stt-raw-smoke-current-summary.json
 ```
 
 If forced shim STT fails, rerun the same clip with `--stt-backend termux` to
@@ -156,7 +170,7 @@ python3 scripts/autotest_termux_tts_stt_skill.py \
   --clip "$FIXTURE_DIR/clips/01-smoke_current_task.wav" \
   --expected-file "$FIXTURE_DIR/clips/01-smoke_current_task.txt" \
   --min-recall 0.85 \
-  --summary /tmp/pixel9-termux-tts-stt-raw-smoke-current-summary.json
+  --summary /tmp/codex-termux-tts-stt-raw-smoke-current-summary.json
 ```
 
 Then run a longer realistic command:
@@ -170,7 +184,7 @@ python3 scripts/autotest_termux_tts_stt_skill.py \
   --clip "$FIXTURE_DIR/clips/03-long_instruction.wav" \
   --expected-file "$FIXTURE_DIR/clips/03-long_instruction.txt" \
   --min-recall 0.85 \
-  --summary /tmp/pixel9-termux-tts-stt-raw-long-instruction-summary.json
+  --summary /tmp/codex-termux-tts-stt-raw-long-instruction-summary.json
 ```
 
 Known passing baseline: both realistic raw STT clips reached 1.0 word recall
@@ -215,7 +229,7 @@ python3 scripts/autotest_termux_tts_stt_skill.py \
   --turn "risk|$FIXTURE_DIR/clips/03-long_instruction.wav|Review the deployment notes identify the riskiest step and tell me what to test next" \
   --turn "stop|$FIXTURE_DIR/clips/99-stop_voice_mode.wav|stop voice" \
   --min-recall 0.85 \
-  --summary /tmp/pixel9-shim-tts-stt-multiturn-summary.json
+  --summary /tmp/codex-shim-tts-stt-multiturn-summary.json
 ```
 
 If full-shim mode fails while raw shim STT passes, run the proven hybrid
@@ -232,7 +246,7 @@ python3 scripts/autotest_termux_tts_stt_skill.py \
   --turn "risk|$FIXTURE_DIR/clips/03-long_instruction.wav|Review the deployment notes identify the riskiest step and tell me what to test next" \
   --turn "stop|$FIXTURE_DIR/clips/99-stop_voice_mode.wav|stop voice" \
   --min-recall 0.85 \
-  --summary /tmp/pixel9-termux-tts-stt-multiturn-summary.json
+  --summary /tmp/codex-termux-tts-stt-multiturn-summary.json
 ```
 
 Known evidence with shim TTS and `--post-tts-recovery 3`:
@@ -278,7 +292,7 @@ Known evidence with shim TTS and `--post-tts-recovery 3`:
 - If raw STT fails, tune playback level, phone placement, fixture phrase, or
   recognizer settle timing before changing the full loop.
 - If raw STT passes but full-loop STT fails after TTS, tune post-TTS recovery
-  and response brevity first. The current Pixel 9 shim-TTS baseline is 3s.
+  and response brevity first. The current Android shim-TTS baseline is 3s.
 - If no-speech windows are only a few seconds, do not treat that as the Python
   loop ending early. The recognizer is returning no-match.
 - If a test is interrupted, run `cleanup` and verify process state before the

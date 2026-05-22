@@ -2,7 +2,7 @@
 """Autonomous Kokoro playback test for the Android shim /v1/text-voice path.
 
 The harness synthesizes deterministic speech clips on the devbox, waits until
-the Pixel shim reports STT is listening, plays each clip through local speakers,
+the Android shim reports STT is listening, plays each clip through local speakers,
 and scores the returned transcript with simple word recall.
 """
 
@@ -58,7 +58,7 @@ EXPANDED_CASES = SMOKE_CASES + (
     {"id": "punctuation_command", "text": "Create three labels: urgent, blocked, and follow up."},
     {"id": "quiet_voice", "text": "This is a quieter command to check recognition tolerance.", "volume": 0.45},
     {"id": "faster_speech", "text": "Quickly check status then wait for confirmation."},
-    {"id": "wake_style", "text": "Hey Pixel, I need an agent to inspect the todo inbox."},
+    {"id": "agent_request", "text": "Codex, I need an agent to inspect the todo inbox."},
     {"id": "noisy_room_phrase", "text": "Ignore the background noise and capture this command."},
     {"id": "silence_after_command", "text": "Record this command and then expect silence."},
     {"id": "device_control", "text": "Turn on notifications and copy the summary to the clipboard."},
@@ -331,7 +331,7 @@ def run_case(args: argparse.Namespace, clip: dict[str, Any], player: list[str], 
 
 
 def _default_out_dir() -> Path:
-    return Path("/tmp") / f"pixel9-text-voice-kokoro-{time.strftime('%Y%m%d-%H%M%S')}"
+    return Path("/tmp") / f"codex-text-voice-kokoro-{time.strftime('%Y%m%d-%H%M%S')}"
 
 
 def main() -> int:

@@ -33,12 +33,12 @@ Full build:
 ANDROID_NDK_HOME=/path/to/android-ndk-r29 ./build.sh
 ```
 
-By default the script builds upstream `rust-v0.125.0` and writes:
+By default the script builds upstream `rust-v0.133.0` and writes:
 
 ```text
-codex-cli-voice-android-rust-v0.125.0.tar.gz
-codex-cli-voice-android-rust-v0.125.0.tar.gz.sha256
-codex-cli-voice-android-rust-v0.125.0.tar.gz.metadata
+codex-cli-voice-android-rust-v0.133.0.tar.gz
+codex-cli-voice-android-rust-v0.133.0.tar.gz.sha256
+codex-cli-voice-android-rust-v0.133.0.tar.gz.metadata
 ```
 
 Cargo output is cached outside the source clone through:
@@ -50,7 +50,7 @@ CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-../codex-cargo-cache}
 Override the upstream tag for preflight or future bumps:
 
 ```bash
-CODEX_TAG=rust-v0.126.0 WORK_DIR=/tmp/codex-cli-preflight CHECK_PATCHES_ONLY=1 ./build.sh
+CODEX_TAG=rust-v0.133.0 WORK_DIR=/tmp/codex-cli-preflight CHECK_PATCHES_ONLY=1 ./build.sh
 ```
 
 ## AEC Shim APK

@@ -72,7 +72,12 @@ INCOMPLETE_TRAILING_WORDS = {
     "while",
     "with",
 }
-RUNTIME_DIR = Path.home() / "dev" / "termux_voice_p9" / "runtime" / "tts_stt"
+RUNTIME_DIR = Path(
+    os.environ.get(
+        "CODEX_TTS_STT_RUNTIME_DIR",
+        str(Path.home() / ".local" / "state" / "codex-tts-stt"),
+    )
+)
 PID_PATH = RUNTIME_DIR / "session.pid"
 ACTIVE_TTS_PROCS: list[subprocess.Popen[str]] = []
 LAST_TTS_COMPLETED = False
@@ -201,6 +206,13 @@ class WebSocketTextClient:
         masked = bytes(byte ^ mask[index % 4] for index, byte in enumerate(data))
         self.sock.sendall(bytes(header) + mask + masked)
 
+    def _send_pong(self, payload: bytes) -> None:
+        mask = os.urandom(4)
+        header = bytearray([0x8A])
+        header.append(0x80 | len(payload))
+        masked = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+        self.sock.sendall(bytes(header) + mask + masked)
+
     def recv_json(self) -> dict[str, object]:
         while True:
             first, second = self.recv_exact(2)
@@ -217,6 +229,9 @@ class WebSocketTextClient:
                 payload = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
             if opcode == 0x8:
                 raise RuntimeError("shim websocket closed")
+            if opcode == 0x9:
+                self._send_pong(payload)
+                continue
             if opcode != 0x1:
                 continue
             return json.loads(payload.decode("utf-8", errors="replace"))
@@ -861,7 +876,7 @@ def format_history(history: list[tuple[str, str]], max_turns: int = 12) -> str:
 
 
 def build_prompt(host_summary: str, history: list[tuple[str, str]], latest_user_text: str) -> str:
-    return f"""You are speaking aloud to the user in a live Termux voice session on a Pixel 9 Android device.
+    return f"""You are speaking aloud to the user in a live Termux voice session on an Android device.
 
 Session behavior:
 - The voice session should feel calm, conversational, and continuous.

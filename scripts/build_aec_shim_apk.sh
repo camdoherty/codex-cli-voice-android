@@ -19,5 +19,5 @@ cd "$REPO_DIR/android-aec-shim"
 "$GRADLE_BIN" --no-daemon :app:assembleDebug
 
 APK="$PWD/app/build/outputs/apk/debug/app-debug.apk"
-sha256sum "$APK" > "$APK.sha256"
+(cd "$(dirname "$APK")" && sha256sum "$(basename "$APK")" > "$(basename "$APK").sha256")
 echo "Built $APK"

@@ -1,4 +1,5 @@
 .env
+.venv*/
 *.apk
 *.aab
 *.metadata
@@ -9,9 +10,11 @@
 __pycache__/
 *.pyc
 android-toolchain/
+build-work/
 codex-build-*/
 codex-cargo-cache/
 android-aec-shim/.gradle/
 android-aec-shim/build/
 android-aec-shim/app/build/
+tmp/
 .DS_Store

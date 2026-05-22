@@ -1,8 +1,8 @@
 diff --git a/codex-rs/code-mode/Cargo.toml b/codex-rs/code-mode/Cargo.toml
-index 23b2ce2..445c98f 100644
+index 19d6c3a..1ab2f29 100644
 --- a/codex-rs/code-mode/Cargo.toml
 +++ b/codex-rs/code-mode/Cargo.toml
-@@ -22,6 +22,8 @@ serde_json = { workspace = true }
+@@ -25,6 +25,8 @@ serde_json = { workspace = true }
  tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
  tokio-util = { workspace = true, features = ["rt"] }
  tracing = { workspace = true }
@@ -12,7 +12,7 @@ index 23b2ce2..445c98f 100644
  
  [dev-dependencies]
 diff --git a/codex-rs/code-mode/src/lib.rs b/codex-rs/code-mode/src/lib.rs
-index bf0ce69..5ca45a1 100644
+index 3da8c77..bcaf697 100644
 --- a/codex-rs/code-mode/src/lib.rs
 +++ b/codex-rs/code-mode/src/lib.rs
 @@ -1,7 +1,13 @@
@@ -29,7 +29,7 @@ index bf0ce69..5ca45a1 100644
  
  pub use description::CODE_MODE_PRAGMA_PREFIX;
  pub use description::CodeModeToolKind;
-@@ -18,17 +24,50 @@ pub use description::render_json_schema_to_typescript;
+@@ -18,20 +24,62 @@ pub use description::render_json_schema_to_typescript;
  pub use response::DEFAULT_IMAGE_DETAIL;
  pub use response::FunctionCallOutputContentItem;
  pub use response::ImageDetail;
@@ -44,11 +44,17 @@ index bf0ce69..5ca45a1 100644
 +#[cfg(not(target_os = "android"))]
  pub use runtime::ExecuteRequest;
 +#[cfg(not(target_os = "android"))]
+ pub use runtime::ExecuteToPendingOutcome;
++#[cfg(not(target_os = "android"))]
  pub use runtime::RuntimeResponse;
 +#[cfg(not(target_os = "android"))]
  pub use runtime::WaitOutcome;
 +#[cfg(not(target_os = "android"))]
  pub use runtime::WaitRequest;
++#[cfg(not(target_os = "android"))]
+ pub use runtime::WaitToPendingOutcome;
++#[cfg(not(target_os = "android"))]
+ pub use runtime::WaitToPendingRequest;
 +#[cfg(target_os = "android")]
 +pub use runtime_stub::CodeModeNestedToolCall;
 +#[cfg(target_os = "android")]
@@ -60,11 +66,17 @@ index bf0ce69..5ca45a1 100644
 +#[cfg(target_os = "android")]
 +pub use runtime_stub::ExecuteRequest;
 +#[cfg(target_os = "android")]
++pub use runtime_stub::ExecuteToPendingOutcome;
++#[cfg(target_os = "android")]
 +pub use runtime_stub::RuntimeResponse;
 +#[cfg(target_os = "android")]
 +pub use runtime_stub::WaitOutcome;
 +#[cfg(target_os = "android")]
 +pub use runtime_stub::WaitRequest;
++#[cfg(target_os = "android")]
++pub use runtime_stub::WaitToPendingOutcome;
++#[cfg(target_os = "android")]
++pub use runtime_stub::WaitToPendingRequest;
 +#[cfg(not(target_os = "android"))]
  pub use service::CodeModeService;
 +#[cfg(not(target_os = "android"))]
@@ -82,10 +94,10 @@ index bf0ce69..5ca45a1 100644
  pub const WAIT_TOOL_NAME: &str = "wait";
 diff --git a/codex-rs/code-mode/src/runtime_stub.rs b/codex-rs/code-mode/src/runtime_stub.rs
 new file mode 100644
-index 0000000..f047b32
+index 0000000..4a2bc80
 --- /dev/null
 +++ b/codex-rs/code-mode/src/runtime_stub.rs
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,96 @@
 +/// Android stub for the V8 runtime types.
 +/// V8 does not cross-compile to aarch64-linux-android, so we provide
 +/// type-compatible stubs that allow the rest of the crate graph to compile.
@@ -95,6 +107,7 @@ index 0000000..f047b32
 +use serde::Serialize;
 +use serde_json::Value as JsonValue;
 +
++use crate::description::CodeModeToolKind;
 +use crate::description::ToolDefinition;
 +use crate::response::FunctionCallOutputContentItem;
 +
@@ -120,9 +133,30 @@ index 0000000..f047b32
 +    pub terminate: bool,
 +}
 +
++#[derive(Clone, Debug)]
++pub struct WaitToPendingRequest {
++    pub cell_id: String,
++}
++
 +#[derive(Debug, PartialEq)]
 +pub enum WaitOutcome {
 +    LiveCell(RuntimeResponse),
++    MissingCell(RuntimeResponse),
++}
++
++#[derive(Debug, PartialEq)]
++pub enum ExecuteToPendingOutcome {
++    Pending {
++        cell_id: String,
++        content_items: Vec<FunctionCallOutputContentItem>,
++        pending_tool_call_ids: Vec<String>,
++    },
++    Completed(RuntimeResponse),
++}
++
++#[derive(Debug, PartialEq)]
++pub enum WaitToPendingOutcome {
++    LiveCell(ExecuteToPendingOutcome),
 +    MissingCell(RuntimeResponse),
 +}
 +
@@ -157,16 +191,17 @@ index 0000000..f047b32
 +    pub cell_id: String,
 +    pub runtime_tool_call_id: String,
 +    pub tool_name: ToolName,
++    pub tool_kind: CodeModeToolKind,
 +    pub input: Option<JsonValue>,
 +}
 diff --git a/codex-rs/code-mode/src/service_stub.rs b/codex-rs/code-mode/src/service_stub.rs
 new file mode 100644
-index 0000000..42bcf39
+index 0000000..ede5cda
 --- /dev/null
 +++ b/codex-rs/code-mode/src/service_stub.rs
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,102 @@
 +/// Android stub for the V8-backed CodeModeService.
-+/// Returns errors for all exec operations since V8 is unavailable.
++/// Returns errors for exec operations since V8 is unavailable.
 +use std::collections::HashMap;
 +use std::sync::Arc;
 +use std::sync::atomic::AtomicU64;
@@ -178,9 +213,12 @@ index 0000000..42bcf39
 +
 +use crate::runtime_stub::CodeModeNestedToolCall;
 +use crate::runtime_stub::ExecuteRequest;
++use crate::runtime_stub::ExecuteToPendingOutcome;
 +use crate::runtime_stub::RuntimeResponse;
 +use crate::runtime_stub::WaitOutcome;
 +use crate::runtime_stub::WaitRequest;
++use crate::runtime_stub::WaitToPendingOutcome;
++use crate::runtime_stub::WaitToPendingRequest;
 +
 +#[async_trait]
 +pub trait CodeModeTurnHost: Send + Sync {
@@ -220,17 +258,40 @@ index 0000000..42bcf39
 +        Err("exec is not supported in the Android Termux build (V8 unavailable)".to_string())
 +    }
 +
++    pub async fn execute_to_pending(
++        &self,
++        _request: ExecuteRequest,
++    ) -> Result<ExecuteToPendingOutcome, String> {
++        Err("exec is not supported in the Android Termux build (V8 unavailable)".to_string())
++    }
++
 +    pub async fn wait(&self, request: WaitRequest) -> Result<WaitOutcome, String> {
 +        Ok(WaitOutcome::MissingCell(RuntimeResponse::Result {
-+            error_text: Some(format!("exec cell {} not found", request.cell_id)),
 +            cell_id: request.cell_id,
 +            content_items: Vec::new(),
 +            stored_values: HashMap::new(),
++            error_text: Some(
++                "exec is not supported in the Android Termux build (V8 unavailable)".to_string(),
++            ),
++        }))
++    }
++
++    pub async fn wait_to_pending(
++        &self,
++        request: WaitToPendingRequest,
++    ) -> Result<WaitToPendingOutcome, String> {
++        Ok(WaitToPendingOutcome::MissingCell(RuntimeResponse::Result {
++            cell_id: request.cell_id,
++            content_items: Vec::new(),
++            stored_values: HashMap::new(),
++            error_text: Some(
++                "exec is not supported in the Android Termux build (V8 unavailable)".to_string(),
++            ),
 +        }))
 +    }
 +
 +    pub fn start_turn_worker(&self, _host: Arc<dyn CodeModeTurnHost>) -> CodeModeTurnWorker {
-+        CodeModeTurnWorker
++        CodeModeTurnWorker {}
 +    }
 +}
 +
@@ -240,4 +301,4 @@ index 0000000..42bcf39
 +    }
 +}
 +
-+pub struct CodeModeTurnWorker;
++pub struct CodeModeTurnWorker {}

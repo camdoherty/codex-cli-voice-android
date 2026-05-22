@@ -1,8 +1,8 @@
 diff --git a/codex-rs/tui/Cargo.toml b/codex-rs/tui/Cargo.toml
-index 300449a..2752122 100644
+index 5ef87bd..3a04fac 100644
 --- a/codex-rs/tui/Cargo.toml
 +++ b/codex-rs/tui/Cargo.toml
-@@ -120,9 +120,12 @@ uuid = { workspace = true }
+@@ -122,9 +122,12 @@ uuid = { workspace = true }
  codex-windows-sandbox = { workspace = true }
  tokio-util = { workspace = true, features = ["time"] }
  
@@ -17,12 +17,13 @@ index 300449a..2752122 100644
  libc = { workspace = true }
  
 diff --git a/codex-rs/tui/src/lib.rs b/codex-rs/tui/src/lib.rs
-index 095a2f3..cc70ecf 100644
+index 5622c59..6b278c1 100644
 --- a/codex-rs/tui/src/lib.rs
 +++ b/codex-rs/tui/src/lib.rs
-@@ -89,8 +89,19 @@ mod app_event_sender;
+@@ -86,9 +86,20 @@ mod app_event_sender;
  mod app_server_approval_conversions;
  mod app_server_session;
+ mod approval_events;
  mod ascii_animation;
 -#[cfg(not(target_os = "linux"))]
 +#[cfg(all(not(target_os = "linux"), not(target_os = "android")))]
@@ -41,8 +42,8 @@ index 095a2f3..cc70ecf 100644
  #[cfg(target_os = "linux")]
  #[allow(dead_code)]
  mod audio_device {
-@@ -168,7 +179,11 @@ pub use update_action::UpdateAction;
- mod update_prompt;
+@@ -186,7 +197,11 @@ mod update_prompt;
+ mod update_versions;
  mod updates;
  mod version;
 -#[cfg(not(target_os = "linux"))]
@@ -52,19 +53,18 @@ index 095a2f3..cc70ecf 100644
 +#[cfg(all(not(target_os = "linux"), not(target_os = "android")))]
 +#[path = "voice_cpal.rs"]
  mod voice;
- #[cfg(target_os = "linux")]
- #[allow(dead_code)]
+ mod width;
+ mod workspace_command;
 diff --git a/codex-rs/tui/src/voice_android_shim.rs b/codex-rs/tui/src/voice_android_shim.rs
 new file mode 100644
 index 0000000..aa70a81
 --- /dev/null
 +++ b/codex-rs/tui/src/voice_android_shim.rs
-@@ -0,0 +1,456 @@
+@@ -0,0 +1,453 @@
 +use crate::app_event_sender::AppEventSender;
 +use crate::legacy_core::config::Config;
 +use base64::Engine;
-+use codex_protocol::protocol::ConversationAudioParams;
-+use codex_protocol::protocol::RealtimeAudioFrame;
++use codex_app_server_protocol::ThreadRealtimeAudioChunk;
 +use std::collections::VecDeque;
 +use std::io;
 +use std::net::TcpStream;
@@ -199,7 +199,7 @@ index 0000000..aa70a81
 +        Ok(Self { session })
 +    }
 +
-+    pub(crate) fn enqueue_frame(&self, frame: &RealtimeAudioFrame) -> Result<(), String> {
++    pub(crate) fn enqueue_frame(&self, frame: &ThreadRealtimeAudioChunk) -> Result<(), String> {
 +        if frame.num_channels == 0 || frame.sample_rate == 0 {
 +            return Err("invalid realtime audio frame format".to_string());
 +        }
@@ -419,14 +419,12 @@ index 0000000..aa70a81
 +    }
 +    let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
 +    let samples_per_channel = (bytes.len() / 2 / usize::from(MODEL_AUDIO_CHANNELS)) as u32;
-+    tx.realtime_conversation_audio(ConversationAudioParams {
-+        frame: RealtimeAudioFrame {
-+            data: encoded,
-+            sample_rate: MODEL_AUDIO_SAMPLE_RATE,
-+            num_channels: MODEL_AUDIO_CHANNELS,
-+            samples_per_channel: Some(samples_per_channel),
-+            item_id: None,
-+        },
++    tx.realtime_conversation_audio(ThreadRealtimeAudioChunk {
++        data: encoded,
++        sample_rate: MODEL_AUDIO_SAMPLE_RATE,
++        num_channels: MODEL_AUDIO_CHANNELS,
++        samples_per_channel: Some(samples_per_channel),
++        item_id: None,
 +    });
 +}
 +
