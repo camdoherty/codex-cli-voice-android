@@ -87,6 +87,8 @@ cp "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarc
     "$STAGE/$INSTALL_DIR/"
 cp -R "$SCRIPT_DIR/support/termux-skills/tts-stt" \
     "$STAGE/$INSTALL_DIR/support/termux-skills/"
+find "$STAGE/$INSTALL_DIR/support/termux-skills/tts-stt" -type d -name __pycache__ -exec rm -rf {} +
+find "$STAGE/$INSTALL_DIR/support/termux-skills/tts-stt" -type f -name '*.pyc' -delete
 
 # -- Wrapper script --
 cat > "$STAGE/bin/codex" <<'EOF'
