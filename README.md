@@ -1,18 +1,38 @@
-# Codex CLI + Voice (Android Port)
+# Codex CLI Voice Android
 
-Codex CLI cross-compiled for `aarch64-linux-android` with an Android AEC shim for realtime, native hardware audio.
+Codex CLI Voice Android is a native-oriented Android/Termux build of Codex CLI
+with first-class voice. It runs Codex on Android and adds two validated voice
+modes: a Plus-friendly local half-duplex TTS/STT mode and an optional paid
+OpenAI Realtime voice mode.
 
-Status: alpha. The current validated target is upstream Codex `rust-v0.133.0`. The package has been tested on Android with Termux on a Pixel-class ARM64 device; other devices are untested.
+Status: alpha. The current validated target is upstream Codex `rust-v0.133.0`.
+This release was validated on Pixel6a and Pixel9 with Termux.
 
 This repository contains build scripts, Android patches, a Termux packaging layout, deployment helpers, and the native Android audio shim. It does not vendor the upstream Codex source tree.
 
 Requires an OpenAI Plus account or API key for Codex chat.
 
+## Why This Exists
+
+Running Codex CLI in Termux is only the baseline. This build focuses on
+Android-native compatibility and voice-first mobile agent work:
+
+- Codex CLI on Android/Termux.
+- Voice input as a core product surface.
+- Native Android integration through the AEC shim and Termux:API.
+- Tested launch surfaces for CLI, resume, local voice, and realtime voice.
+
+Useful workflows include mobile voice intake for Codex, translating spoken user
+intent into context-aware agent prompts, using a phone as an orchestrator for
+other agents, maintaining markdown repos or Obsidian vaults from Android, and
+building Termux:API flows around dialogs, notifications, share intents, and
+open intents.
+
 ## Voice Modes
 
 | Mode | Command | Cost profile | Best for |
 | --- | --- | --- | --- |
-| Local Half-Duplex Voice | `$tts-stt start` or `tts-stt-start` | Works with Plus login; no API key required for the voice path | Cheap walkie-talkie-like agent sessions |
+| Local Half-Duplex Voice | `$tts-stt start` or `tts-stt-start` | Works with Plus accounts; no API key required for the voice path | Walkie-talkie-like agent sessions |
 | Realtime Voice | `codex-voice --allow-realtime` | Uses OpenAI Realtime API billing | Native low-latency OpenAI voice |
 
 Local Half-Duplex Voice uses the Android shim `/v1/text-voice` endpoint first:
@@ -34,6 +54,22 @@ See [VOICE_MODES.md](VOICE_MODES.md) for details.
 - `codex-aec-shim-debug.apk`: Android app/service that exposes native capture/playback to Codex over a local WebSocket.
 
 The Termux package installs under `$PREFIX/libexec/codex-cli-voice-android/` and exposes launchers in `$PREFIX/bin`.
+
+## Launch Surfaces
+
+After installing or refreshing the Termux launchers, the expected user-facing
+surfaces are:
+
+- `codex`
+- `codex resume --last`
+- `Start TTS STT Voice Mode`
+- `Start API($) Realtime Voice Mode`
+
+Agents can refresh those shortcuts from a synced repo with:
+
+```sh
+sh scripts/install_termux_launchers.sh
+```
 
 ## Important Cost Note
 

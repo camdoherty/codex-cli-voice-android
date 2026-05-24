@@ -70,6 +70,21 @@ $HOME/scripts/codex-voice
 $HOME/scripts/codex-install-tts-stt
 ```
 
+Refresh user-facing Termux:Widget shortcuts from a synced repo with:
+
+```sh
+sh scripts/install_termux_launchers.sh
+```
+
+Expected launch surfaces after refresh:
+
+```text
+codex
+codex resume --last
+Start TTS STT Voice Mode
+Start API($) Realtime Voice Mode
+```
+
 ## Rollback
 
 Each deploy creates a backup archive on the device and updates:

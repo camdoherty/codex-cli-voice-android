@@ -1,11 +1,13 @@
 # Voice Modes
 
-Codex CLI Voice Android ships two voice modes with different goals and cost
-profiles.
+Codex CLI Voice Android ships two validated voice modes with different goals
+and cost profiles. `$tts-stt` is the Plus-friendly local mode. `codex-voice
+--allow-realtime` is the paid OpenAI Realtime mode.
 
 ## Quick Chooser
 
-Use **Local Half-Duplex Voice** for normal agent work:
+Use **Local Half-Duplex Voice** for Plus-friendly mobile voice intake and normal
+agent work:
 
 ```sh
 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start
@@ -46,6 +48,7 @@ Start surfaces:
 - Agent: `$tts-stt start`
 - Command: `sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start`
 - Termux:Widget: `tts-stt-start`
+- Termux:Widget friendly label: `Start TTS STT Voice Mode`
 
 Useful checks:
 
@@ -82,6 +85,26 @@ or:
 
 ```sh
 CODEX_VOICE_ALLOW_REALTIME=1 codex-voice
+```
+
+Start surfaces:
+
+- Command: `codex-voice --allow-realtime`
+- Termux:Widget: `codex-voice`
+- Termux:Widget friendly label: `Start API($) Realtime Voice Mode`
+
+## Core CLI Surfaces
+
+The standard Codex surfaces remain available alongside voice:
+
+- `codex`
+- `codex resume --last`
+- Termux:Widget friendly labels: `Codex` and `Codex Resume Last`
+
+Agents can install or refresh the widget shortcuts from a synced repo:
+
+```sh
+sh scripts/install_termux_launchers.sh
 ```
 
 ## First-Run Checklist
