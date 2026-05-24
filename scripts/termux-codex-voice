@@ -9,6 +9,9 @@ for arg in "$@"; do
         --allow-realtime|--allow-api-billing)
             ALLOW_REALTIME=1
             ;;
+        --help|-h|help|--version|-V|version)
+            FILTERED_ARGS+=("$arg")
+            ;;
         *)
             FILTERED_ARGS+=("$arg")
             ;;
@@ -29,6 +32,14 @@ EOF
 fi
 
 KEY_FILE="${OPENAI_API_KEY_FILE:-$HOME/.oaienv}"
+
+for arg in "${FILTERED_ARGS[@]}"; do
+    case "$arg" in
+        --help|-h|help|--version|-V|version)
+            exec codex "$arg" 2> >(grep -v -F "WARNING: flock unsupported on Android;" >&2)
+            ;;
+    esac
+done
 
 if [ -z "${OPENAI_API_KEY:-}" ]; then
     if [ ! -f "$KEY_FILE" ]; then

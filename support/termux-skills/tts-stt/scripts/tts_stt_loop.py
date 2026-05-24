@@ -88,14 +88,23 @@ def ensure_command(name: str) -> None:
         raise RuntimeError(f"missing command: {name}")
 
 
-def run_command(cmd: list[str], *, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        cmd,
-        input=input_text,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+def run_command(
+    cmd: list[str],
+    *,
+    input_text: str | None = None,
+    timeout_seconds: float | None = None,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            cmd,
+            input=input_text,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"{cmd[0]} timed out after {timeout_seconds:g}s") from exc
 
 
 def start_termux_api_if_available() -> None:
@@ -108,7 +117,7 @@ def start_termux_api_if_available() -> None:
 
 def get_volume_state() -> list[dict]:
     ensure_command("termux-volume")
-    result = run_command(["termux-volume"])
+    result = run_command(["termux-volume"], timeout_seconds=5)
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "termux-volume failed")
     try:

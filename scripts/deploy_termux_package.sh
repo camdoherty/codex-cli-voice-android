@@ -167,7 +167,7 @@ done
     echo "tts-stt skill was not installed" >&2
     exit 1
 }
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status >/dev/null
+timeout 8 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status >/dev/null
 
 if strings "$PREFIX/libexec/codex-cli-voice-android/codex.bin" |
     grep -F "WARNING: flock unsupported" >/dev/null; then

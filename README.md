@@ -44,11 +44,14 @@ The Termux package installs under `$PREFIX/libexec/codex-cli-voice-android/` and
 If you are installing directly on Android with no PC:
 
 1. Install [Termux](https://f-droid.org/packages/com.termux/) from F-Droid.
-2. Download the latest release assets to your phone's Downloads folder:
+2. Install [Termux:API](https://f-droid.org/packages/com.termux.api/) from
+   F-Droid if you want Termux fallback TTS/STT and diagnostics.
+3. Download the latest release assets to your phone's Downloads folder:
    - `codex-cli-voice-android-rust-vX.X.X.tar.gz`
    - `codex-cli-voice-android-rust-vX.X.X.tar.gz.sha256`
-   - `codex-aec-shim-debug.apk`, only required for `codex-voice`
-3. Open Termux and install the CLI:
+   - `codex-aec-shim-debug.apk`, required for realtime voice and preferred
+     local half-duplex voice
+4. Open Termux and install the CLI:
 
 ```sh
 termux-setup-storage
@@ -59,8 +62,24 @@ codex-install-tts-stt
 codex --version
 ```
 
-For Local Half-Duplex Voice, install the AEC shim APK, open it once, grant
-microphone permission, then start a session with one of:
+For Local Half-Duplex Voice, install the AEC shim APK from Android Downloads,
+open the shim app from Android, grant microphone permission, and confirm the
+local service is listening:
+
+```sh
+python3 - <<'PY'
+import socket
+s = socket.socket()
+s.settimeout(2)
+try:
+    s.connect(("127.0.0.1", 8765))
+    print("port-open")
+finally:
+    s.close()
+PY
+```
+
+Then start a session with one of:
 
 ```sh
 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start

@@ -50,12 +50,32 @@ scripts/build_aec_shim_apk.sh
 
 ## Install From Release
 
-For normal use, download `codex-aec-shim-debug.apk` from the GitHub Release on the Android device and install it with Android's package installer.
+For normal use, download `codex-aec-shim-debug.apk` from the GitHub Release to
+Android Downloads and install it with Android's package installer.
 
-After installing, open the app and grant microphone permission. The service should listen on:
+After installing, open the app from Android and grant microphone permission.
+Starting an Android intent from Termux is not sufficient proof that the UI
+opened or the service started; verify the loopback port from Termux.
+
+The service should listen on:
 
 ```text
 ws://127.0.0.1:8765/v1/audio
+```
+
+Use this check:
+
+```sh
+python3 - <<'PY'
+import socket
+s = socket.socket()
+s.settimeout(2)
+try:
+    s.connect(("127.0.0.1", 8765))
+    print("port-open")
+finally:
+    s.close()
+PY
 ```
 
 ## Install Locally Built APK

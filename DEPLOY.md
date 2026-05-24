@@ -15,6 +15,10 @@ For agent-driven device work, prefer this flow:
 4. Use SSH for commands and verification; avoid ad hoc file copying except for
    pre-release build artifacts that do not exist on GitHub yet.
 
+Do not treat `termux-open` or `am start` as proof that Android displayed an
+installer or started the shim. Verify observable state: package installed,
+Termux:API service responsive, shim loopback port open, and smoke tests passed.
+
 ## Configure Target
 
 ```bash
@@ -96,3 +100,55 @@ sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status
 ```
 
 It also verifies that an unguarded `codex-voice` launch exits before starting billable realtime usage.
+
+On a clean device, `codex exec` with a real prompt requires a configured Codex
+login or API key. Treat a `401 Unauthorized` as a credential/setup issue, not as
+an install failure, after `codex --version` and `codex exec --help` pass.
+
+## Termux:API
+
+The Termux `termux-api` package is only the CLI side. Install the separate
+Android `Termux:API` app from F-Droid for volume, TTS, STT, and diagnostics.
+Verify it before `$tts-stt` validation:
+
+```sh
+pm path com.termux.api
+timeout 8 termux-api-start
+timeout 8 termux-volume
+timeout 8 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status
+```
+
+If `termux-volume` hangs, install or open the Termux:API Android app and grant
+permissions.
+
+## Shim Verification
+
+Stage locally built or pre-release shim APKs into shared Downloads, not Termux
+private storage:
+
+```sh
+sh scripts/install_aec_shim_apk.sh ./codex-aec-shim-debug.apk
+```
+
+If Android's installer does not appear, open the staged APK from the Android
+Downloads app. After install, open the shim app from Android, grant microphone
+permission, and verify the service:
+
+```sh
+python3 - <<'PY'
+import socket
+s = socket.socket()
+s.settimeout(2)
+try:
+    s.connect(("127.0.0.1", 8765))
+    print("port-open")
+finally:
+    s.close()
+PY
+python3 scripts/smoke_text_voice_ws.py --url ws://127.0.0.1:8765/v1/text-voice
+sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" \
+  --tts-backend shim \
+  say "Shim voice smoke test."
+```
+
+The final TTS smoke requires user audible confirmation.
