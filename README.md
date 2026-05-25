@@ -2,8 +2,8 @@
 
 Codex CLI Voice Android is a native-oriented Android/Termux build of Codex CLI
 with first-class voice. It runs Codex on Android and adds two validated voice
-modes: a Plus-friendly local half-duplex TTS/STT mode and an optional paid
-OpenAI Realtime voice mode.
+modes: a Plus-friendly local half-duplex TTS/STT mode and OpenAI Codex CLI
+Realtime voice mode adapted for Android native audio.
 
 Status: alpha. The current validated target is upstream Codex `rust-v0.133.0`.
 This release was validated on Pixel6a and Pixel9 with Termux.
@@ -33,15 +33,16 @@ open intents.
 | Mode | Command | Cost profile | Best for |
 | --- | --- | --- | --- |
 | Local Half-Duplex Voice | `$tts-stt start` or `tts-stt-start` | Works with Plus accounts; no API key required for the voice path | Walkie-talkie-like agent sessions |
-| Realtime Voice | `codex-voice --allow-realtime` | Uses OpenAI Realtime API billing | Native low-latency OpenAI voice |
+| OpenAI Codex Realtime Voice | `codex-voice --allow-realtime` | Uses OpenAI Realtime API billing | Codex CLI realtime voice on Android native audio |
 
 Local Half-Duplex Voice uses the Android shim `/v1/text-voice` endpoint first:
 Android `TextToSpeech` for spoken output and Android `SpeechRecognizer` for
 one-shot speech input. Termux API speech commands remain fallback paths.
 
-Realtime Voice uses the shim `/v1/audio` endpoint and streams audio through the
-OpenAI Realtime API. The launcher refuses to start unless realtime billing is
-explicitly allowed.
+OpenAI Codex Realtime Voice uses the shim `/v1/audio` endpoint for Android
+native microphone/speaker routing and streams audio through the OpenAI Realtime
+API. The launcher refuses to start unless realtime billing is explicitly
+allowed.
 
 See [VOICE_MODES.md](VOICE_MODES.md) for details.
 
@@ -49,7 +50,7 @@ See [VOICE_MODES.md](VOICE_MODES.md) for details.
 
 - `codex`: upstream Codex CLI, cross-compiled for Termux/Android.
 - `codex-api`: launcher that loads an OpenAI API key from `OPENAI_API_KEY` or `OPENAI_API_KEY_FILE`.
-- `codex-voice`: guarded realtime launcher for native Android audio through the AEC shim.
+- `codex-voice`: guarded OpenAI Codex CLI Realtime voice launcher for native Android audio through the AEC shim.
 - `codex-install-tts-stt`: installs or updates the local `$tts-stt` skill with backup.
 - `codex-aec-shim-debug.apk`: Android app/service that exposes native capture/playback to Codex over a local WebSocket.
 
@@ -74,6 +75,42 @@ sh scripts/install_termux_launchers.sh
 ## Important Cost Note
 
 `codex-voice` uses the OpenAI Realtime API. The launcher intentionally refuses to start unless you pass `--allow-realtime` or set `CODEX_VOICE_ALLOW_REALTIME=1`.
+
+## Transparency
+
+This project is intentionally explicit about cost, credentials, audio routing,
+and validation.
+
+What it does:
+
+- Builds upstream Codex CLI for Android/Termux.
+- Adds Android-native audio through a local AEC shim.
+- Provides two separate voice paths:
+  - `$tts-stt`: Plus-friendly half-duplex TTS/STT mode.
+  - `codex-voice --allow-realtime`: OpenAI Codex CLI Realtime voice mode
+    adapted for Android native audio.
+- Uses loopback-only shim endpoints on `127.0.0.1:8765`.
+- Requires explicit `--allow-realtime` opt-in before starting billable
+  Realtime.
+- Ships release checksums and documents the tested install path.
+
+What it does not do:
+
+- Does not bundle OpenAI credentials, `.oaienv`, `.ssh`, logs, shell history,
+  or device snapshots.
+- Does not start Realtime billing from the default `$tts-stt` voice mode.
+- Does not expose the shim as a public network service.
+- Does not claim broad Android support beyond the devices validated for this
+  release.
+
+Validated for this release:
+
+- Pixel6a and Pixel9.
+- Codex CLI `0.133.0`.
+- `$tts-stt` local half-duplex voice.
+- OpenAI Codex CLI Realtime voice with Android native audio.
+- Shim install, loopback service, and text-voice smoke tests.
+- Clean deploy from GitHub release assets.
 
 ## Manual Installation (On-Device)
 
@@ -127,13 +164,16 @@ or ask Codex to use:
 $tts-stt start
 ```
 
-For Realtime Voice, use:
+For OpenAI Codex Realtime Voice, use:
 
 ```sh
 codex-voice --allow-realtime
 ```
 
-`codex-voice` uses the OpenAI Realtime API and is billable. The launcher refuses to start without the explicit `--allow-realtime` guard.
+`codex-voice --allow-realtime` starts OpenAI Codex CLI Realtime voice mode
+adapted for Android native audio. It uses the OpenAI Realtime API and is
+billable. The launcher refuses to start without the explicit
+`--allow-realtime` guard.
 
 ## Repository Guide
 

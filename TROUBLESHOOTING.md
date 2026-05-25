@@ -14,6 +14,11 @@ or:
 CODEX_VOICE_ALLOW_REALTIME=1 codex-voice
 ```
 
+`codex-voice --allow-realtime` is OpenAI Codex CLI Realtime voice mode adapted
+for Android native audio through the AEC shim. It uses OpenAI Realtime API
+billing. Use `$tts-stt start` for the Plus-friendly local half-duplex voice
+mode.
+
 ## Missing API Key
 
 Set `OPENAI_API_KEY` or create a key file:
@@ -24,6 +29,10 @@ chmod 600 "$HOME/.oaienv"
 ```
 
 You can use another path with `OPENAI_API_KEY_FILE`.
+
+Release packages do not include OpenAI credentials, `.oaienv`, `.ssh`, logs,
+shell history, or device snapshots. Credentials stay on the device where the
+user configures them.
 
 ## `WARNING: flock unsupported on Android`
 
@@ -44,6 +53,9 @@ Check the Android app is installed, microphone permission is granted, and the se
 ```text
 ws://127.0.0.1:8765/v1/audio
 ```
+
+The shim is intended as a loopback-only local service. Do not expose
+`127.0.0.1:8765` through a public tunnel.
 
 Then launch:
 

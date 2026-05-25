@@ -1,6 +1,8 @@
 # Android AEC Shim
 
-The AEC shim is a small Android app/service that provides native microphone capture and speaker playback for Codex realtime sessions. Codex connects to it over a loopback WebSocket:
+The AEC shim is a small Android app/service that provides native microphone
+capture and speaker playback for OpenAI Codex CLI Realtime voice sessions on
+Android. Codex connects to it over a loopback WebSocket:
 
 ```text
 codex-voice -> ws://127.0.0.1:8765/v1/audio -> Android AudioRecord/AudioTrack
@@ -21,7 +23,8 @@ ws://127.0.0.1:8765/v1/audio
 ws://127.0.0.1:8765/v1/text-voice
 ```
 
-`/v1/audio` is the paid realtime path. It streams PCM audio between Codex and the Android native audio engine for OpenAI Realtime sessions.
+`/v1/audio` is the paid realtime path. It streams PCM audio between Codex CLI
+and the Android native audio engine for OpenAI Realtime sessions.
 
 `/v1/text-voice` is the local half-duplex path. It exchanges JSON text commands/events with the shim, uses Android `SpeechRecognizer` for one-shot STT, and uses Android `TextToSpeech` for spoken output. This path is turn-based and does not use the OpenAI Realtime API.
 
@@ -90,7 +93,7 @@ scripts/upload_aec_shim_apk.sh
 
 The FTP upload script requires `FTP_HOST` and `FTP_USER` in `.env` or the environment.
 
-## Run Voice Mode
+## Run OpenAI Codex Realtime Voice
 
 In Termux:
 
@@ -192,6 +195,8 @@ recognition was less reliable in earlier tests.
 
 - The shim is functional but should be considered alpha-quality audio.
 - Realtime sessions are billable; use short validation prompts while tuning.
+- The shim binds to loopback on `127.0.0.1:8765`; do not expose it through a
+  public tunnel.
 - If output sounds sped up or distorted, retest with the latest shim APK and confirm the installed package matches the current build.
 - The local text-voice path is half-duplex and is the supported `$tts-stt`
   voice path for this release.

@@ -2,7 +2,8 @@
 
 Codex CLI Voice Android ships two validated voice modes with different goals
 and cost profiles. `$tts-stt` is the Plus-friendly local mode. `codex-voice
---allow-realtime` is the paid OpenAI Realtime mode.
+--allow-realtime` is OpenAI Codex CLI Realtime voice mode adapted for Android
+native audio, and uses OpenAI Realtime API billing.
 
 ## Quick Chooser
 
@@ -19,8 +20,8 @@ or ask Codex:
 $tts-stt start
 ```
 
-Use **Realtime Voice** only when you want the native OpenAI Realtime experience
-and accept Realtime API billing:
+Use **OpenAI Codex Realtime Voice** only when you want Codex CLI's realtime
+voice experience on Android native audio and accept Realtime API billing:
 
 ```sh
 codex-voice --allow-realtime
@@ -65,16 +66,16 @@ sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" stop
 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" cleanup
 ```
 
-## Realtime Voice
+## OpenAI Codex Realtime Voice
 
-`codex-voice` wraps Codex Realtime for Termux/Android. It uses the AEC shim
-native audio path:
+`codex-voice --allow-realtime` starts OpenAI Codex CLI Realtime voice mode
+adapted for Termux/Android. It uses the AEC shim native audio path:
 
 ```text
 codex-voice -> ws://127.0.0.1:8765/v1/audio -> OpenAI Realtime
 ```
 
-This mode requires an API key and can start OpenAI Realtime billing. The
+This mode requires an API key and can start OpenAI Realtime API billing. The
 launcher intentionally refuses to run unless you pass:
 
 ```sh
