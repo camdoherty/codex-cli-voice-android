@@ -2,6 +2,9 @@
 
 These instructions assume a Linux build host and an Android/Termux ARM64 target.
 
+For an agent-guided source build and deploy flow, see
+[AGENT_BUILD_CCVA.md](AGENT_BUILD_CCVA.md).
+
 ## Prerequisites
 
 - Rust stable with the `aarch64-linux-android` target available.

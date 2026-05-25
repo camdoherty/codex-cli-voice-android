@@ -28,6 +28,10 @@ other agents, maintaining markdown repos or Obsidian vaults from Android, and
 building Termux:API flows around dialogs, notifications, share intents, and
 open intents.
 
+If you want to verify the project without trusting release assets, give
+[AGENT_BUILD_CCVA.md](AGENT_BUILD_CCVA.md) to a coding agent and have it build,
+deploy, and smoke-test from source.
+
 ## Voice Modes
 
 | Mode | Command | Cost profile | Best for |
@@ -179,6 +183,7 @@ billable. The launcher refuses to start without the explicit
 
 - [BUILD.md](BUILD.md): host setup and build commands.
 - [DEPLOY.md](DEPLOY.md): safe SSH deploy, rollback backup, and smoke tests.
+- [AGENT_BUILD_CCVA.md](AGENT_BUILD_CCVA.md): source-build and deploy guide for user-directed coding agents.
 - [VOICE_MODES.md](VOICE_MODES.md): voice mode chooser, commands, and cost boundaries.
 - [AUDIO_SHIM.md](AUDIO_SHIM.md): Android AEC shim build/install/runtime notes.
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md): known issues and quick checks.
