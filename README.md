@@ -156,7 +156,7 @@ finally:
 PY
 ```
 
-Then start a session with one of:
+Use the `$tts-stt` skill to launch the Plus-friendly local voice mode:
 
 ```sh
 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start
