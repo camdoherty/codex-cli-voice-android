@@ -20,7 +20,7 @@ local TTS/STT when available, and falls back to Termux API speech commands.
 When invoked as `$tts-stt start`:
 
 1. Keep Termux visible if possible and keep the screen on.
-2. Speak the opener: `Hey, what are we working on?` unless the user asked for different wording.
+2. Speak the opener: `Voice activated.` unless the user asked for different wording.
 3. Start the persistent session controller with `sh scripts/tts-stt-session.sh start`.
 4. Keep the conversation running until the user says `stop` or the session timeout is reached.
 5. Let the controller gather the transcript, call `codex exec`, print visible status/transcript/response lines, speak the reply through shim TTS when available, wait for shim completion, wait the post-TTS recovery gap, and reopen listening automatically.

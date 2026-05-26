@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 
-DEFAULT_OPENER = "Hey, what are we working on?"
+DEFAULT_OPENER = "Voice activated."
 DEFAULT_POST_SPEECH_DELAY_SECONDS = 6
 DEFAULT_POST_TTS_RECOVERY_SECONDS = 3.0
 DEFAULT_TTS_DRAIN_TIMEOUT_SECONDS = 0.0
@@ -1088,7 +1088,7 @@ def run_session(
         while True:
             elapsed = time.time() - start_time
             if elapsed >= timeout_seconds:
-                timeout_reply = "I am timing out now. Say tts stt start when you want me back."
+                timeout_reply = "Timing out."
                 emit(transcript_path, "assistant", timeout_reply)
                 emit(transcript_path, "tts", say_text(timeout_reply, stream_name=tts_stream, backend=tts_backend))
                 pause_after_speech(timeout_reply, delay_seconds, transcript_path, post_tts_recovery_seconds, tts_drain_timeout_seconds)
