@@ -1,5 +1,83 @@
 # Troubleshooting
 
+## One-Command Installer Fails
+
+Run the auditable form to inspect the installer and retry with clearer local
+state:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh
+less install.sh
+sh install.sh
+```
+
+The installer supports a non-mutating asset check:
+
+```sh
+sh install.sh --verify-only
+```
+
+If package install fails, refresh Termux package indexes and retry:
+
+```sh
+pkg update
+sh install.sh
+```
+
+## Shared Storage Or APK Staging Fails
+
+The installer stages the shim APK into:
+
+```text
+$HOME/storage/downloads/codex-aec-shim-debug.apk
+```
+
+If that path is missing, approve the Android storage prompt from:
+
+```sh
+termux-setup-storage
+```
+
+Then rerun the installer, or use:
+
+```sh
+sh install.sh --no-shim
+```
+
+to skip APK staging.
+
+If Android blocks the APK install, open Downloads manually, tap
+`codex-aec-shim-debug.apk`, and allow installs from the file manager or Termux
+when Android asks. After installing, open the shim app and grant microphone
+permission.
+
+## Checksum Mismatch
+
+Do not install mismatched assets. Clear the installer cache and retry:
+
+```sh
+rm -rf "$HOME/.cache/ccva-installer"
+sh install.sh
+```
+
+If the mismatch repeats, compare the release asset checksums on GitHub before
+continuing.
+
+## Termux:API Not Responding
+
+Install both pieces:
+
+```sh
+pkg install termux-api
+```
+
+Also install the Termux:API Android app from F-Droid, open it once, and grant
+permissions. Then test:
+
+```sh
+termux-volume
+```
+
 ## `codex-voice` Exits Immediately
 
 This is intentional unless realtime billing is explicitly allowed:

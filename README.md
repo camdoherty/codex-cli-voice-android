@@ -131,6 +131,43 @@ If you want to install the project without trusting release assets, give
 [AGENT_BUILD_CCVA.md](AGENT_BUILD_CCVA.md) to Codex or another modern coding
 agent and have it build, deploy, and smoke-test from source.
 
+## Installation
+
+One-command Termux install:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh | bash
+```
+
+Auditable install:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh
+less install.sh
+sh install.sh
+```
+
+The installer downloads the current stable release manifest, verifies release
+checksums, installs the CLI package into `$PREFIX`, installs `$tts-stt`, creates
+Termux:Widget shortcuts, and stages the shim APK in Android Downloads. It may
+install missing Termux packages such as `python` and `termux-api`.
+
+Android approval steps remain explicit: shared-storage permission, APK install,
+microphone permission, and any Realtime billing opt-in. The installer does not
+start Realtime.
+
+Pin a specific version with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh | bash -s -- --version v0.133.0-android.1
+```
+
+Verify release assets without installing:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh | bash -s -- --verify-only
+```
+
 ## Manual Installation
 
 See [DEPLOY.md](DEPLOY.md) for the tested install path and smoke tests.

@@ -1,0 +1,5 @@
+{
+  "channel": "stable",
+  "version": "v0.133.0-android.1",
+  "manifest": "releases/v0.133.0-android.1.json"
+}
