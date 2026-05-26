@@ -5,13 +5,13 @@ set -euo pipefail
 PROJECT_NAME="Codex CLI + Voice (Android)"
 ARTIFACT_PREFIX="codex-cli-voice-android"
 INSTALL_DIR="libexec/codex-cli-voice-android"
-CODEX_TAG="${CODEX_TAG:-rust-v0.133.0}"
+CODEX_TAG="${CODEX_TAG:-rust-v0.134.0}"
 NDK_VERSION="${NDK_VERSION:-r29}"
 API_LEVEL="${API_LEVEL:-29}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PATCHES_DIR="$SCRIPT_DIR/patches"
 WORK_DIR="${WORK_DIR:-$SCRIPT_DIR/../codex-build-${CODEX_TAG}}"
-OUTPUT_DIR="$SCRIPT_DIR"
+OUTPUT_DIR="${OUTPUT_DIR:-$SCRIPT_DIR}"
 CHECK_PATCHES_ONLY="${CHECK_PATCHES_ONLY:-0}"
 
 echo "========================================"
@@ -116,7 +116,9 @@ chmod +x "$STAGE/bin/codex-api" "$STAGE/bin/codex-voice" "$STAGE/bin/codex-insta
 
 # -- Package --
 VERSION=$(cd "$WORK_DIR" && git describe --tags --exact-match 2>/dev/null || echo "$CODEX_TAG")
-TARBALL="$OUTPUT_DIR/${ARTIFACT_PREFIX}-${VERSION}.tar.gz"
+PACKAGE_VERSION="${CCVA_PACKAGE_VERSION:-$VERSION}"
+mkdir -p "$OUTPUT_DIR"
+TARBALL="$OUTPUT_DIR/${ARTIFACT_PREFIX}-${PACKAGE_VERSION}.tar.gz"
 TARBALL_NAME="$(basename "$TARBALL")"
 
 echo "🗜️  Creating tarball..."
@@ -129,6 +131,7 @@ META="$TARBALL.metadata"
     echo "artifact_prefix=$ARTIFACT_PREFIX"
     echo "install_dir=$INSTALL_DIR"
     echo "codex_tag=$VERSION"
+    echo "package_version=$PACKAGE_VERSION"
     echo "source_commit=$(cd "$WORK_DIR" && git rev-parse HEAD)"
     echo "ndk_version=$NDK_VERSION"
     echo "api_level=$API_LEVEL"

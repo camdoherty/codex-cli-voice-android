@@ -8,7 +8,7 @@
 
 Codex CLI compiled for Android/Termux with Android-native voice modes.
 
-Status: Alpha. The current upstream target is Codex `rust-v0.133.0`.
+Status: Alpha. The current upstream target is Codex `rust-v0.134.0`.
 This release was validated on Pixel 9 and 6a, Android 16, Termux 0.118.3.
 
 This repository does not vendor the upstream Codex source tree.
@@ -160,7 +160,7 @@ start Realtime.
 Pin a specific version with:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh | bash -s -- --version v0.133.0-android.1
+curl -fsSL https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh | bash -s -- --version v0.134.0-ccva.1
 ```
 
 Verify release assets without installing:

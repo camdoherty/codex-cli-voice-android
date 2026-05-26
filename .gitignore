@@ -16,5 +16,6 @@ codex-cargo-cache/
 android-aec-shim/.gradle/
 android-aec-shim/build/
 android-aec-shim/app/build/
+dist/
 tmp/
 .DS_Store
