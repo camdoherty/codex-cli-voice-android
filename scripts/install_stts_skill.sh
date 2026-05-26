@@ -35,7 +35,8 @@ mkdir -p "$DEST"
 find "$DEST/scripts" -type f -exec chmod 700 {} \;
 
 SCRIPTS_DIR="$HOME/scripts"
-mkdir -p "$SCRIPTS_DIR"
+BIN_DIR="$PREFIX_DIR/bin"
+mkdir -p "$SCRIPTS_DIR" "$BIN_DIR"
 for name in stts stts-start stts-stop stts-status stts-diag stts-talk wake-voice-start wake-voice-stop wake-voice-status wake-voice-doctor; do
     case "$name" in
         stts)
@@ -47,6 +48,7 @@ for name in stts stts-start stts-stop stts-status stts-diag stts-talk wake-voice
     esac
     if [ -e "$target" ]; then
         ln -sfn "$target" "$SCRIPTS_DIR/$name"
+        ln -sfn "$target" "$BIN_DIR/$name"
     fi
 done
 
