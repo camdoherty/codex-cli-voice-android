@@ -1,5 +1,11 @@
 # Codex CLI + Voice for Android/Termux
 
+<img
+  src="assets/pixel9-codex-termux.png"
+  alt="Codex CLI running in Termux on a Pixel 9"
+  align="right"
+  width="300">
+
 Codex CLI compiled for Android/Termux with Android-native voice modes.
 
 Status: Alpha. The current upstream target is Codex `rust-v0.133.0`.
@@ -42,6 +48,8 @@ Useful workflows include mobile voice intake for Codex, translating spoken user
 intent into context-aware agent prompts, using a phone as an orchestrator for
 other agents, maintaining on-device markdown repos or Obsidian vaults, and
 building Termux:API flows.
+
+<br clear="right">
 
 ## Voice Modes
 
