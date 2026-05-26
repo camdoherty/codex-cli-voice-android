@@ -37,6 +37,17 @@ find "$DEST/scripts" -type f -exec chmod 700 {} \;
 SCRIPTS_DIR="$HOME/scripts"
 BIN_DIR="$PREFIX_DIR/bin"
 mkdir -p "$SCRIPTS_DIR" "$BIN_DIR"
+
+write_launcher() {
+    path=$1
+    target=$2
+    cat > "$path" <<EOF
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$target" "\$@"
+EOF
+    chmod 700 "$path"
+}
+
 for name in stts stts-start stts-stop stts-status stts-diag stts-talk wake-voice-start wake-voice-stop wake-voice-status wake-voice-doctor; do
     case "$name" in
         stts)
@@ -47,8 +58,8 @@ for name in stts stts-start stts-stop stts-status stts-diag stts-talk wake-voice
             ;;
     esac
     if [ -e "$target" ]; then
-        ln -sfn "$target" "$SCRIPTS_DIR/$name"
-        ln -sfn "$target" "$BIN_DIR/$name"
+        write_launcher "$SCRIPTS_DIR/$name" "$target"
+        write_launcher "$BIN_DIR/$name" "$target"
     fi
 done
 
