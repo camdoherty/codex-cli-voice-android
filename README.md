@@ -1,17 +1,16 @@
-# Codex CLI Voice Android
+# Codex CLI + Voice for Android/Termux
 
 Codex CLI compiled for Android/Termux with Android-native voice modes.
 
-Status: alpha. The current upstream target is Codex `rust-v0.133.0`.
+Status: Alpha. The current upstream target is Codex `rust-v0.133.0`.
 This release was validated on Pixel6a and Pixel9 with Termux.
 
-This repository contains build scripts, Android patches, a Termux packaging
-layout, deployment helpers, and the native Android audio shim. It does not
-vendor the upstream Codex source tree.
+This repository does not vendor the upstream Codex source tree.
 
-Requires an OpenAI Plus account for the documented local Codex workflow.
-OpenAI Codex Realtime Voice requires an OpenAI API key and uses OpenAI Realtime
-API billing.
+Codex itself requires normal Codex authentication: a ChatGPT account with Codex
+access or an OpenAI API key. The `$tts-stt` voice path does not require OpenAI
+Realtime API billing. OpenAI Codex Realtime Voice requires an OpenAI API key
+and uses OpenAI Realtime API billing.
 
 ## Why This Exists
 
@@ -25,32 +24,31 @@ intents, clipboard, battery, location, and sensors.
 
 This project targets native Termux rather than PRoot because Termux runs
 directly on Android's host environment, without an extra distro/proot layer.
-That gives CCVA lower overhead, fewer moving parts, direct access to
-Termux:API, and cleaner integration with Android storage, intents, widgets, and
-the local audio shim. PRoot may be useful for distro compatibility and could
-likely connect to the local shim, but it is not the supported audio path for
-this release.
+That gives CCVA lower overhead, fewer moving parts, direct Termux:API access,
+and cleaner integration with Android storage, intents, widgets, and the local
+audio shim. PRoot may be useful for distro compatibility and could likely
+connect to the local shim, but it is not the supported audio path for this
+release.
 
 CCVA rebuilds Codex for Android/Termux, adds Android-native audio through a
 local shim, and provides two voice paths:
 
-- `$tts-stt`: a Plus-friendly local TTS/STT skill for half-duplex voice
-  interaction.
+- `$tts-stt`: a local TTS/STT Codex skill for half-duplex,
+  walkie-talkie-like voice interaction.
 - `codex-voice --allow-realtime`: OpenAI Codex CLI Realtime voice mode adapted
   for Android native audio.
 
 Useful workflows include mobile voice intake for Codex, translating spoken user
 intent into context-aware agent prompts, using a phone as an orchestrator for
 other agents, maintaining on-device markdown repos or Obsidian vaults, and
-building Termux:API flows around dialogs, notifications, share intents, and
-open intents.
+building Termux:API flows.
 
 ## Voice Modes
 
 | Mode | How to start | Cost profile | Best for |
 | --- | --- | --- | --- |
-| Local Android TTS/STT | Use the `$tts-stt` skill or the `Start TTS STT Voice Mode` widget shortcut | Works with Plus accounts; no API key required for the voice path | Walkie-talkie-like voice sessions |
-| OpenAI Codex Realtime Voice | `codex-voice --allow-realtime` or the `Start API($) Realtime Voice Mode` widget shortcut | Uses OpenAI Realtime API billing | Codex CLI realtime voice on Android native audio |
+| Local Android TTS/STT | Use the `$tts-stt` skill or `Start TTS STT Voice Mode` | Uses normal Codex authentication; no Realtime API billing | Walkie-talkie-like voice sessions |
+| OpenAI Codex Realtime Voice | `codex-voice --allow-realtime` or `Start API($) Realtime Voice Mode` | Uses OpenAI Realtime API billing | Codex CLI realtime voice on Android native audio |
 
 Local Android TTS/STT uses the Android shim `/v1/text-voice` endpoint first:
 Android `TextToSpeech` for spoken output and Android `SpeechRecognizer` for
@@ -106,10 +104,7 @@ What it does:
 
 - Builds upstream Codex CLI for Android/Termux.
 - Adds Android-native audio through a local AEC shim.
-- Provides two separate voice paths:
-  - `$tts-stt`: Plus-friendly half-duplex TTS/STT mode.
-  - `codex-voice --allow-realtime`: OpenAI Codex CLI Realtime voice mode
-    adapted for Android native audio.
+- Provides separate local and Realtime voice paths.
 - Uses loopback-only shim endpoints on `127.0.0.1:8765`.
 - Requires explicit `--allow-realtime` opt-in before starting billable
   Realtime.
@@ -121,35 +116,27 @@ What it does not do:
   or device snapshots.
 - Does not start Realtime billing from the default `$tts-stt` voice mode.
 - Does not expose the shim as a public network service.
-- Does not claim broad Android support beyond the devices validated for this
+- Does not claim broad Android support beyond Pixel6a and Pixel9 for this
   release.
-
-Validated for this release:
-
-- Pixel6a and Pixel9.
-- Codex CLI `0.133.0`.
-- `$tts-stt` local half-duplex voice.
-- OpenAI Codex CLI Realtime voice with Android native audio.
-- Shim install, loopback service, and text-voice smoke tests.
-- Clean deploy from GitHub release assets.
 
 If you want to install the project without trusting release assets, give
 [AGENT_BUILD_CCVA.md](AGENT_BUILD_CCVA.md) to Codex or another modern coding
 agent and have it build, deploy, and smoke-test from source.
 
-## Manual Installation (On-Device)
+## Manual Installation
 
-If you are installing directly on Android with no PC:
+See [DEPLOY.md](DEPLOY.md) for the tested install path and smoke tests.
 
-1. Install [Termux](https://f-droid.org/packages/com.termux/) from F-Droid.
-2. Install [Termux:API](https://f-droid.org/packages/com.termux.api/) from
-   F-Droid if you want fallback TTS/STT and diagnostics.
-3. Download the latest release assets to your phone's Downloads folder:
+Short version:
+
+1. Install Termux from F-Droid.
+2. Install Termux:API from F-Droid if you want fallback TTS/STT and
+   diagnostics.
+3. Download the latest release assets:
    - `codex-cli-voice-android-rust-vX.X.X.tar.gz`
    - `codex-cli-voice-android-rust-vX.X.X.tar.gz.sha256`
-   - `codex-aec-shim-debug.apk`, required for Realtime voice and preferred
-     for local half-duplex voice
-4. Open Termux and install the CLI:
+   - `codex-aec-shim-debug.apk`
+4. Install the CLI in Termux:
 
 ```sh
 termux-setup-storage
@@ -160,45 +147,20 @@ codex-install-tts-stt
 codex --version
 ```
 
-For Local Android TTS/STT, install the AEC shim APK from Android Downloads,
-open the shim app from Android, grant microphone permission, and confirm the
-local service is listening:
+5. Install the shim APK from Android Downloads, open the shim app, grant
+   microphone permission, and verify the local service before voice testing.
 
-```sh
-python3 - <<'PY'
-import socket
-s = socket.socket()
-s.settimeout(2)
-try:
-    s.connect(("127.0.0.1", 8765))
-    print("port-open")
-finally:
-    s.close()
-PY
-```
-
-Use the `$tts-stt` skill to launch the Plus-friendly local voice mode:
+Use the `$tts-stt` skill for local voice:
 
 ```text
 $tts-stt start
 ```
 
-The same local voice mode can also be started directly from Termux:
-
-```sh
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start
-```
-
-For OpenAI Codex Realtime Voice, use:
+Use explicit opt-in for Realtime voice:
 
 ```sh
 codex-voice --allow-realtime
 ```
-
-`codex-voice --allow-realtime` starts OpenAI Codex CLI Realtime voice mode
-adapted for Android native audio. It uses the OpenAI Realtime API and is
-billable. The launcher refuses to start without the explicit
-`--allow-realtime` guard.
 
 ## Repository Guide
 
