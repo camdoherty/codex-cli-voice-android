@@ -22,4 +22,5 @@ android {
 
 dependencies {
     implementation("org.java-websocket:Java-WebSocket:1.6.0")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.25.0")
 }

@@ -31,6 +31,28 @@ DEFAULT_SHIM_STT_TIMEOUT_SECONDS = 12.0
 SHIM_TEXT_VOICE_HOST = "127.0.0.1"
 SHIM_TEXT_VOICE_PORT = 8765
 SHIM_TEXT_VOICE_PATH = "/v1/text-voice"
+WAKE_PROFILE_ID = "hey_jarvis_dev"
+WAKE_PHRASE = "hey jarvis"
+WAKE_THRESHOLD = 0.997
+WAKE_COOLDOWN_MS = 1500
+WAKE_MAX_RUNTIME_SECONDS = 60 * 60
+WAKE_REARM_DELAY_SECONDS = 1.0
+WAKE_MODEL_RELEASE_BASE_URL = "https://github.com/dscripka/openWakeWord/releases/download/v0.5.1"
+WAKE_MODEL_CACHE_DIR = Path(
+    os.environ.get(
+        "CODEX_STTS_WAKE_MODEL_CACHE_DIR",
+        str(Path.home() / ".cache" / "ccva-wake-models" / "openwakeword_hey_jarvis"),
+    )
+)
+WAKE_MODEL_APP_DIR = (
+    "/data/user/0/io.github.codex_cli_voice_android.aecshim/files/"
+    f"wakeword_models/{WAKE_PROFILE_ID}"
+)
+WAKE_MODEL_FILES = {
+    "hey_jarvis_v0.1.onnx": "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb",
+    "melspectrogram.onnx": "ba2b0e0f8b7b875369a2c89cb13360ff53bac436f2895cced9f479fa65eb176f",
+    "embedding_model.onnx": "70d164290c1d095d1d4ee149bc5e00543250a7316b59f31d056cff7bd3075c1f",
+}
 STOP_PHRASES = {
     "stop",
     "please stop",
@@ -74,8 +96,8 @@ INCOMPLETE_TRAILING_WORDS = {
 }
 RUNTIME_DIR = Path(
     os.environ.get(
-        "CODEX_TTS_STT_RUNTIME_DIR",
-        str(Path.home() / ".local" / "state" / "codex-tts-stt"),
+        "CODEX_STTS_RUNTIME_DIR",
+        str(Path.home() / ".local" / "state" / "codex-stts"),
     )
 )
 PID_PATH = RUNTIME_DIR / "session.pid"
@@ -244,6 +266,12 @@ class WebSocketTextClient:
             if opcode != 0x1:
                 continue
             return json.loads(payload.decode("utf-8", errors="replace"))
+
+    def recv_json_timeout(self, timeout_seconds: float) -> dict[str, object] | None:
+        readable, _, _ = select.select([self.sock], [], [], max(0.0, timeout_seconds))
+        if not readable:
+            return None
+        return self.recv_json()
 
 
 def say_text_shim(text: str) -> str:
@@ -651,6 +679,9 @@ def listen_once_shim(
                 "action": "start_stt",
                 "offlineOnly": offline_only,
                 "timeoutMs": int(hard_timeout_seconds * 1000),
+                "completeSilenceMs": 3000,
+                "possiblyCompleteSilenceMs": 3000,
+                "minimumLengthMs": 1000,
             }
         )
         while True:
@@ -952,6 +983,339 @@ def generate_reply(prompt: str, cwd: str) -> str:
     return reply
 
 
+def generate_reply_cancellable(prompt: str, cwd: str, client: WebSocketTextClient | None) -> str:
+    ensure_command("codex")
+    proc = subprocess.Popen(
+        [
+            "codex",
+            "exec",
+            "--skip-git-repo-check",
+            "--ephemeral",
+            "--json",
+            "-C",
+            cwd,
+            "-",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        assert proc.stdin is not None
+        proc.stdin.write(prompt)
+        proc.stdin.close()
+        while proc.poll() is None:
+            if client is not None:
+                try:
+                    event = client.recv_json_timeout(0.2)
+                except (BrokenPipeError, ConnectionError, OSError, RuntimeError):
+                    stop_process_group(proc)
+                    raise RuntimeError("STTS control socket closed; cancelled codex exec")
+                if event and event.get("event") == "cancel_processing":
+                    stop_process_group(proc)
+                    raise RuntimeError("STTS turn cancelled")
+            else:
+                time.sleep(0.2)
+        stdout = proc.stdout.read() if proc.stdout is not None else ""
+        stderr = proc.stderr.read() if proc.stderr is not None else ""
+    except Exception:
+        if proc.poll() is None:
+            stop_process_group(proc)
+        raise
+    if proc.returncode != 0:
+        raise RuntimeError(stderr.strip() or stdout.strip() or "codex exec failed")
+    reply = extract_codex_reply(stdout)
+    if not reply:
+        raise RuntimeError("codex exec returned no assistant message")
+    return reply
+
+
+def shim_connect(timeout_seconds: float = 15.0) -> tuple[WebSocketTextClient, dict[str, object]]:
+    client = WebSocketTextClient(
+        SHIM_TEXT_VOICE_HOST,
+        SHIM_TEXT_VOICE_PORT,
+        SHIM_TEXT_VOICE_PATH,
+        timeout_seconds,
+    )
+    return client, client.recv_json()
+
+
+def send_action(client: WebSocketTextClient, action: str, **payload: object) -> str:
+    request_id = f"{action}-{int(time.time() * 1000)}-{os.getpid()}"
+    body: dict[str, object] = {"id": request_id, "action": action}
+    body.update(payload)
+    client.send_json(body)
+    return request_id
+
+
+def wait_for_id_event(
+    client: WebSocketTextClient,
+    request_id: str,
+    accepted: set[str],
+    timeout_seconds: float,
+) -> dict[str, object]:
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RuntimeError(f"timeout waiting for {sorted(accepted)}")
+        event = client.recv_json_timeout(min(0.5, remaining))
+        if event is None:
+            continue
+        if event.get("event") == "error" and event.get("id") in (request_id, None):
+            raise RuntimeError(f"{event.get('code', 'shim_error')}: {event.get('message', '')}")
+        if event.get("id") in (request_id, None) and event.get("event") in accepted:
+            return event
+
+
+def wake_profile() -> dict[str, object]:
+    return {
+        "id": WAKE_PROFILE_ID,
+        "label": WAKE_PHRASE,
+        "modelType": "onnx",
+        "modelPath": f"{WAKE_MODEL_APP_DIR}/hey_jarvis_v0.1.onnx",
+        "melspectrogramPath": f"{WAKE_MODEL_APP_DIR}/melspectrogram.onnx",
+        "embeddingPath": f"{WAKE_MODEL_APP_DIR}/embedding_model.onnx",
+        "sampleRate": 16000,
+        "frameMs": 80,
+        "threshold": WAKE_THRESHOLD,
+        "cooldownMs": WAKE_COOLDOWN_MS,
+        "licenseAcknowledged": True,
+    }
+
+
+def sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def download_wake_models(source_dir: Path = WAKE_MODEL_CACHE_DIR) -> None:
+    ensure_command("curl")
+    source_dir.mkdir(parents=True, exist_ok=True)
+    for filename, expected in WAKE_MODEL_FILES.items():
+        path = source_dir / filename
+        if not path.exists() or sha256_path(path) != expected:
+            url = f"{WAKE_MODEL_RELEASE_BASE_URL}/{filename}"
+            result = run_command(["curl", "-fsSL", url, "-o", str(path)], timeout_seconds=120)
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr.strip() or f"failed to download {url}")
+        actual = sha256_path(path)
+        if actual != expected:
+            raise RuntimeError(f"checksum mismatch for {filename}: {actual}")
+
+
+def import_wake_models(source_dir: Path = WAKE_MODEL_CACHE_DIR) -> None:
+    missing = [name for name in WAKE_MODEL_FILES if not (source_dir / name).is_file()]
+    if missing:
+        raise RuntimeError("missing wake model files; run stts-diag --download")
+    client, _status = shim_connect(15.0)
+    try:
+        for filename, expected in WAKE_MODEL_FILES.items():
+            path = source_dir / filename
+            actual = sha256_path(path)
+            if actual != expected:
+                raise RuntimeError(f"checksum mismatch for {filename}: {actual}")
+            payload = base64.b64encode(path.read_bytes()).decode("ascii")
+            request_id = send_action(
+                client,
+                "wake_model_put",
+                profileId=WAKE_PROFILE_ID,
+                filename=filename,
+                sha256=expected,
+                dataBase64=payload,
+            )
+            event = wait_for_id_event(client, request_id, {"wake_model_put"}, 60.0)
+            if event.get("sha256") != expected:
+                raise RuntimeError(f"shim reported unexpected sha for {filename}")
+        request_id = send_action(client, "wake_model_validate", profile=wake_profile())
+        event = wait_for_id_event(client, request_id, {"wake_model_validate"}, 10.0)
+        if not event.get("valid"):
+            raise RuntimeError(f"wake model validation failed: {event}")
+    finally:
+        client.close()
+
+
+def validate_wake_models() -> tuple[bool, str]:
+    try:
+        client, _status = shim_connect(5.0)
+        try:
+            request_id = send_action(client, "wake_model_validate", profile=wake_profile())
+            event = wait_for_id_event(client, request_id, {"wake_model_validate"}, 8.0)
+            if event.get("valid"):
+                return True, "wake model valid"
+            return False, f"wake model invalid; run stts-diag --download: {event}"
+        finally:
+            client.close()
+    except Exception as exc:
+        return False, f"wake model check failed; run stts-diag --download after shim is open: {exc}"
+
+
+def run_stts_doctor(download: bool = False) -> int:
+    if download:
+        download_wake_models()
+        import_wake_models()
+    checks: list[tuple[str, bool, str]] = []
+    for command in ("codex", "curl"):
+        checks.append((command, shutil.which(command) is not None, shutil.which(command) or "missing"))
+    try:
+        client, status = shim_connect(5.0)
+        client.close()
+        checks.append(("shim", True, f"connected; state={status.get('state', 'unknown')}"))
+    except Exception as exc:
+        checks.append(("shim", False, str(exc)))
+    valid, message = validate_wake_models()
+    checks.append(("wake-model", valid, message))
+    ok = all(item[1] for item in checks)
+    for name, passed, detail in checks:
+        print(f"{name}: {'ok' if passed else 'fail'} - {detail}")
+    if not ok:
+        print("recovery: stts-diag --download")
+    return 0 if ok else 2
+
+
+def wait_for_shim_tts(client: WebSocketTextClient, text: str, timeout_seconds: float = 60.0) -> None:
+    request_id = send_action(client, "tts_speak", text=sanitize_for_tts(text), interrupt=True)
+    wait_for_id_event(client, request_id, {"tts_complete"}, timeout_seconds)
+
+
+def listen_once_on_client(client: WebSocketTextClient, timeout_seconds: float) -> str:
+    request_id = send_action(
+        client,
+        "start_stt",
+        timeoutMs=int(timeout_seconds * 1000),
+        completeSilenceMs=3000,
+        possiblyCompleteSilenceMs=3000,
+        minimumLengthMs=1000,
+    )
+    deadline = time.monotonic() + timeout_seconds + 3.0
+    candidates: list[str] = []
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return ""
+        event = client.recv_json_timeout(min(0.5, remaining))
+        if event is None:
+            continue
+        if event.get("event") == "cancel_processing":
+            raise RuntimeError("STTS turn cancelled")
+        if event.get("id") not in (request_id, None):
+            continue
+        if event.get("event") == "stt_partial":
+            candidate = str(event.get("text", "")).strip()
+            if candidate:
+                candidates.append(candidate)
+        elif event.get("event") == "stt_final":
+            candidate = str(event.get("text", "")).strip()
+            if candidate:
+                candidates.append(candidate)
+            return extract_final_transcript("\n".join(candidates))
+        elif event.get("event") == "error":
+            code = str(event.get("code", "stt_error"))
+            if code in {"stt_timeout", "speech_timeout", "stt_no_match", "no_match"}:
+                return ""
+            raise RuntimeError(f"{code}: {event.get('message', '')}")
+
+
+def run_stts_turn_on_client(
+    client: WebSocketTextClient,
+    cwd: str,
+    history: list[tuple[str, str]],
+    transcript: str | None = None,
+) -> bool:
+    if transcript is None:
+        transcript = listen_once_on_client(client, 15.0)
+    if not transcript:
+        send_action(client, "client_state", state="ready")
+        return False
+    history.append(("user", transcript))
+    if should_stop(transcript):
+        send_action(client, "client_state", state="ready")
+        return True
+    host_summary = gather_host_summary(cwd)
+    prompt = build_prompt(host_summary, history, transcript)
+    send_action(client, "client_state", state="processing")
+    try:
+        reply = generate_reply_cancellable(prompt, cwd, client)
+    except Exception as exc:
+        reply = "I hit a problem generating my reply. Ask again, or say stop."
+        print(f"stts-turn: {exc}", file=sys.stderr)
+    history.append(("assistant", reply))
+    wait_for_shim_tts(client, reply)
+    send_action(client, "client_state", state="ready")
+    return False
+
+
+def run_talk(cwd: str) -> int:
+    client, _status = shim_connect(15.0)
+    try:
+        stopped = run_stts_turn_on_client(client, cwd, [])
+        return 0 if not stopped else 130
+    finally:
+        client.close()
+
+
+def run_wake_loop(cwd: str, once: bool = False, fake_wake: bool = False) -> int:
+    ok, message = validate_wake_models()
+    if not ok and not fake_wake:
+        raise RuntimeError(message)
+    client, _status = shim_connect(15.0)
+    history: list[tuple[str, str]] = []
+    stop_at = time.monotonic() + WAKE_MAX_RUNTIME_SECONDS
+    try:
+        while time.monotonic() < stop_at:
+            payload = {
+                "maxListenMs": 60_000,
+                "debugScores": False,
+            }
+            if not fake_wake:
+                payload["profile"] = wake_profile()
+            request_id = send_action(client, "wake_start", **payload)
+            wait_for_id_event(client, request_id, {"wake_started"}, 15.0)
+            if fake_wake:
+                send_action(client, "wake_fake_detect")
+            while True:
+                event = client.recv_json_timeout(1.0)
+                if event is None:
+                    if time.monotonic() >= stop_at:
+                        send_action(client, "wake_stop")
+                        return 0
+                    continue
+                event_name = event.get("event")
+                if event_name in {"wake_timeout", "wake_stopped", "wake_idle"}:
+                    break
+                if event_name == "ptt_button_pressed":
+                    stop_id = send_action(client, "wake_stop")
+                    wait_for_id_event(client, stop_id, {"wake_stopped", "wake_idle"}, 5.0)
+                    run_stts_turn_on_client(client, cwd, history)
+                    time.sleep(WAKE_REARM_DELAY_SECONDS)
+                    if once:
+                        return 0
+                    break
+                if event_name == "wake_detected":
+                    run_stts_turn_on_client(client, cwd, history)
+                    time.sleep(WAKE_REARM_DELAY_SECONDS)
+                    if once:
+                        return 0
+                    break
+                if event_name == "cancel_processing":
+                    send_action(client, "wake_stop")
+                    return 130
+        return 0
+    finally:
+        try:
+            send_action(client, "wake_stop")
+            send_action(client, "stop_stt")
+            send_action(client, "tts_stop")
+        except Exception:
+            pass
+        client.close()
+
+
 def append_log(path: Path, line: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
@@ -1165,8 +1529,13 @@ def run_session(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Persistent TTS/STT voice loop for Codex in Termux.")
-    parser.add_argument("command", nargs="?", default="start", choices=["start", "say", "listen", "status", "diag", "stt-check", "stop", "cleanup"])
+    parser = argparse.ArgumentParser(description="Persistent STTS voice loop for Codex in Termux.")
+    parser.add_argument(
+        "command",
+        nargs="?",
+        default="start",
+        choices=["start", "say", "listen", "talk", "wake", "doctor", "model-import", "status", "diag", "stt-check", "stop", "cleanup"],
+    )
     parser.add_argument("text", nargs="*")
     parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_SESSION_TIMEOUT_SECONDS)
     parser.add_argument("--post-speech-delay", type=int, default=DEFAULT_POST_SPEECH_DELAY_SECONDS)
@@ -1180,6 +1549,10 @@ def main() -> int:
     parser.add_argument("--stt-timeout-seconds", type=float, default=DEFAULT_SHIM_STT_TIMEOUT_SECONDS)
     parser.add_argument("--stt-offline-only", action="store_true")
     parser.add_argument("--cwd", default="")
+    parser.add_argument("--download", action="store_true", help="Download and import pinned openWakeWord assets before diagnostics.")
+    parser.add_argument("--source-dir", default=str(WAKE_MODEL_CACHE_DIR), help="Wake model staging directory.")
+    parser.add_argument("--once", action="store_true", help="For wake mode: exit after one completed activation.")
+    parser.add_argument("--fake-wake", action="store_true", help="For wake mode: use fake/manual wake instead of ONNX.")
     args = parser.parse_args()
 
     try:
@@ -1201,10 +1574,24 @@ def main() -> int:
             if transcript:
                 print(transcript)
             return 0
+        if args.command == "talk":
+            return run_talk(resolve_working_dir(args.cwd))
+        if args.command == "wake":
+            return run_wake_loop(resolve_working_dir(args.cwd), once=args.once, fake_wake=args.fake_wake)
+        if args.command == "doctor":
+            return run_stts_doctor(download=args.download)
+        if args.command == "model-import":
+            if args.download:
+                download_wake_models(Path(args.source_dir).expanduser())
+            import_wake_models(Path(args.source_dir).expanduser())
+            print("wake model imported")
+            return 0
         if args.command == "status":
             print(format_status())
             return 0
         if args.command == "diag":
+            if args.download:
+                return run_stts_doctor(download=True)
             return run_diag()
         if args.command == "stt-check":
             return run_stt_check(
@@ -1236,7 +1623,7 @@ def main() -> int:
     except KeyboardInterrupt:
         return 130
     except Exception as exc:
-        print(f"tts-stt-loop: {exc}", file=sys.stderr)
+        print(f"stts-loop: {exc}", file=sys.stderr)
         return 1
     finally:
         cleanup_tts_helpers()

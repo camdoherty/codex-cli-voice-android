@@ -5,7 +5,8 @@ final class AudioModeCoordinator {
         IDLE("idle"),
         REALTIME_PCM("realtime_pcm"),
         TEXT_STT("text_stt"),
-        TEXT_TTS("text_tts");
+        TEXT_TTS("text_tts"),
+        WAKE_WORD("wake_word");
 
         final String wireName;
 

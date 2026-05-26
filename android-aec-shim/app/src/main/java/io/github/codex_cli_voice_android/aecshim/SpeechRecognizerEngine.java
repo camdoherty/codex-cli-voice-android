@@ -51,8 +51,21 @@ final class SpeechRecognizerEngine {
                 Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(context);
     }
 
-    void start(String id, boolean offlineOnly, long timeoutMs) {
-        mainHandler.post(() -> startOnMain(id, offlineOnly, timeoutMs));
+    void start(
+            String id,
+            boolean offlineOnly,
+            long timeoutMs,
+            long completeSilenceMs,
+            long possiblyCompleteSilenceMs,
+            long minimumLengthMs
+    ) {
+        mainHandler.post(() -> startOnMain(
+                id,
+                offlineOnly,
+                timeoutMs,
+                completeSilenceMs,
+                possiblyCompleteSilenceMs,
+                minimumLengthMs));
     }
 
     void stop() {
@@ -81,7 +94,14 @@ final class SpeechRecognizerEngine {
         });
     }
 
-    private void startOnMain(String id, boolean offlineOnly, long timeoutMs) {
+    private void startOnMain(
+            String id,
+            boolean offlineOnly,
+            long timeoutMs,
+            long completeSilenceMs,
+            long possiblyCompleteSilenceMs,
+            long minimumLengthMs
+    ) {
         refreshAvailability();
         if (!TextVoiceStatus.sttAvailable) {
             listener.onError(id, "recognizer_unavailable", "No SpeechRecognizer service available", 0);
@@ -112,6 +132,15 @@ final class SpeechRecognizerEngine {
             intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
             intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag());
             intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, offlineOnly);
+            if (completeSilenceMs > 0) {
+                intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, completeSilenceMs);
+            }
+            if (possiblyCompleteSilenceMs > 0) {
+                intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, possiblyCompleteSilenceMs);
+            }
+            if (minimumLengthMs > 0) {
+                intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, minimumLengthMs);
+            }
             audioSourceStrategy.applyTo(intent);
 
             recognizer.startListening(intent);

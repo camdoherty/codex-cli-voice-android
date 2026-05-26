@@ -28,14 +28,14 @@ and the Android native audio engine for OpenAI Realtime sessions.
 
 `/v1/text-voice` is the local half-duplex path. It exchanges JSON text commands/events with the shim, uses Android `SpeechRecognizer` for one-shot STT, and uses Android `TextToSpeech` for spoken output. This path is turn-based and does not use the OpenAI Realtime API.
 
-The Termux `tts-stt` skill uses `/v1/text-voice` as its preferred local TTS
+The Termux `stts` skill uses `/v1/text-voice` as its preferred local TTS
 backend and now supports shim STT through `--stt-backend auto|shim|termux`.
 Default `auto` tries shim STT first and falls back to `termux-speech-to-text -p`
 only when shim STT is unavailable before listening starts. Forced full-shim mode
 is:
 
 ```sh
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" \
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" \
   --tts-backend shim \
   --stt-backend shim \
   start
@@ -130,14 +130,14 @@ python3 scripts/smoke_text_voice_ws.py --tts "Ready for your next instruction."
 The on-device skill can test the same preferred TTS path directly:
 
 ```sh
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" \
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" \
   --tts-backend shim \
   say "Skill speech is routed through the shim."
 ```
 
 ## Autonomous Kokoro STT Playback Test
 
-For evidence-backed STT tuning, the devbox can synthesize Kokoro clips, wait for
+For evidence-backed STT tuning, the workstation can synthesize Kokoro clips, wait for
 `stt_listening`, play the clip through speakers near the phone, capture all shim
 frames, and score transcript word recall:
 
@@ -160,14 +160,14 @@ The harness writes generated clips, frame JSONL, and `summary.json` to a
 timestamped `/tmp/codex-text-voice-kokoro-*` directory by default. Use
 `--case-set expanded` after the smoke case passes.
 
-## Testing The Termux `tts-stt` Skill
+## Testing The Termux `stts` Skill
 
 The local Termux skill is mirrored in this repo at
-`support/termux-skills/tts-stt`. Its live phone path is
-`$HOME/.codex/skills/tts-stt`.
+`support/termux-skills/stts`. Its live phone path is
+`$HOME/.codex/skills/stts`.
 
 Use the repeatable process in
-`support/termux-skills/tts-stt/references/testing-process.md` for full
+`support/termux-skills/stts/references/testing-process.md` for full
 validation. That process covers Kokoro fixture generation, no-speech listener
 baseline measurement, raw STT calibration, full multi-turn validation, evidence
 capture, and cleanup.
@@ -175,17 +175,17 @@ capture, and cleanup.
 A minimal raw STT calibration command is:
 
 ```sh
-python3 scripts/autotest_termux_tts_stt_skill.py \
+python3 scripts/autotest_termux_stts_skill.py \
   --ssh-target android-device-ssh-alias \
   --settle-ms 1000 \
-  --remote-command 'PYTHONUNBUFFERED=1 timeout 45 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" --stt-backend shim stt-check --post-speech-delay 0' \
+  --remote-command 'PYTHONUNBUFFERED=1 timeout 45 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" --stt-backend shim stt-check --post-speech-delay 0' \
   --clip /tmp/codex-text-voice-kokoro-expanded-fixtures/clips/01-smoke_current_task.wav \
   --expected-file /tmp/codex-text-voice-kokoro-expanded-fixtures/clips/01-smoke_current_task.txt
 ```
 
-This harness starts `tts-stt-session.sh stt-check` over SSH with unbuffered
+This harness starts `stts-session.sh stt-check` over SSH with unbuffered
 output, waits for `status: listening for raw STT`, waits `--settle-ms`, plays
-the clip from the devbox speakers, captures the transcript, and reports word
+the clip from the workstation speakers, captures the transcript, and reports word
 recall. After raw STT passes, run the full multi-turn test documented in the
 testing process. The current full-loop target uses shim TTS, shim STT, and a
 3-second post-TTS recovery gap before re-arming STT because immediate post-TTS
@@ -198,5 +198,5 @@ recognition was less reliable in earlier tests.
 - The shim binds to loopback on `127.0.0.1:8765`; do not expose it through a
   public tunnel.
 - If output sounds sped up or distorted, retest with the latest shim APK and confirm the installed package matches the current build.
-- The local text-voice path is half-duplex and is the supported `$tts-stt`
+- The local text-voice path is half-duplex and is the supported `$stts`
   voice path for this release.

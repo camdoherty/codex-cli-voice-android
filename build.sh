@@ -85,10 +85,10 @@ cp "$CARGO_TARGET_DIR/aarch64-linux-android/release/codex" \
     "$STAGE/$INSTALL_DIR/codex.bin"
 cp "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" \
     "$STAGE/$INSTALL_DIR/"
-cp -R "$SCRIPT_DIR/support/termux-skills/tts-stt" \
+cp -R "$SCRIPT_DIR/support/termux-skills/stts" \
     "$STAGE/$INSTALL_DIR/support/termux-skills/"
-find "$STAGE/$INSTALL_DIR/support/termux-skills/tts-stt" -type d -name __pycache__ -exec rm -rf {} +
-find "$STAGE/$INSTALL_DIR/support/termux-skills/tts-stt" -type f -name '*.pyc' -delete
+find "$STAGE/$INSTALL_DIR/support/termux-skills/stts" -type d -name __pycache__ -exec rm -rf {} +
+find "$STAGE/$INSTALL_DIR/support/termux-skills/stts" -type f -name '*.pyc' -delete
 
 # -- Wrapper script --
 cat > "$STAGE/bin/codex" <<'EOF'
@@ -111,8 +111,8 @@ chmod +x "$STAGE/bin/codex"
 
 cp "$SCRIPT_DIR/scripts/termux-codex-api" "$STAGE/bin/codex-api"
 cp "$SCRIPT_DIR/scripts/termux-codex-voice" "$STAGE/bin/codex-voice"
-cp "$SCRIPT_DIR/scripts/install_tts_stt_skill.sh" "$STAGE/bin/codex-install-tts-stt"
-chmod +x "$STAGE/bin/codex-api" "$STAGE/bin/codex-voice" "$STAGE/bin/codex-install-tts-stt"
+cp "$SCRIPT_DIR/scripts/install_stts_skill.sh" "$STAGE/bin/codex-install-stts"
+chmod +x "$STAGE/bin/codex-api" "$STAGE/bin/codex-voice" "$STAGE/bin/codex-install-stts"
 
 # -- Package --
 VERSION=$(cd "$WORK_DIR" && git describe --tags --exact-match 2>/dev/null || echo "$CODEX_TAG")

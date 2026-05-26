@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Devbox harness for the on-device Termux tts-stt skill.
+"""Host harness for the on-device Termux stts skill.
 
 It starts the Android skill over SSH, waits until the remote controller reports
-that STT is listening, then plays a prepared WAV clip from the devbox speakers
+that STT is listening, then plays a prepared WAV clip from the host speakers
 and scores the resulting transcript.
 """
 
@@ -21,14 +21,14 @@ import time
 
 
 DEFAULT_REMOTE_COMMAND = (
-    'PYTHONUNBUFFERED=1 timeout 25 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" '
+    'PYTHONUNBUFFERED=1 timeout 25 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" '
     "stt-check --post-speech-delay 0"
 )
-DEFAULT_REMOTE_CLEANUP_COMMAND = 'sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" cleanup'
+DEFAULT_REMOTE_CLEANUP_COMMAND = 'sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" cleanup'
 DEFAULT_REMOTE_STATUS_COMMAND = (
-    'sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status; '
+    'sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" status; '
     'printf "\\n--- voice/api processes ---\\n"; '
-    'ps -ef | grep -E "tts_stt_loop|termux-speech-to-text|termux-tts-speak|termux-api|codex exec" | grep -v grep || true'
+    'ps -ef | grep -E "stts_loop|termux-speech-to-text|termux-tts-speak|termux-api|codex exec" | grep -v grep || true'
 )
 
 
@@ -297,7 +297,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Synchronized devbox playback test for the Termux tts-stt skill.")
+    parser = argparse.ArgumentParser(description="Synchronized host playback test for the Termux stts skill.")
     parser.add_argument("--ssh-target", default=os.environ.get("SSH_TARGET", "android-device-ssh-alias"))
     parser.add_argument("--ssh-config", default=os.environ.get("SSH_CONFIG", ""))
     parser.add_argument("--remote-command", default=DEFAULT_REMOTE_COMMAND)
@@ -332,7 +332,7 @@ def main() -> int:
     except KeyboardInterrupt:
         return 130
     except Exception as exc:
-        print(f"autotest-termux-tts-stt: {exc}", file=sys.stderr)
+        print(f"autotest-termux-stts: {exc}", file=sys.stderr)
         return 1
     return 0 if result["passed"] else 1
 

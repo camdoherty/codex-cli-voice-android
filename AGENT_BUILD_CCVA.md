@@ -8,7 +8,7 @@ Android with Termux is effectively a Linux machine with phone hardware,
 Android permissions, and Termux integration. The point of this project is not
 only that Codex CLI runs on Android. The useful part is that Android becomes a
 natural mobile intake surface for user intent, notes, project context, and
-handoffs to other agents.
+delegation to other agents.
 
 ## What Changed From Upstream Codex
 
@@ -25,7 +25,7 @@ Main changes:
 - Add `codex-api` and `codex-voice` launchers for Termux.
 - Add a guarded OpenAI Codex CLI Realtime voice path through Android native
   audio.
-- Add the `$tts-stt` skill for Plus-friendly half-duplex local voice.
+- Add the `$stts` skill for Plus-friendly half-duplex local voice.
 - Add the Android AEC shim APK for local loopback audio endpoints:
   `127.0.0.1:8765/v1/audio` and `127.0.0.1:8765/v1/text-voice`.
 - Add deployment, smoke-test, and Termux:Widget shortcut scripts.
@@ -46,10 +46,10 @@ Android is a practical always-nearby agent intake surface:
 - Termux:API can expose notifications, dialogs, share/open intents, clipboard,
   battery, location, sensors, and device context.
 - The phone can act as a lightweight orchestrator or intent translator for
-  other agents, including todo/action handoff workflows.
+  other agents, including todo/action delegation workflows.
 - Markdown repos, Obsidian vaults, and project notes can be maintained from the
   same device used for capture.
-- `$tts-stt` provides cheap, walkie-talkie-like interaction with a Plus account.
+- `$stts` provides cheap, walkie-talkie-like interaction with a Plus account.
 - `codex-voice --allow-realtime` exposes OpenAI Codex CLI Realtime voice mode
   with Android native audio when the user explicitly accepts Realtime billing.
 
@@ -178,8 +178,8 @@ On the phone in Termux:
 codex --version
 codex-api --version
 codex-voice --allow-realtime --version
-codex-install-tts-stt
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status
+codex-install-stts
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" status
 ```
 
 Verify Termux:API:
@@ -209,7 +209,7 @@ From a cloned repo on the phone:
 
 ```sh
 python3 scripts/smoke_text_voice_ws.py --url ws://127.0.0.1:8765/v1/text-voice
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" \
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" \
   --tts-backend shim \
   say "Codex CLI Voice Android smoke test."
 ```
@@ -229,7 +229,7 @@ The build/deploy is successful when:
 - The CLI tarball builds and checksum verifies.
 - The shim APK builds or release APK checksum verifies.
 - `codex --version` reports the expected Codex version on Android.
-- `$tts-stt` is installed and reports status.
+- `$stts` is installed and reports status.
 - Termux:API is installed as both the Android app and Termux package.
 - The shim package is installed, the microphone permission is granted, and
   `127.0.0.1:8765` is open.

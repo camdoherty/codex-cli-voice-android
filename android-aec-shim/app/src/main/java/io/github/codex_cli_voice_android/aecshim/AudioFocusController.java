@@ -15,11 +15,19 @@ final class AudioFocusController {
     }
 
     synchronized void requestTransientSpeechFocus() {
+        requestSpeechFocus(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE);
+    }
+
+    synchronized void requestExclusiveSpeechFocus() {
+        requestSpeechFocus(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE);
+    }
+
+    private void requestSpeechFocus(int focusGain) {
         if (audioManager == null) {
             return;
         }
         if (Build.VERSION.SDK_INT >= 26) {
-            focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            focusRequest = new AudioFocusRequest.Builder(focusGain)
                     .setAudioAttributes(new AudioAttributes.Builder()
                             .setUsage(AudioAttributes.USAGE_MEDIA)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -31,7 +39,7 @@ final class AudioFocusController {
             audioManager.requestAudioFocus(
                     null,
                     AudioManager.STREAM_MUSIC,
-                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+                    focusGain);
         }
     }
 

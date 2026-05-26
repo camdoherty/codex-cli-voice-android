@@ -1,17 +1,17 @@
-# Devbox TTS-STT Test Process
+# Host STTS Test Process
 
-This process validates the local Termux `tts-stt` path. It does not use the
+This process validates the local Termux `stts` path. It does not use the
 OpenAI Realtime API. It does use the normal Codex CLI text path on the phone
 when running full-loop tests.
 
 Use this process when changing the mirrored skill under
-`support/termux-skills/tts-stt`, when replacing the live phone skill, or when
+`support/termux-skills/stts`, when replacing the live phone skill, or when
 retuning timing.
 
 ## Test Conditions
 
 - Keep Bluetooth disconnected unless explicitly testing Bluetooth routing.
-- Keep the phone unlocked, Termux visible, and the device near the devbox speaker.
+- Keep the phone unlocked, Termux visible, and the device near the host speaker.
 - Start every run from a clean voice state.
 - Save every harness summary JSON under `/tmp` with a descriptive name.
 - Treat raw STT and full-loop behavior as separate signals. Raw STT can pass
@@ -24,10 +24,10 @@ retuning timing.
 
 ## Required Tools
 
-- SSH access from the devbox to the Android device.
+- SSH access from the host to the Android device.
 - A local audio player such as `pw-play`.
 - Kokoro model files and a Python environment that can import `kokoro_onnx`.
-- The on-device `tts-stt` skill installed at `$HOME/.codex/skills/tts-stt`.
+- The on-device `stts` skill installed at `$HOME/.codex/skills/stts`.
 - The Android AEC shim installed, running, and listening on
   `ws://127.0.0.1:8765/v1/text-voice` for preferred local TTS.
 
@@ -95,13 +95,13 @@ Before every test pass:
 
 ```sh
 ssh -F "$SSH_CONFIG" "$SSH_TARGET" '
-  sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" cleanup
+  sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" cleanup
 '
 
 ssh -F "$SSH_CONFIG" "$SSH_TARGET" '
-  sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status
+  sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" status
   printf "\n--- voice/api processes ---\n"
-  ps -ef | grep -E "tts_stt_loop|termux-speech-to-text|termux-tts-speak|termux-api|codex exec" | grep -v grep || true
+  ps -ef | grep -E "stts_loop|termux-speech-to-text|termux-tts-speak|termux-api|codex exec" | grep -v grep || true
 '
 ```
 
@@ -126,13 +126,13 @@ If the user says `stop`, treat a clean `disabled` companion state as stop-path v
 Measure the Android recognizer no-speech window before playback tests:
 
 ```sh
-python3 scripts/autotest_termux_tts_stt_skill.py \
+python3 scripts/autotest_termux_stts_skill.py \
   --ssh-target "$SSH_TARGET" \
   --ssh-config "$SSH_CONFIG" \
   --baseline-only \
   --ready-text 'status: listening' \
-  --remote-command 'PYTHONUNBUFFERED=1 timeout 100 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" --timeout-seconds 30 --post-speech-delay 6 start "Testing quiet listening baseline."' \
-  --summary /tmp/codex-termux-tts-stt-baseline-summary.json
+  --remote-command 'PYTHONUNBUFFERED=1 timeout 100 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" --timeout-seconds 30 --post-speech-delay 6 start "Testing quiet listening baseline."' \
+  --summary /tmp/codex-termux-stts-baseline-summary.json
 ```
 
 The current Android evidence showed short, variable no-speech windows:
@@ -147,11 +147,11 @@ generation and TTS recovery.
 Start with forced shim STT:
 
 ```sh
-python3 scripts/autotest_termux_tts_stt_skill.py \
+python3 scripts/autotest_termux_stts_skill.py \
   --ssh-target "$SSH_TARGET" \
   --ssh-config "$SSH_CONFIG" \
   --settle-ms 1000 \
-  --remote-command 'PYTHONUNBUFFERED=1 timeout 45 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" --stt-backend shim stt-check --post-speech-delay 0' \
+  --remote-command 'PYTHONUNBUFFERED=1 timeout 45 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" --stt-backend shim stt-check --post-speech-delay 0' \
   --clip "$FIXTURE_DIR/clips/01-smoke_current_task.wav" \
   --expected-file "$FIXTURE_DIR/clips/01-smoke_current_task.txt" \
   --min-recall 0.85 \
@@ -162,29 +162,29 @@ If forced shim STT fails, rerun the same clip with `--stt-backend termux` to
 separate shim regressions from room/audio/playback issues.
 
 ```sh
-python3 scripts/autotest_termux_tts_stt_skill.py \
+python3 scripts/autotest_termux_stts_skill.py \
   --ssh-target "$SSH_TARGET" \
   --ssh-config "$SSH_CONFIG" \
   --settle-ms 1000 \
-  --remote-command 'PYTHONUNBUFFERED=1 timeout 45 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" stt-check --post-speech-delay 0' \
+  --remote-command 'PYTHONUNBUFFERED=1 timeout 45 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stt-check --post-speech-delay 0' \
   --clip "$FIXTURE_DIR/clips/01-smoke_current_task.wav" \
   --expected-file "$FIXTURE_DIR/clips/01-smoke_current_task.txt" \
   --min-recall 0.85 \
-  --summary /tmp/codex-termux-tts-stt-raw-smoke-current-summary.json
+  --summary /tmp/codex-termux-stts-raw-smoke-current-summary.json
 ```
 
 Then run a longer realistic command:
 
 ```sh
-python3 scripts/autotest_termux_tts_stt_skill.py \
+python3 scripts/autotest_termux_stts_skill.py \
   --ssh-target "$SSH_TARGET" \
   --ssh-config "$SSH_CONFIG" \
   --settle-ms 1000 \
-  --remote-command 'PYTHONUNBUFFERED=1 timeout 45 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" stt-check --post-speech-delay 0' \
+  --remote-command 'PYTHONUNBUFFERED=1 timeout 45 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stt-check --post-speech-delay 0' \
   --clip "$FIXTURE_DIR/clips/03-long_instruction.wav" \
   --expected-file "$FIXTURE_DIR/clips/03-long_instruction.txt" \
   --min-recall 0.85 \
-  --summary /tmp/codex-termux-tts-stt-raw-long-instruction-summary.json
+  --summary /tmp/codex-termux-stts-raw-long-instruction-summary.json
 ```
 
 Known passing baseline: both realistic raw STT clips reached 1.0 word recall
@@ -196,7 +196,7 @@ Verify shim TTS audibility before full-loop tests:
 
 ```sh
 ssh -F "$SSH_CONFIG" "$SSH_TARGET" '
-  sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" \
+  sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" \
     --tts-backend shim \
     say "Skill speech is routed through the shim. Please confirm if you hear this."
 '
@@ -211,7 +211,7 @@ for fallback diagnostics.
 
 ## Full Multi-Turn Test
 
-Run the full `tts-stt` loop after raw STT passes. This validates STT, Codex text
+Run the full `stts` loop after raw STT passes. This validates STT, Codex text
 reply generation, TTS playback, bounded TTS drain, post-TTS recovery,
 re-arming, and stop cleanup. Replace `--cwd "$HOME"` with the relevant repo
 path for project-specific prompts.
@@ -219,34 +219,34 @@ path for project-specific prompts.
 Start with the full-shim target path:
 
 ```sh
-python3 scripts/autotest_termux_tts_stt_skill.py \
+python3 scripts/autotest_termux_stts_skill.py \
   --ssh-target "$SSH_TARGET" \
   --ssh-config "$SSH_CONFIG" \
   --ready-text 'status: listening' \
   --settle-ms 1000 \
-  --remote-command 'PYTHONUNBUFFERED=1 timeout 300 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" --cwd "$HOME" --tts-backend shim --stt-backend shim --timeout-seconds 240 --post-speech-delay 6 --post-tts-recovery 3 start "Testing full shim tts stt."' \
+  --remote-command 'PYTHONUNBUFFERED=1 timeout 300 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" --cwd "$HOME" --tts-backend shim --stt-backend shim --timeout-seconds 240 --post-speech-delay 6 --post-tts-recovery 3 start "Testing full shim tts stt."' \
   --turn "summarize|$FIXTURE_DIR/clips/01-smoke_current_task.wav|Codex summarize the current task and wait for my next instruction" \
   --turn "risk|$FIXTURE_DIR/clips/03-long_instruction.wav|Review the deployment notes identify the riskiest step and tell me what to test next" \
   --turn "stop|$FIXTURE_DIR/clips/99-stop_voice_mode.wav|stop voice" \
   --min-recall 0.85 \
-  --summary /tmp/codex-shim-tts-stt-multiturn-summary.json
+  --summary /tmp/codex-shim-stts-multiturn-summary.json
 ```
 
 If full-shim mode fails while raw shim STT passes, run the proven hybrid
 fallback as the control:
 
 ```sh
-python3 scripts/autotest_termux_tts_stt_skill.py \
+python3 scripts/autotest_termux_stts_skill.py \
   --ssh-target "$SSH_TARGET" \
   --ssh-config "$SSH_CONFIG" \
   --ready-text 'status: listening' \
   --settle-ms 1000 \
-  --remote-command 'PYTHONUNBUFFERED=1 timeout 300 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" --cwd "$HOME" --tts-backend shim --timeout-seconds 240 --post-speech-delay 6 --post-tts-recovery 3 start "Testing multi turn tts stt."' \
+  --remote-command 'PYTHONUNBUFFERED=1 timeout 300 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" --cwd "$HOME" --tts-backend shim --timeout-seconds 240 --post-speech-delay 6 --post-tts-recovery 3 start "Testing multi turn tts stt."' \
   --turn "summarize|$FIXTURE_DIR/clips/01-smoke_current_task.wav|Codex summarize the current task and wait for my next instruction" \
   --turn "risk|$FIXTURE_DIR/clips/03-long_instruction.wav|Review the deployment notes identify the riskiest step and tell me what to test next" \
   --turn "stop|$FIXTURE_DIR/clips/99-stop_voice_mode.wav|stop voice" \
   --min-recall 0.85 \
-  --summary /tmp/codex-termux-tts-stt-multiturn-summary.json
+  --summary /tmp/codex-termux-stts-multiturn-summary.json
 ```
 
 Known evidence with shim TTS and `--post-tts-recovery 3`:
@@ -284,7 +284,7 @@ Known evidence with shim TTS and `--post-tts-recovery 3`:
 - Normal turns log `tts_complete`; with shim TTS, logs should include
   `tts_complete: shim reported completion`.
 - The stop phrase exits cleanly.
-- Post-test status reports no `tts_stt_loop`, `termux-speech-to-text`,
+- Post-test status reports no `stts_loop`, `termux-speech-to-text`,
   `termux-tts-speak`, `termux-api`, or `codex exec` helpers.
 
 ## Interpreting Failures

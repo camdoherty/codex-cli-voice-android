@@ -9,7 +9,7 @@ mkdir -p "$SCRIPTS_DIR" "$SHORTCUTS_DIR"
 
 install -m 700 "$REPO_DIR/scripts/termux-codex-api" "$SCRIPTS_DIR/codex-api"
 install -m 700 "$REPO_DIR/scripts/termux-codex-voice" "$SCRIPTS_DIR/codex-voice"
-install -m 700 "$REPO_DIR/scripts/install_tts_stt_skill.sh" "$SCRIPTS_DIR/codex-install-tts-stt"
+install -m 700 "$REPO_DIR/scripts/install_stts_skill.sh" "$SCRIPTS_DIR/codex-install-stts"
 
 cat > "$SHORTCUTS_DIR/codex" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
@@ -36,31 +36,51 @@ cat > "$SHORTCUTS_DIR/Start API($) Realtime Voice Mode" <<'EOF'
 exec "$HOME/scripts/codex-voice" --allow-realtime
 EOF
 
-cat > "$SHORTCUTS_DIR/tts-stt-start" <<'EOF'
+cat > "$SHORTCUTS_DIR/stts-start" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start
 EOF
 
-cat > "$SHORTCUTS_DIR/Start TTS STT Voice Mode" <<'EOF'
+cat > "$SHORTCUTS_DIR/Start STTS Voice Mode" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start
 EOF
 
-cat > "$SHORTCUTS_DIR/tts-stt-stop" <<'EOF'
+cat > "$SHORTCUTS_DIR/stts-stop" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" stop
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
 EOF
 
-cat > "$SHORTCUTS_DIR/tts-stt-status" <<'EOF'
+cat > "$SHORTCUTS_DIR/stts-talk" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-"$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
+EOF
+
+cat > "$SHORTCUTS_DIR/wake-voice-start" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" wake
+EOF
+
+cat > "$SHORTCUTS_DIR/wake-voice-stop" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
+EOF
+
+cat > "$SHORTCUTS_DIR/wake-voice-doctor" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" doctor
+EOF
+
+cat > "$SHORTCUTS_DIR/stts-status" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+"$HOME/.codex/skills/stts/scripts/stts-session.sh" status
 printf '\nPress enter to close... '
 read _answer
 EOF
 
-cat > "$SHORTCUTS_DIR/tts-stt-diag" <<'EOF'
+cat > "$SHORTCUTS_DIR/stts-diag" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-"$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" diag
+"$HOME/.codex/skills/stts/scripts/stts-session.sh" diag
 printf '\nPress enter to close... '
 read _answer
 EOF
@@ -71,11 +91,23 @@ chmod 700 \
     "$SHORTCUTS_DIR/Codex Resume Last" \
     "$SHORTCUTS_DIR/codex-voice" \
     "$SHORTCUTS_DIR/Start API($) Realtime Voice Mode" \
-    "$SHORTCUTS_DIR/tts-stt-start" \
-    "$SHORTCUTS_DIR/Start TTS STT Voice Mode" \
-    "$SHORTCUTS_DIR/tts-stt-stop" \
-    "$SHORTCUTS_DIR/tts-stt-status" \
-    "$SHORTCUTS_DIR/tts-stt-diag"
+    "$SHORTCUTS_DIR/stts-start" \
+    "$SHORTCUTS_DIR/Start STTS Voice Mode" \
+    "$SHORTCUTS_DIR/stts-stop" \
+    "$SHORTCUTS_DIR/stts-talk" \
+    "$SHORTCUTS_DIR/wake-voice-start" \
+    "$SHORTCUTS_DIR/wake-voice-stop" \
+    "$SHORTCUTS_DIR/wake-voice-doctor" \
+    "$SHORTCUTS_DIR/stts-status" \
+    "$SHORTCUTS_DIR/stts-diag"
+
+OLD_SLUG="tts""-stt"
+rm -f \
+    "$SHORTCUTS_DIR/${OLD_SLUG}-start" \
+    "$SHORTCUTS_DIR/Start TTS"" STT Voice Mode" \
+    "$SHORTCUTS_DIR/${OLD_SLUG}-stop" \
+    "$SHORTCUTS_DIR/${OLD_SLUG}-status" \
+    "$SHORTCUTS_DIR/${OLD_SLUG}-diag"
 
 rc="$HOME/.profile"
 if [ -n "${ZSH_VERSION:-}" ] || [ "$(basename "${SHELL:-}")" = zsh ]; then
@@ -83,16 +115,22 @@ if [ -n "${ZSH_VERSION:-}" ] || [ "$(basename "${SHELL:-}")" = zsh ]; then
 fi
 touch "$rc"
 
-if ! grep -qxF 'alias codex-api="$HOME/scripts/codex-api"' "$rc"; then
-    {
-        printf '\n# Codex API/voice launchers\n'
-        printf 'alias codex-api="$HOME/scripts/codex-api"\n'
-        printf 'alias codex-voice="$HOME/scripts/codex-voice"\n'
-        printf 'alias codex-install-tts-stt="$HOME/scripts/codex-install-tts-stt"\n'
-    } >> "$rc"
-fi
+old_alias="codex-install-tts""-stt"
+sed "/alias ${old_alias}=/d" "$rc" > "$rc.tmp"
+mv "$rc.tmp" "$rc"
+
+for alias_line in \
+    'alias codex-api="$HOME/scripts/codex-api"' \
+    'alias codex-voice="$HOME/scripts/codex-voice"' \
+    'alias codex-install-stts="$HOME/scripts/codex-install-stts"'
+do
+    if ! grep -qxF "$alias_line" "$rc"; then
+        printf '%s\n' "$alias_line" >> "$rc"
+    fi
+done
 
 printf 'Installed codex-api/codex-voice launchers and Termux:Widget shortcuts.\n'
 printf 'Installed core shortcuts: Codex, Codex Resume Last.\n'
-printf 'Installed voice shortcuts: Start TTS STT Voice Mode, Start API($) Realtime Voice Mode.\n'
-printf 'Installed tts-stt shortcuts: tts-stt-start, tts-stt-stop, tts-stt-status, tts-stt-diag.\n'
+printf 'Installed voice shortcuts: Start STTS Voice Mode, Start API($) Realtime Voice Mode.\n'
+printf 'Installed stts shortcuts: stts-start, stts-talk, stts-stop, stts-status, stts-diag.\n'
+printf 'Installed wake shortcuts: wake-voice-start, wake-voice-stop, wake-voice-doctor.\n'

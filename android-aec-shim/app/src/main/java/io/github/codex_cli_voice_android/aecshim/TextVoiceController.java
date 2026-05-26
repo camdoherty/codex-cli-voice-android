@@ -12,9 +12,12 @@ final class TextVoiceController {
     private static final long DEFAULT_STT_TIMEOUT_MS = 8000L;
 
     private final Context context;
+    private final AecShimService service;
     private final AudioModeCoordinator audioModeCoordinator;
+    private final AudioFocusController sessionAudioFocus;
     private final SpeechRecognizerEngine stt;
     private final TextToSpeechEngine tts;
+    private final WakeWordController wakeWord;
     private volatile WebSocket client;
     private State state = State.IDLE;
 
@@ -22,6 +25,7 @@ final class TextVoiceController {
         IDLE("idle"),
         STT_STARTING("stt_starting"),
         STT_LISTENING("stt_listening"),
+        CLIENT_PROCESSING("client_processing"),
         TTS_STARTING("tts_starting"),
         TTS_SPEAKING("tts_speaking"),
         ERROR_RECOVERING("error_recovering");
@@ -34,11 +38,17 @@ final class TextVoiceController {
     }
 
     TextVoiceController(Context context, AudioModeCoordinator audioModeCoordinator) {
+        this.service = context instanceof AecShimService ? (AecShimService) context : null;
         this.context = context.getApplicationContext();
         this.audioModeCoordinator = audioModeCoordinator;
-        AudioFocusController audioFocus = new AudioFocusController(context);
-        this.stt = new SpeechRecognizerEngine(context, audioFocus, new SttCallbacks());
-        this.tts = new TextToSpeechEngine(context, audioFocus, new TtsCallbacks());
+        this.sessionAudioFocus = new AudioFocusController(context);
+        this.stt = new SpeechRecognizerEngine(context, new AudioFocusController(context), new SttCallbacks());
+        this.tts = new TextToSpeechEngine(context, new AudioFocusController(context), new TtsCallbacks());
+        this.wakeWord = new WakeWordController(
+                context,
+                audioModeCoordinator,
+                new FakeWakeWordEngine(),
+                new WakeSender());
         setState(State.IDLE);
     }
 
@@ -63,6 +73,7 @@ final class TextVoiceController {
         if (conn != client) {
             return;
         }
+        wakeWord.stop(null, false);
         stopTextModes(null);
         client = null;
         TextVoiceStatus.textClientConnected = false;
@@ -82,6 +93,24 @@ final class TextVoiceController {
         if ("status".equals(action)) {
             stt.refreshAvailability();
             send(currentClient(), TextVoiceStatus.json(id));
+        } else if ("wake_status".equals(action)) {
+            wakeWord.status(id);
+        } else if ("wake_start".equals(action)) {
+            wakeWord.start(id, in);
+        } else if ("wake_stop".equals(action)) {
+            wakeWord.stop(id, true);
+        } else if ("wake_fake_detect".equals(action)) {
+            wakeWord.fakeDetect(id);
+        } else if ("wake_model_validate".equals(action)) {
+            wakeWord.validate(id, in);
+        } else if ("wake_model_put".equals(action)) {
+            wakeWord.putModelFile(id, in);
+        } else if ("wake_onnx_probe".equals(action)) {
+            wakeWord.onnxProbe(id, in);
+        } else if ("cue_ready".equals(action)) {
+            wakeWord.cueReady(id);
+        } else if ("client_state".equals(action)) {
+            setClientState(id, in);
         } else if ("start_stt".equals(action)) {
             startStt(id, in);
         } else if ("stop_stt".equals(action)) {
@@ -95,7 +124,32 @@ final class TextVoiceController {
         }
     }
 
+    void onPttButtonPressed() {
+        WebSocket conn = currentClient();
+        if (conn == null || !conn.isOpen()) {
+            TextVoiceStatus.lastError = "ptt_unavailable: no STTS companion connected";
+            return;
+        }
+        sendEvent(null, "ptt_button_pressed");
+    }
+
+    void onDoneButtonPressed() {
+        stopStt(null, true);
+    }
+
+    void onCancelButtonPressed() {
+        sendEvent(null, "cancel_processing");
+        stopTextModes(() -> setState(State.IDLE));
+    }
+
+    void onStopButtonPressed() {
+        sendEvent(null, "cancel_processing");
+        wakeWord.stop(null, false);
+        stopTextModes(() -> setState(State.IDLE));
+    }
+
     synchronized void shutdown() {
+        wakeWord.shutdown();
         stt.shutdown(this::releaseSttMode);
         tts.shutdown(this::releaseTtsMode);
         client = null;
@@ -128,11 +182,15 @@ final class TextVoiceController {
             sendError(currentClient(), id, "audio_busy", "audio mode is " + audioModeCoordinator.modeName());
             return;
         }
+        sessionAudioFocus.requestExclusiveSpeechFocus();
         setState(State.STT_STARTING);
         stt.start(
                 id,
                 in.optBoolean("offlineOnly", false),
-                Math.max(1000L, in.optLong("timeoutMs", DEFAULT_STT_TIMEOUT_MS)));
+                Math.max(1000L, in.optLong("timeoutMs", DEFAULT_STT_TIMEOUT_MS)),
+                Math.max(0L, in.optLong("completeSilenceMs", 0L)),
+                Math.max(0L, in.optLong("possiblyCompleteSilenceMs", 0L)),
+                Math.max(0L, in.optLong("minimumLengthMs", 0L)));
     }
 
     private synchronized void speak(String id, JSONObject in) {
@@ -158,6 +216,21 @@ final class TextVoiceController {
         }
         setState(State.TTS_STARTING);
         tts.speak(id, in.optString("text", ""));
+    }
+
+    private synchronized void setClientState(String id, JSONObject in) {
+        String requested = in.optString("state", "");
+        if ("processing".equals(requested) || "thinking".equals(requested)) {
+            sessionAudioFocus.requestExclusiveSpeechFocus();
+            setState(State.CLIENT_PROCESSING);
+            sendEvent(id, "client_state");
+        } else if ("ready".equals(requested) || "idle".equals(requested)) {
+            sessionAudioFocus.abandon();
+            setState(State.IDLE);
+            sendEvent(id, "client_state");
+        } else {
+            sendError(currentClient(), id, "invalid_state", "unsupported client state: " + requested);
+        }
     }
 
     private void stopTextModes(Runnable onStopped) {
@@ -189,6 +262,7 @@ final class TextVoiceController {
         boolean stateWasTts = isTtsState();
         tts.stop(() -> {
             releaseTtsMode();
+            sessionAudioFocus.abandon();
             if (stateWasTts) {
                 setState(State.IDLE);
             }
@@ -212,6 +286,7 @@ final class TextVoiceController {
 
     private void releaseTtsMode() {
         audioModeCoordinator.release(AudioModeCoordinator.Mode.TEXT_TTS, "text_tts");
+        sessionAudioFocus.abandon();
     }
 
     private synchronized WebSocket currentClient() {
@@ -221,6 +296,9 @@ final class TextVoiceController {
     private synchronized void setState(State next) {
         state = next;
         TextVoiceStatus.state = next.wireName;
+        if (service != null) {
+            service.updateNotification();
+        }
     }
 
     private void sendEvent(String id, String event) {
@@ -251,6 +329,23 @@ final class TextVoiceController {
     private static void send(WebSocket conn, JSONObject out) {
         if (conn != null && conn.isOpen()) {
             conn.send(out.toString());
+        }
+    }
+
+    private final class WakeSender implements WakeWordController.Sender {
+        @Override
+        public WebSocket currentClient() {
+            return TextVoiceController.this.currentClient();
+        }
+
+        @Override
+        public void send(WebSocket conn, JSONObject out) {
+            TextVoiceController.send(conn, out);
+        }
+
+        @Override
+        public void sendError(WebSocket conn, String id, String code, String message) {
+            TextVoiceController.this.sendError(conn, id, code, message);
         }
     }
 

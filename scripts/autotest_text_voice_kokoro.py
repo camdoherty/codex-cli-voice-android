@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Autonomous Kokoro playback test for the Android shim /v1/text-voice path.
 
-The harness synthesizes deterministic speech clips on the devbox, waits until
+The harness synthesizes deterministic speech clips on the host, waits until
 the Android shim reports STT is listening, plays each clip through local speakers,
 and scores the returned transcript with simple word recall.
 """

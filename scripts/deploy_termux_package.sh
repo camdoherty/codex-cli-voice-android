@@ -7,7 +7,7 @@ Usage: scripts/deploy_termux_package.sh <package.tar.gz> [package.tar.gz.sha256]
 
 Uploads a Codex CLI + Voice (Android) package to a Termux device over SSH, verifies
 the remote SHA256, creates a rollback backup, extracts into $PREFIX, repairs
-known launcher symlinks, installs the tts-stt skill, and runs non-paid smoke
+known launcher symlinks, installs the stts skill, and runs non-paid smoke
 tests.
 
 Environment:
@@ -102,7 +102,7 @@ set --
 [ -e bin/codex ] && set -- "$@" bin/codex
 [ -e bin/codex-api ] && set -- "$@" bin/codex-api
 [ -e bin/codex-voice ] && set -- "$@" bin/codex-voice
-[ -e bin/codex-install-tts-stt ] && set -- "$@" bin/codex-install-tts-stt
+[ -e bin/codex-install-stts ] && set -- "$@" bin/codex-install-stts
 [ -e libexec/codex-cli-voice-android ] && set -- "$@" libexec/codex-cli-voice-android
 [ -e opt/codex-termux ] && set -- "$@" opt/codex-termux
 [ "$#" -gt 0 ] || [ "$allow_fresh_install" = "1" ] || {
@@ -121,13 +121,13 @@ else
 fi
 
 rm -rf "$PREFIX/libexec/codex-cli-voice-android" "$PREFIX/opt/codex-termux"
-rm -f "$PREFIX/bin/codex" "$PREFIX/bin/codex-api" "$PREFIX/bin/codex-voice" "$PREFIX/bin/codex-install-tts-stt"
+rm -f "$PREFIX/bin/codex" "$PREFIX/bin/codex-api" "$PREFIX/bin/codex-voice" "$PREFIX/bin/codex-install-stts"
 tar -xzf "$artifact" -C "$PREFIX"
 
-codex-install-tts-stt
+codex-install-stts
 
 mkdir -p "$HOME/scripts"
-for name in codex-api codex-voice codex-install-tts-stt; do
+for name in codex-api codex-voice codex-install-stts; do
     if [ -e "$HOME/scripts/$name" ] && [ ! -L "$HOME/scripts/$name" ]; then
         mkdir -p "$HOME/codex-script-backups-$ts"
         mv "$HOME/scripts/$name" "$HOME/codex-script-backups-$ts/$name"
@@ -155,7 +155,7 @@ set -e
     exit 1
 }
 
-for name in codex-api codex-voice codex-install-tts-stt; do
+for name in codex-api codex-voice codex-install-stts; do
     target="$(readlink "$HOME/scripts/$name" 2>/dev/null || true)"
     [ "$target" = "$PREFIX/bin/$name" ] || {
         echo "$HOME/scripts/$name does not point to $PREFIX/bin/$name" >&2
@@ -163,11 +163,11 @@ for name in codex-api codex-voice codex-install-tts-stt; do
     }
 done
 
-[ -x "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" ] || {
-    echo "tts-stt skill was not installed" >&2
+[ -x "$HOME/.codex/skills/stts/scripts/stts-session.sh" ] || {
+    echo "stts skill was not installed" >&2
     exit 1
 }
-timeout 8 sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status >/dev/null
+timeout 8 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" status >/dev/null
 
 if strings "$PREFIX/libexec/codex-cli-voice-android/codex.bin" |
     grep -F "WARNING: flock unsupported" >/dev/null; then

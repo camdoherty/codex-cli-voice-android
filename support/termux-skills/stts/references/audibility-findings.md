@@ -2,7 +2,7 @@
 
 ## Scope
 
-This note records the local Android playback evidence behind the `tts-stt`
+This note records the local Android playback evidence behind the `stts`
 skill's TTS backend and fallback stream choices.
 
 ## Findings
@@ -37,10 +37,10 @@ TTS as a fallback and pin that fallback to `MUSIC`.
 ## Validation Commands
 
 ```sh
-sh ~/.codex/skills/tts-stt/scripts/tts-stt-session.sh diag
-sh ~/.codex/skills/tts-stt/scripts/tts-stt-session.sh --tts-backend shim say 'Testing TTS through the shim.'
-sh ~/.codex/skills/tts-stt/scripts/tts-stt-session.sh --tts-backend termux say 'Testing TTS on the music stream.'
-sh ~/.codex/skills/tts-stt/scripts/tts-stt-session.sh --tts-stream ALARM say 'Testing TTS on the alarm stream.'
+sh ~/.codex/skills/stts/scripts/stts-session.sh diag
+sh ~/.codex/skills/stts/scripts/stts-session.sh --tts-backend shim say 'Testing TTS through the shim.'
+sh ~/.codex/skills/stts/scripts/stts-session.sh --tts-backend termux say 'Testing TTS on the music stream.'
+sh ~/.codex/skills/stts/scripts/stts-session.sh --tts-stream ALARM say 'Testing TTS on the alarm stream.'
 ```
 
 ## Agent Notes

@@ -62,6 +62,7 @@ final class AecShimState {
                 + "Play bytes queued/written: " + playBytesQueued.get() + "/" + playBytesWritten.get() + "\n"
                 + "\n"
                 + TextVoiceStatus.summary() + "\n"
+                + WakeWordTestStatus.summary() + "\n"
                 + "Last error: " + (lastError.isEmpty() ? "none" : lastError);
     }
 }

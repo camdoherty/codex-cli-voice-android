@@ -32,6 +32,7 @@ final class TextVoiceStatus {
             out.put("lastError", lastError);
             out.put("lastSttLatencyMs", lastSttLatencyMs);
             out.put("lastTtsLatencyMs", lastTtsLatencyMs);
+            WakeWordStatus.put(out);
         } catch (JSONException ignored) {
         }
         return out;
@@ -52,6 +53,7 @@ final class TextVoiceStatus {
                 + "STT available/on-device: " + sttAvailable + "/" + onDeviceSttAvailable + "\n"
                 + "TTS ready: " + ttsReady + "\n"
                 + "Last STT/TTS latency ms: " + lastSttLatencyMs + "/" + lastTtsLatencyMs + "\n"
+                + WakeWordStatus.summary() + "\n"
                 + "Text voice last error: " + (lastError.isEmpty() ? "none" : lastError);
     }
 }

@@ -7,6 +7,8 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.DisplayCutout;
 import android.view.View;
 import android.view.Window;
@@ -24,6 +26,15 @@ public final class MainActivity extends Activity {
     static final String ACTION_STOP_SERVICE = "io.github.codex_cli_voice_android.aecshim.STOP_SERVICE";
 
     private TextView statusView;
+    private TextView wakeIndicator;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable refreshRunnable = new Runnable() {
+        @Override
+        public void run() {
+            refreshStatus();
+            handler.postDelayed(this, WakeWordTestStatus.running ? 250L : 1000L);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,6 +81,38 @@ public final class MainActivity extends Activity {
         refresh.setOnClickListener(v -> refreshStatus());
         root.addView(refresh);
 
+        wakeIndicator = new TextView(this);
+        wakeIndicator.setText("Wake Test: stopped");
+        wakeIndicator.setTextSize(18);
+        wakeIndicator.setTextColor(Color.WHITE);
+        wakeIndicator.setPadding(pad, pad / 2, pad, pad / 2);
+        wakeIndicator.setBackgroundColor(Color.rgb(28, 28, 28));
+        root.addView(wakeIndicator);
+
+        Button wakeStart = new Button(this);
+        wakeStart.setText("Start WWS Test Mode");
+        styleButton(wakeStart);
+        wakeStart.setOnClickListener(v -> sendWakeTestAction(AecShimService.ACTION_WAKE_TEST_START));
+        root.addView(wakeStart);
+
+        Button wakePass = new Button(this);
+        wakePass.setText("Pass");
+        styleButton(wakePass);
+        wakePass.setOnClickListener(v -> sendWakeTestAction(AecShimService.ACTION_WAKE_TEST_PASS));
+        root.addView(wakePass);
+
+        Button wakeFail = new Button(this);
+        wakeFail.setText("Fail - Save Last 20s WAV");
+        styleButton(wakeFail);
+        wakeFail.setOnClickListener(v -> sendWakeTestAction(AecShimService.ACTION_WAKE_TEST_FAIL));
+        root.addView(wakeFail);
+
+        Button wakeStop = new Button(this);
+        wakeStop.setText("Stop WWS Test Mode");
+        styleButton(wakeStop);
+        wakeStop.setOnClickListener(v -> sendWakeTestAction(AecShimService.ACTION_WAKE_TEST_STOP));
+        root.addView(wakeStop);
+
         statusView = new TextView(this);
         statusView.setTextSize(14);
         statusView.setTextColor(Color.WHITE);
@@ -85,6 +128,7 @@ public final class MainActivity extends Activity {
         setContentView(root);
         requestNeededPermissions();
         refreshStatus();
+        handler.post(refreshRunnable);
         handleLifecycleAction(getIntent());
     }
 
@@ -137,6 +181,43 @@ public final class MainActivity extends Activity {
 
     private void refreshStatus() {
         statusView.setText(AecShimState.summary());
+        refreshWakeIndicator();
+    }
+
+    private void sendWakeTestAction(String action) {
+        if (!hasRecordAudioPermission()) {
+            AecShimState.lastError = "Grant microphone permission before starting wake test mode";
+            requestNeededPermissions();
+            refreshStatus();
+            return;
+        }
+        Intent intent = new Intent(this, AecShimService.class);
+        intent.setAction(action);
+        if (Build.VERSION.SDK_INT >= 26) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+        statusView.postDelayed(this::refreshStatus, 300);
+    }
+
+    private void refreshWakeIndicator() {
+        boolean hit = WakeWordTestStatus.recentlyHit(System.currentTimeMillis());
+        if (hit) {
+            wakeIndicator.setBackgroundColor(Color.rgb(0, 150, 70));
+        } else if (WakeWordTestStatus.running) {
+            wakeIndicator.setBackgroundColor(Color.rgb(70, 70, 20));
+        } else {
+            wakeIndicator.setBackgroundColor(Color.rgb(28, 28, 28));
+        }
+        wakeIndicator.setText("Wake Test: "
+                + (WakeWordTestStatus.running ? "listening" : "stopped")
+                + " | score " + String.format(java.util.Locale.US, "%.6f", WakeWordTestStatus.lastScore)
+                + " | max " + String.format(java.util.Locale.US, "%.6f", WakeWordTestStatus.maxScore)
+                + " | rms/peak " + String.format(java.util.Locale.US, "%.1f", WakeWordTestStatus.inputRmsDbfs)
+                + "/" + String.format(java.util.Locale.US, "%.1f", WakeWordTestStatus.inputPeakDbfs)
+                + " dBFS | input " + WakeWordTestStatus.routedInput
+                + " | pass/fail " + WakeWordTestStatus.passCount + "/" + WakeWordTestStatus.failCount);
     }
 
     @Override
@@ -154,6 +235,12 @@ public final class MainActivity extends Activity {
 
     private boolean hasRecordAudioPermission() {
         return checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    @Override
+    protected void onDestroy() {
+        handler.removeCallbacks(refreshRunnable);
+        super.onDestroy();
     }
 
     private static void styleButton(Button button) {

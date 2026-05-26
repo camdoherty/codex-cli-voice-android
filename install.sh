@@ -206,7 +206,7 @@ install_widgets() {
     shortcuts_dir="$CCVA_WIDGET_DIR"
     mkdir -p "$scripts_dir" "$shortcuts_dir"
 
-    for name in codex-api codex-voice codex-install-tts-stt; do
+    for name in codex-api codex-voice codex-install-stts; do
         ln -sfn "$CCVA_PREFIX/bin/$name" "$scripts_dir/$name"
     done
 
@@ -230,27 +230,43 @@ EOF
 #!/data/data/com.termux/files/usr/bin/sh
 exec "$HOME/scripts/codex-voice" --allow-realtime
 EOF
-    cat > "$shortcuts_dir/tts-stt-start" <<'EOF'
+    cat > "$shortcuts_dir/stts-start" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start
 EOF
-    cat > "$shortcuts_dir/Start TTS STT Voice Mode" <<'EOF'
+    cat > "$shortcuts_dir/Start STTS Voice Mode" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start
 EOF
-    cat > "$shortcuts_dir/tts-stt-stop" <<'EOF'
+    cat > "$shortcuts_dir/stts-stop" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" stop
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
 EOF
-    cat > "$shortcuts_dir/tts-stt-status" <<'EOF'
+    cat > "$shortcuts_dir/stts-talk" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-"$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
+EOF
+    cat > "$shortcuts_dir/wake-voice-start" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" wake
+EOF
+    cat > "$shortcuts_dir/wake-voice-stop" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
+EOF
+    cat > "$shortcuts_dir/wake-voice-doctor" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" doctor
+EOF
+    cat > "$shortcuts_dir/stts-status" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+"$HOME/.codex/skills/stts/scripts/stts-session.sh" status
 printf '\nPress enter to close... '
 read _answer
 EOF
-    cat > "$shortcuts_dir/tts-stt-diag" <<'EOF'
+    cat > "$shortcuts_dir/stts-diag" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-"$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" diag
+"$HOME/.codex/skills/stts/scripts/stts-session.sh" diag
 printf '\nPress enter to close... '
 read _answer
 EOF
@@ -260,11 +276,22 @@ EOF
         "$shortcuts_dir/Codex Resume Last" \
         "$shortcuts_dir/codex-voice" \
         "$shortcuts_dir/Start API($) Realtime Voice Mode" \
-        "$shortcuts_dir/tts-stt-start" \
-        "$shortcuts_dir/Start TTS STT Voice Mode" \
-        "$shortcuts_dir/tts-stt-stop" \
-        "$shortcuts_dir/tts-stt-status" \
-        "$shortcuts_dir/tts-stt-diag"
+        "$shortcuts_dir/stts-start" \
+        "$shortcuts_dir/Start STTS Voice Mode" \
+        "$shortcuts_dir/stts-stop" \
+        "$shortcuts_dir/stts-talk" \
+        "$shortcuts_dir/wake-voice-start" \
+        "$shortcuts_dir/wake-voice-stop" \
+        "$shortcuts_dir/wake-voice-doctor" \
+        "$shortcuts_dir/stts-status" \
+        "$shortcuts_dir/stts-diag"
+    old_slug="tts""-stt"
+    rm -f \
+        "$shortcuts_dir/${old_slug}-start" \
+        "$shortcuts_dir/Start TTS"" STT Voice Mode" \
+        "$shortcuts_dir/${old_slug}-stop" \
+        "$shortcuts_dir/${old_slug}-status" \
+        "$shortcuts_dir/${old_slug}-diag"
 }
 
 remove_existing_install() {
@@ -273,7 +300,9 @@ remove_existing_install() {
         "$CCVA_PREFIX/bin/codex" \
         "$CCVA_PREFIX/bin/codex-api" \
         "$CCVA_PREFIX/bin/codex-voice" \
-        "$CCVA_PREFIX/bin/codex-install-tts-stt"
+        "$CCVA_PREFIX/bin/codex-install-stts"
+    old_slug="tts""-stt"
+    rm -rf "$HOME/.codex/skills/$old_slug"
 }
 
 ensure_storage_downloads() {
@@ -309,9 +338,9 @@ run_smoke() {
     log "running non-billable smoke checks"
     codex --version
     codex-api --version
-    command -v codex-install-tts-stt >/dev/null 2>&1 || die "codex-install-tts-stt is not on PATH"
-    [ -x "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" ] || die "tts-stt skill is not installed"
-    sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status
+    command -v codex-install-stts >/dev/null 2>&1 || die "codex-install-stts is not on PATH"
+    [ -x "$HOME/.codex/skills/stts/scripts/stts-session.sh" ] || die "stts skill is not installed"
+    sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" status
 
     set +e
     codex-voice >/dev/null 2>&1
@@ -335,15 +364,17 @@ EOF
 3. Open the shim app from Android and grant microphone permission.
 4. Verify the shim from Termux:
    python -c 'import socket; s=socket.socket(); s.settimeout(2); s.connect(("127.0.0.1", 8765)); print("port-open"); s.close()'
-5. Start local voice with:
-   \$tts-stt start
+5. Optional wake-word setup:
+   stts-diag --download
+6. Start local voice with:
+   \$stts start
 EOF
     else
         cat <<'EOF'
 2. Shim APK staging was skipped. Install the shim APK manually before voice testing.
 3. Open the shim app from Android and grant microphone permission.
 4. Start local voice with:
-   $tts-stt start
+   $stts start
 EOF
     fi
     cat <<'EOF'
@@ -404,7 +435,7 @@ tar -tzf "$cli_path" >/dev/null
 remove_existing_install
 tar -xzf "$cli_path" -C "$CCVA_PREFIX"
 
-codex-install-tts-stt
+codex-install-stts
 
 if [ "$CCVA_INSTALL_WIDGETS" = "1" ]; then
     install_widgets

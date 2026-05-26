@@ -1,7 +1,7 @@
 # Voice Modes
 
 Codex CLI Voice Android ships two validated voice modes with different goals
-and cost profiles. `$tts-stt` is the Plus-friendly local mode. `codex-voice
+and cost profiles. `$stts` is the Plus-friendly local mode. `codex-voice
 --allow-realtime` is OpenAI Codex CLI Realtime voice mode adapted for Android
 native audio, and uses OpenAI Realtime API billing.
 
@@ -11,13 +11,13 @@ Use **Local Half-Duplex Voice** for Plus-friendly mobile voice intake and normal
 agent work:
 
 ```sh
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start
 ```
 
 or ask Codex:
 
 ```text
-$tts-stt start
+$stts start
 ```
 
 Use **OpenAI Codex Realtime Voice** only when you want Codex CLI's realtime
@@ -29,41 +29,44 @@ codex-voice --allow-realtime
 
 ## Local Half-Duplex Voice
 
-`$tts-stt` is a walkie-talkie-like voice mode that can be used with Plus
+`$stts` is a walkie-talkie-like voice mode that can be used with Plus
 accounts. No OpenAI API key is required for the voice path.
 
 Default path:
 
 ```text
-tts-stt -> ws://127.0.0.1:8765/v1/text-voice -> Android TextToSpeech/SpeechRecognizer
+stts -> ws://127.0.0.1:8765/v1/text-voice -> Android TextToSpeech/SpeechRecognizer
 ```
 
 Fallback path:
 
 ```text
-tts-stt -> termux-tts-speak / termux-speech-to-text
+stts -> termux-tts-speak / termux-speech-to-text
 ```
 
 Start surfaces:
 
-- Agent: `$tts-stt start`
-- Command: `sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" start`
-- Termux:Widget: `tts-stt-start`
-- Termux:Widget friendly label: `Start TTS STT Voice Mode`
+- Agent: `$stts start`
+- Command: `sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start`
+- Termux:Widget: `stts-start`
+- Termux:Widget friendly label: `Start STTS Voice Mode`
+- Tap-to-talk command: `stts-talk`
+- Wake mode command: `wake-voice-start`
 
 Useful checks:
 
 ```sh
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" diag
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" say "Voice is ready."
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" stt-check
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" diag
+stts-diag --download
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" say "Voice is ready."
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stt-check
 ```
 
 Stop and cleanup:
 
 ```sh
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" stop
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" cleanup
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" cleanup
 ```
 
 ## OpenAI Codex Realtime Voice
@@ -113,9 +116,10 @@ sh scripts/install_termux_launchers.sh
 ```sh
 codex --version
 codex-voice
-codex-install-tts-stt
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" diag
-sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" say "Voice is ready."
+codex-install-stts
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" diag
+stts-diag --download
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" say "Voice is ready."
 ```
 
 `codex-voice` without `--allow-realtime` should print the billing guard and exit
