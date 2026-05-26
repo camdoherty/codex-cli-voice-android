@@ -4,7 +4,7 @@
   "arch": "aarch64",
   "release_tag": "v0.133.0-android.1",
   "cli_tarball": "codex-cli-voice-android-rust-v0.133.0.tar.gz",
-  "cli_sha256": "6faaac50ce74f52be5e815ac8b642f9912a010af280833b59df823c0860e722b",
+  "cli_sha256": "37bf5265c2e762f3b3c66467e2dd9f2d3537f6d953a71ed0cdb8f4987985a967",
   "shim_apk": "codex-aec-shim-debug.apk",
   "shim_sha256": "d36a2d6b7f15318b14b94bcbfa85929fabe88d958956e853187617d085cb0dff",
   "tested_devices": ["Pixel6a", "Pixel9"]
