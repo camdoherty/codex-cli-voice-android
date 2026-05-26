@@ -103,6 +103,7 @@ set --
 [ -e bin/codex-api ] && set -- "$@" bin/codex-api
 [ -e bin/codex-voice ] && set -- "$@" bin/codex-voice
 [ -e bin/codex-install-stts ] && set -- "$@" bin/codex-install-stts
+[ -e bin/codex-install-tts-stt ] && set -- "$@" bin/codex-install-tts-stt
 [ -e libexec/codex-cli-voice-android ] && set -- "$@" libexec/codex-cli-voice-android
 [ -e opt/codex-termux ] && set -- "$@" opt/codex-termux
 [ "$#" -gt 0 ] || [ "$allow_fresh_install" = "1" ] || {
@@ -121,12 +122,20 @@ else
 fi
 
 rm -rf "$PREFIX/libexec/codex-cli-voice-android" "$PREFIX/opt/codex-termux"
-rm -f "$PREFIX/bin/codex" "$PREFIX/bin/codex-api" "$PREFIX/bin/codex-voice" "$PREFIX/bin/codex-install-stts"
+rm -f "$PREFIX/bin/codex" "$PREFIX/bin/codex-api" "$PREFIX/bin/codex-voice" \
+    "$PREFIX/bin/codex-install-stts" "$PREFIX/bin/codex-install-tts-stt" \
+    "$PREFIX/bin/tts-stt-start" "$PREFIX/bin/tts-stt-stop" \
+    "$PREFIX/bin/tts-stt-status" "$PREFIX/bin/tts-stt-diag" \
+    "$PREFIX/bin/tts-stt-talk"
 tar -xzf "$artifact" -C "$PREFIX"
 
 codex-install-stts
 
 mkdir -p "$HOME/scripts"
+rm -f "$HOME/scripts/codex-install-tts-stt" \
+    "$HOME/scripts/tts-stt-start" "$HOME/scripts/tts-stt-stop" \
+    "$HOME/scripts/tts-stt-status" "$HOME/scripts/tts-stt-diag" \
+    "$HOME/scripts/tts-stt-talk"
 for name in codex-api codex-voice codex-install-stts; do
     if [ -e "$HOME/scripts/$name" ] && [ ! -L "$HOME/scripts/$name" ]; then
         mkdir -p "$HOME/codex-script-backups-$ts"

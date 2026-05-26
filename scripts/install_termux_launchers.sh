@@ -103,8 +103,15 @@ chmod 700 \
 
 OLD_SLUG="tts""-stt"
 rm -f \
+    "$SCRIPTS_DIR/codex-install-tts-stt" \
+    "$SCRIPTS_DIR/${OLD_SLUG}-start" \
+    "$SCRIPTS_DIR/${OLD_SLUG}-stop" \
+    "$SCRIPTS_DIR/${OLD_SLUG}-status" \
+    "$SCRIPTS_DIR/${OLD_SLUG}-diag" \
+    "$SCRIPTS_DIR/${OLD_SLUG}-talk" \
     "$SHORTCUTS_DIR/${OLD_SLUG}-start" \
     "$SHORTCUTS_DIR/Start TTS"" STT Voice Mode" \
+    "$SHORTCUTS_DIR/${OLD_SLUG}-talk" \
     "$SHORTCUTS_DIR/${OLD_SLUG}-stop" \
     "$SHORTCUTS_DIR/${OLD_SLUG}-status" \
     "$SHORTCUTS_DIR/${OLD_SLUG}-diag"

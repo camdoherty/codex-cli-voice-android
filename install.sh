@@ -289,6 +289,7 @@ EOF
     rm -f \
         "$shortcuts_dir/${old_slug}-start" \
         "$shortcuts_dir/Start TTS"" STT Voice Mode" \
+        "$shortcuts_dir/${old_slug}-talk" \
         "$shortcuts_dir/${old_slug}-stop" \
         "$shortcuts_dir/${old_slug}-status" \
         "$shortcuts_dir/${old_slug}-diag"
@@ -300,9 +301,22 @@ remove_existing_install() {
         "$CCVA_PREFIX/bin/codex" \
         "$CCVA_PREFIX/bin/codex-api" \
         "$CCVA_PREFIX/bin/codex-voice" \
-        "$CCVA_PREFIX/bin/codex-install-stts"
+        "$CCVA_PREFIX/bin/codex-install-stts" \
+        "$CCVA_PREFIX/bin/codex-install-tts-stt" \
+        "$CCVA_PREFIX/bin/tts-stt-start" \
+        "$CCVA_PREFIX/bin/tts-stt-stop" \
+        "$CCVA_PREFIX/bin/tts-stt-status" \
+        "$CCVA_PREFIX/bin/tts-stt-diag" \
+        "$CCVA_PREFIX/bin/tts-stt-talk"
     old_slug="tts""-stt"
     rm -rf "$HOME/.codex/skills/$old_slug"
+    rm -f \
+        "$HOME/scripts/codex-install-tts-stt" \
+        "$HOME/scripts/${old_slug}-start" \
+        "$HOME/scripts/${old_slug}-stop" \
+        "$HOME/scripts/${old_slug}-status" \
+        "$HOME/scripts/${old_slug}-diag" \
+        "$HOME/scripts/${old_slug}-talk"
 }
 
 ensure_storage_downloads() {
@@ -367,14 +381,14 @@ EOF
 5. Optional wake-word setup:
    stts-diag --download
 6. Start local voice with:
-   \$stts start
+   stts start
 EOF
     else
         cat <<'EOF'
 2. Shim APK staging was skipped. Install the shim APK manually before voice testing.
 3. Open the shim app from Android and grant microphone permission.
 4. Start local voice with:
-   $stts start
+   stts start
 EOF
     fi
     cat <<'EOF'

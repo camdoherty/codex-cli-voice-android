@@ -70,5 +70,18 @@ if [ -e "$OLD_DEST" ]; then
     rm -rf "$OLD_DEST"
     echo "removed_old=$OLD_DEST"
 fi
+rm -f \
+    "$SCRIPTS_DIR/codex-install-tts-stt" \
+    "$BIN_DIR/codex-install-tts-stt" \
+    "$SCRIPTS_DIR/${OLD_SLUG}-start" \
+    "$SCRIPTS_DIR/${OLD_SLUG}-stop" \
+    "$SCRIPTS_DIR/${OLD_SLUG}-status" \
+    "$SCRIPTS_DIR/${OLD_SLUG}-diag" \
+    "$SCRIPTS_DIR/${OLD_SLUG}-talk" \
+    "$BIN_DIR/${OLD_SLUG}-start" \
+    "$BIN_DIR/${OLD_SLUG}-stop" \
+    "$BIN_DIR/${OLD_SLUG}-status" \
+    "$BIN_DIR/${OLD_SLUG}-diag" \
+    "$BIN_DIR/${OLD_SLUG}-talk"
 
 echo "installed=$DEST"
