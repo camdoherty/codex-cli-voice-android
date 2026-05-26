@@ -9,7 +9,7 @@
 Codex CLI compiled for Android/Termux with Android-native voice modes.
 
 Status: Alpha. The current upstream target is Codex `rust-v0.133.0`.
-This release was validated on Pixel6a and Pixel9 with Termux.
+This release was validated on Pixel 9 and 6a, Android 16, Termux 0.118.3.
 
 This repository does not vendor the upstream Codex source tree.
 
@@ -20,7 +20,7 @@ and uses OpenAI Realtime API billing.
 
 ## Why This Exists
 
-Android is a natural intake surface for Codex: always nearby, voice-capable,
+Android is a natural intake surface for Codex: nearby, voice-capable,
 sensor-rich, and close to the user's notes, files, notifications, and share
 flows.
 
