@@ -309,7 +309,8 @@ run_smoke() {
     log "running non-billable smoke checks"
     codex --version
     codex-api --version
-    codex-install-tts-stt
+    command -v codex-install-tts-stt >/dev/null 2>&1 || die "codex-install-tts-stt is not on PATH"
+    [ -x "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" ] || die "tts-stt skill is not installed"
     sh "$HOME/.codex/skills/tts-stt/scripts/tts-stt-session.sh" status
 
     set +e
