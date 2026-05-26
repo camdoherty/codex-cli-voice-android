@@ -58,6 +58,7 @@ for name in stts stts-start stts-stop stts-status stts-diag stts-talk wake-voice
             ;;
     esac
     if [ -e "$target" ]; then
+        rm -f "$SCRIPTS_DIR/$name" "$BIN_DIR/$name"
         write_launcher "$SCRIPTS_DIR/$name" "$target"
         write_launcher "$BIN_DIR/$name" "$target"
     fi
