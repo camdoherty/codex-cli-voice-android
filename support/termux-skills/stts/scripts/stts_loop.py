@@ -1648,7 +1648,16 @@ def ensure_tmux_session(
 ) -> None:
     ensure_command("tmux")
     session_name = TMUX_SESSION_NAME
-    if not tmux_session_exists(session_name):
+    session_exists = tmux_session_exists(session_name)
+    if session_exists and not wait_for_session_ready(0.2):
+        run_command(["tmux", "kill-session", "-t", session_name])
+        remove_command_fifo()
+        try:
+            ACTIVITY_PANE_PATH.unlink()
+        except FileNotFoundError:
+            pass
+        session_exists = False
+    if not session_exists:
         script_path = str(Path(__file__).with_name("stts-session.sh"))
         session_args = replace_raw_command(raw_args, "session")
         command = shlex.join(["env", "CODEX_STTS_TMUX_HOST=1", "sh", script_path, *session_args])
