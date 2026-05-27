@@ -1070,7 +1070,7 @@ def wait_for_id_event(
             return event
 
 
-def wake_profile() -> dict[str, object]:
+def wake_profile(threshold: float = WAKE_THRESHOLD) -> dict[str, object]:
     return {
         "id": WAKE_PROFILE_ID,
         "label": WAKE_PHRASE,
@@ -1080,7 +1080,7 @@ def wake_profile() -> dict[str, object]:
         "embeddingPath": f"{WAKE_MODEL_APP_DIR}/embedding_model.onnx",
         "sampleRate": 16000,
         "frameMs": 80,
-        "threshold": WAKE_THRESHOLD,
+        "threshold": threshold,
         "cooldownMs": WAKE_COOLDOWN_MS,
         "licenseAcknowledged": True,
     }
@@ -1140,11 +1140,11 @@ def import_wake_models(source_dir: Path = WAKE_MODEL_CACHE_DIR) -> None:
         client.close()
 
 
-def validate_wake_models() -> tuple[bool, str]:
+def validate_wake_models(threshold: float = WAKE_THRESHOLD) -> tuple[bool, str]:
     try:
         client, _status = shim_connect(5.0)
         try:
-            request_id = send_action(client, "wake_model_validate", profile=wake_profile())
+            request_id = send_action(client, "wake_model_validate", profile=wake_profile(threshold))
             event = wait_for_id_event(client, request_id, {"wake_model_validate"}, 8.0)
             if event.get("valid"):
                 return True, "wake model valid"
@@ -1259,8 +1259,32 @@ def run_talk(cwd: str) -> int:
         client.close()
 
 
-def run_wake_loop(cwd: str, once: bool = False, fake_wake: bool = False) -> int:
-    ok, message = validate_wake_models()
+def summarize_wake_event(event: dict[str, object]) -> str:
+    name = event.get("event", "unknown")
+    score = event.get("score", event.get("lastWakeScore", ""))
+    threshold = event.get("threshold", "")
+    frame = event.get("frame", event.get("lastWakeFrame", ""))
+    elapsed = event.get("elapsedMs", event.get("lastWakeLatencyMs", ""))
+    parts = [f"wake_event: {name}"]
+    if score != "":
+        parts.append(f"score={score}")
+    if threshold != "":
+        parts.append(f"threshold={threshold}")
+    if frame != "":
+        parts.append(f"frame={frame}")
+    if elapsed != "":
+        parts.append(f"elapsedMs={elapsed}")
+    return " ".join(parts)
+
+
+def run_wake_loop(
+    cwd: str,
+    once: bool = False,
+    fake_wake: bool = False,
+    debug_scores: bool = False,
+    threshold: float = WAKE_THRESHOLD,
+) -> int:
+    ok, message = validate_wake_models(threshold)
     if not ok and not fake_wake:
         raise RuntimeError(message)
     client, _status = shim_connect(15.0)
@@ -1270,12 +1294,13 @@ def run_wake_loop(cwd: str, once: bool = False, fake_wake: bool = False) -> int:
         while time.monotonic() < stop_at:
             payload = {
                 "maxListenMs": 60_000,
-                "debugScores": False,
+                "debugScores": debug_scores,
             }
             if not fake_wake:
-                payload["profile"] = wake_profile()
+                payload["profile"] = wake_profile(threshold)
             request_id = send_action(client, "wake_start", **payload)
-            wait_for_id_event(client, request_id, {"wake_started"}, 15.0)
+            started_event = wait_for_id_event(client, request_id, {"wake_started"}, 15.0)
+            print(summarize_wake_event(started_event), flush=True)
             if fake_wake:
                 send_action(client, "wake_fake_detect")
             while True:
@@ -1286,7 +1311,11 @@ def run_wake_loop(cwd: str, once: bool = False, fake_wake: bool = False) -> int:
                         return 0
                     continue
                 event_name = event.get("event")
+                if event_name in {"wake_score", "wake_timeout", "wake_detected", "wake_stopped", "wake_idle", "wake_error"}:
+                    print(summarize_wake_event(event), flush=True)
                 if event_name in {"wake_timeout", "wake_stopped", "wake_idle"}:
+                    if once:
+                        return 1
                     break
                 if event_name == "ptt_button_pressed":
                     stop_id = send_action(client, "wake_stop")
@@ -1553,6 +1582,8 @@ def main() -> int:
     parser.add_argument("--source-dir", default=str(WAKE_MODEL_CACHE_DIR), help="Wake model staging directory.")
     parser.add_argument("--once", action="store_true", help="For wake mode: exit after one completed activation.")
     parser.add_argument("--fake-wake", action="store_true", help="For wake mode: use fake/manual wake instead of ONNX.")
+    parser.add_argument("--wake-debug-scores", action="store_true", help="For wake mode: print live wake score events.")
+    parser.add_argument("--wake-threshold", type=float, default=WAKE_THRESHOLD, help="For wake mode: override the wake detection threshold.")
     args = parser.parse_args()
 
     try:
@@ -1577,7 +1608,13 @@ def main() -> int:
         if args.command == "talk":
             return run_talk(resolve_working_dir(args.cwd))
         if args.command == "wake":
-            return run_wake_loop(resolve_working_dir(args.cwd), once=args.once, fake_wake=args.fake_wake)
+            return run_wake_loop(
+                resolve_working_dir(args.cwd),
+                once=args.once,
+                fake_wake=args.fake_wake,
+                debug_scores=args.wake_debug_scores,
+                threshold=args.wake_threshold,
+            )
         if args.command == "doctor":
             return run_stts_doctor(download=args.download)
         if args.command == "model-import":
