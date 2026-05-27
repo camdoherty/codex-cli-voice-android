@@ -8,7 +8,7 @@
 
 Codex CLI compiled for Android/Termux with Android-native voice modes.
 
-Status: Alpha. The current upstream target is Codex `rust-v0.133.0`.
+Status: `alpha`. The current upstream target is Codex `rust-v0.133.0`.
 This release was validated on Pixel 9 and 6a, Android 16, Termux 0.118.3.
 
 This repository does not vendor the upstream Codex source tree.
