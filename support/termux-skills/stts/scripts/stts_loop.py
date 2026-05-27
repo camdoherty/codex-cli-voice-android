@@ -1070,6 +1070,15 @@ def wait_for_id_event(
             return event
 
 
+def cue_ready(client: WebSocketTextClient) -> None:
+    try:
+        request_id = send_action(client, "cue_ready")
+        event = wait_for_id_event(client, request_id, {"cue_ready", "cue_failed"}, 3.0)
+        print(summarize_wake_event(event), flush=True)
+    except Exception as exc:
+        print(f"wake_event: cue_failed message={exc}", flush=True)
+
+
 def wake_profile(threshold: float = WAKE_THRESHOLD) -> dict[str, object]:
     return {
         "id": WAKE_PROFILE_ID,
@@ -1265,6 +1274,7 @@ def summarize_wake_event(event: dict[str, object]) -> str:
     threshold = event.get("threshold", "")
     frame = event.get("frame", event.get("lastWakeFrame", ""))
     elapsed = event.get("elapsedMs", event.get("lastWakeLatencyMs", ""))
+    message = event.get("message", "")
     parts = [f"wake_event: {name}"]
     if score != "":
         parts.append(f"score={score}")
@@ -1274,6 +1284,8 @@ def summarize_wake_event(event: dict[str, object]) -> str:
         parts.append(f"frame={frame}")
     if elapsed != "":
         parts.append(f"elapsedMs={elapsed}")
+    if message != "":
+        parts.append(f"message={message}")
     return " ".join(parts)
 
 
@@ -1283,6 +1295,7 @@ def run_wake_loop(
     fake_wake: bool = False,
     debug_scores: bool = False,
     threshold: float = WAKE_THRESHOLD,
+    cue: bool = True,
 ) -> int:
     ok, message = validate_wake_models(threshold)
     if not ok and not fake_wake:
@@ -1301,6 +1314,8 @@ def run_wake_loop(
             request_id = send_action(client, "wake_start", **payload)
             started_event = wait_for_id_event(client, request_id, {"wake_started"}, 15.0)
             print(summarize_wake_event(started_event), flush=True)
+            if cue:
+                cue_ready(client)
             if fake_wake:
                 send_action(client, "wake_fake_detect")
             while True:
@@ -1584,6 +1599,7 @@ def main() -> int:
     parser.add_argument("--fake-wake", action="store_true", help="For wake mode: use fake/manual wake instead of ONNX.")
     parser.add_argument("--wake-debug-scores", action="store_true", help="For wake mode: print live wake score events.")
     parser.add_argument("--wake-threshold", type=float, default=WAKE_THRESHOLD, help="For wake mode: override the wake detection threshold.")
+    parser.add_argument("--no-wake-cue", action="store_true", help="For wake mode: do not play the ready tone after arming.")
     args = parser.parse_args()
 
     try:
@@ -1614,6 +1630,7 @@ def main() -> int:
                 fake_wake=args.fake_wake,
                 debug_scores=args.wake_debug_scores,
                 threshold=args.wake_threshold,
+                cue=not args.no_wake_cue,
             )
         if args.command == "doctor":
             return run_stts_doctor(download=args.download)
