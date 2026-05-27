@@ -1588,6 +1588,7 @@ def wait_for_session_ready(timeout_seconds: float = 10.0) -> bool:
 def ensure_activity_pane(name: str) -> str:
     pane_id = read_activity_pane_id()
     if tmux_pane_exists(pane_id):
+        run_command(["tmux", "select-layout", "-t", f"{name}:0", "even-vertical"])
         return pane_id
 
     result = run_command(["tmux", "list-panes", "-t", f"{name}:0", "-F", "#{pane_id}"])
@@ -1597,6 +1598,7 @@ def ensure_activity_pane(name: str) -> str:
             pane_id = panes[1]
             ACTIVITY_PANE_PATH.write_text(f"{pane_id}\n", encoding="utf-8")
             reset_activity_pane(pane_id)
+            run_command(["tmux", "select-layout", "-t", f"{name}:0", "even-vertical"])
             return pane_id
 
     idle_script = "printf '%s\\n' 'STTS Codex activity pane ready.'; exec sh"
@@ -1604,7 +1606,7 @@ def ensure_activity_pane(name: str) -> str:
         [
             "tmux",
             "split-window",
-            "-h",
+            "-v",
             "-t",
             f"{name}:0",
             "-P",
@@ -1617,6 +1619,7 @@ def ensure_activity_pane(name: str) -> str:
         raise RuntimeError(split.stderr.strip() or "failed to create STTS activity pane")
     pane_id = split.stdout.strip()
     ACTIVITY_PANE_PATH.write_text(f"{pane_id}\n", encoding="utf-8")
+    run_command(["tmux", "select-layout", "-t", f"{name}:0", "even-vertical"])
     return pane_id
 
 
