@@ -8,7 +8,8 @@ native audio, and uses OpenAI Realtime API billing.
 ## Quick Chooser
 
 Use **Local Half-Duplex Voice** for Plus-friendly mobile voice intake and normal
-agent work:
+agent work. `stts start` creates or attaches the persistent `ccva-stts` tmux
+session; `stts talk` sends one voice turn into that session.
 
 ```sh
 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start
@@ -52,6 +53,19 @@ Start surfaces:
 - Termux:Widget friendly label: `Start STTS Voice Mode`
 - Tap-to-talk command: `stts-talk`
 - Wake mode command: `wake-voice-start`
+- Experimental continuous loop: `stts-loop`
+
+Command behavior:
+
+- `stts start`: create or attach the persistent `ccva-stts` tmux session.
+- `stts talk`: run one speech-to-text turn against the active session history.
+- `stts wake`: run wake/PTT-triggered turns.
+- `stts loop`: run the older continuous auto-listen loop. This is useful for
+  testing, but may repeatedly trigger Android SpeechRecognizer beeps.
+- `stts stop`: stop the active session and voice helpers.
+
+The default session safety timeout is one hour. Use `--timeout-seconds` only
+for bounded tests.
 
 Useful checks:
 

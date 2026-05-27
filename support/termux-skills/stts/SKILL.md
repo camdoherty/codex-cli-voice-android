@@ -21,9 +21,9 @@ When invoked as `$stts start`:
 
 1. Keep Termux visible if possible and keep the screen on.
 2. Speak the opener: `Voice activated.` unless the user asked for different wording.
-3. Start the persistent session controller with `sh scripts/stts-session.sh start`.
-4. Keep the conversation running until the user says `stop` or the session timeout is reached.
-5. Let the controller gather the transcript, call `codex exec`, print visible status/transcript/response lines, speak the reply through shim TTS when available, wait for shim completion, wait the post-TTS recovery gap, and reopen listening automatically.
+3. Create or attach the persistent `ccva-stts` tmux session with `sh scripts/stts-session.sh start`.
+4. Keep the session ready until the user triggers a turn, says `stop`, or the session timeout is reached.
+5. Use `stts talk` for one voice turn against the active session history, or `stts wake` for wake/PTT-triggered turns.
 
 Manual equivalent from Termux:
 
@@ -45,7 +45,8 @@ Prefer this path over the full session when the user only wants speech output.
 
 - Prefer `--stt-backend auto` for live use. It tries shim STT first and falls back to Termux STT only when the shim recognizer is unavailable before listening starts.
 - For one-shot speech, prefer `sh scripts/stts-session.sh say "<text>"` instead of starting the full loop.
-- Run the main loop through `sh scripts/stts-session.sh start`; do not stop after the first transcript.
+- Run the persistent session through `sh scripts/stts-session.sh start`; run one turn with `sh scripts/stts-session.sh talk`.
+- Use `sh scripts/stts-session.sh loop` only when the user explicitly wants the experimental continuous auto-listen loop.
 - For project-specific work, start the session with `--cwd /path/to/repo` so `codex exec` has the right workspace context.
 - Do not change Android volume unless the user explicitly asks for it.
 - The controller uses `--tts-backend auto` by default: Android shim TTS first, Termux API TTS fallback.

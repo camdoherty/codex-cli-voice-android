@@ -238,6 +238,10 @@ EOF
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start
 EOF
+    cat > "$shortcuts_dir/STTS Loop" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" loop
+EOF
     cat > "$shortcuts_dir/stts-stop" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
@@ -278,6 +282,7 @@ EOF
         "$shortcuts_dir/Start API($) Realtime Voice Mode" \
         "$shortcuts_dir/stts-start" \
         "$shortcuts_dir/Start STTS Voice Mode" \
+        "$shortcuts_dir/STTS Loop" \
         "$shortcuts_dir/stts-stop" \
         "$shortcuts_dir/stts-talk" \
         "$shortcuts_dir/wake-voice-start" \

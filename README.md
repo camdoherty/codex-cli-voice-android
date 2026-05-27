@@ -95,8 +95,13 @@ expected user-facing surfaces are:
 - Codex skill: `$stts`
 - Termux:Widget shortcuts: `Codex`, `Codex Resume Last`,
   `Start STTS Voice Mode`, `Start API($) Realtime Voice Mode`,
-  `stts-start`, `stts-talk`, `stts-stop`, `stts-status`, `stts-diag`,
+  `stts-start`, `stts-talk`, `stts-loop`, `stts-stop`, `stts-status`, `stts-diag`,
   `wake-voice-start`, `wake-voice-stop`, `wake-voice-doctor`
+
+`stts start` creates or attaches the persistent `ccva-stts` tmux session.
+Use `stts talk` for one voice turn against that session, `stts wake` for
+wake/PTT mode, and `stts loop` only when you want the experimental continuous
+auto-listen loop.
 
 Agents can install or refresh those shortcuts from a synced repo with:
 

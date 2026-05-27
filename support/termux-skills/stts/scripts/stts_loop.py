@@ -6,9 +6,11 @@ import json
 import os
 import re
 import select
+import shlex
 import signal
 import shutil
 import socket
+import stat
 import struct
 import subprocess
 import sys
@@ -21,7 +23,7 @@ DEFAULT_POST_SPEECH_DELAY_SECONDS = 6
 DEFAULT_POST_TTS_RECOVERY_SECONDS = 1.0
 DEFAULT_TTS_DRAIN_TIMEOUT_SECONDS = 0.0
 DEFAULT_REPLACEMENT_TTS_RECOVERY_SECONDS = 2.0
-DEFAULT_SESSION_TIMEOUT_SECONDS = 8 * 60
+DEFAULT_SESSION_TIMEOUT_SECONDS = 60 * 60
 DEFAULT_EMPTY_RETRIES = 1
 DEFAULT_EMPTY_LISTEN_DELAY_SECONDS = 4.0
 DEFAULT_TTS_STREAM = "MUSIC"
@@ -101,6 +103,8 @@ RUNTIME_DIR = Path(
     )
 )
 PID_PATH = RUNTIME_DIR / "session.pid"
+COMMAND_FIFO_PATH = RUNTIME_DIR / "session.fifo"
+TMUX_SESSION_NAME = os.environ.get("CODEX_STTS_TMUX_SESSION", "ccva-stts")
 ACTIVE_TTS_PROCS: list[subprocess.Popen[str]] = []
 LAST_TTS_COMPLETED = False
 
@@ -463,6 +467,7 @@ def pause_after_speech(
     transcript_path: Path,
     recovery_seconds: float,
     drain_timeout_seconds: float,
+    next_state: str = "listening",
 ) -> None:
     global LAST_TTS_COMPLETED
 
@@ -476,7 +481,7 @@ def pause_after_speech(
             transcript_path,
         )
     if recovery_seconds > 0:
-        emit(transcript_path, "status", f"audio recovery; waiting {recovery_seconds:g}s before listening")
+        emit(transcript_path, "status", f"audio recovery; waiting {recovery_seconds:g}s before {next_state}")
         time.sleep(recovery_seconds)
 
 
@@ -816,6 +821,46 @@ def clear_session_pid() -> None:
             pass
 
 
+def prepare_command_fifo() -> None:
+    RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        mode = COMMAND_FIFO_PATH.stat().st_mode
+    except FileNotFoundError:
+        os.mkfifo(COMMAND_FIFO_PATH)
+        return
+    if not stat.S_ISFIFO(mode):
+        COMMAND_FIFO_PATH.unlink()
+        os.mkfifo(COMMAND_FIFO_PATH)
+
+
+def remove_command_fifo() -> None:
+    try:
+        if stat.S_ISFIFO(COMMAND_FIFO_PATH.stat().st_mode):
+            COMMAND_FIFO_PATH.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def send_session_command(command: str, timeout_seconds: float = 1.0) -> bool:
+    pid = read_session_pid()
+    if not pid or not process_is_alive(pid) or not COMMAND_FIFO_PATH.exists():
+        return False
+    deadline = time.monotonic() + timeout_seconds
+    payload = f"{command.strip()}\n".encode("utf-8")
+    while time.monotonic() < deadline:
+        try:
+            fd = os.open(COMMAND_FIFO_PATH, os.O_WRONLY | os.O_NONBLOCK)
+        except OSError:
+            time.sleep(0.05)
+            continue
+        try:
+            os.write(fd, payload)
+            return True
+        finally:
+            os.close(fd)
+    return False
+
+
 def stop_existing_session() -> str:
     pid = read_session_pid()
     if not pid:
@@ -859,9 +904,17 @@ def cleanup_voice_helpers() -> list[str]:
 
 
 def cleanup_voice_processes() -> str:
-    messages = [stop_existing_session()]
+    stop_requested = send_session_command("stop", timeout_seconds=0.2)
+    messages: list[str] = []
+    if stop_requested:
+        messages.append("stop requested from active session")
+        time.sleep(0.2)
+    session_status = stop_existing_session()
+    if session_status != "no recorded session" or not stop_requested:
+        messages.append(session_status)
     messages.extend(cleanup_voice_helpers())
     clear_session_pid()
+    remove_command_fifo()
     return "; ".join(messages)
 
 
@@ -1235,18 +1288,29 @@ def run_stts_turn_on_client(
     cwd: str,
     history: list[tuple[str, str]],
     transcript: str | None = None,
+    transcript_path: Path | None = None,
 ) -> bool:
     if transcript is None:
+        if transcript_path is not None:
+            emit(transcript_path, "status", "listening")
         transcript = listen_once_on_client(client, 15.0)
     if not transcript:
+        if transcript_path is not None:
+            emit(transcript_path, "status", "no transcript")
         send_action(client, "client_state", state="ready")
         return False
     history.append(("user", transcript))
+    if transcript_path is not None:
+        emit(transcript_path, "user", transcript)
     if should_stop(transcript):
+        if transcript_path is not None:
+            emit(transcript_path, "assistant", "Okay, stopping here.")
         send_action(client, "client_state", state="ready")
         return True
     host_summary = gather_host_summary(cwd)
     prompt = build_prompt(host_summary, history, transcript)
+    if transcript_path is not None:
+        emit(transcript_path, "status", "generating reply")
     send_action(client, "client_state", state="processing")
     try:
         reply = generate_reply_cancellable(prompt, cwd, client)
@@ -1254,18 +1318,220 @@ def run_stts_turn_on_client(
         reply = "I hit a problem generating my reply. Ask again, or say stop."
         print(f"stts-turn: {exc}", file=sys.stderr)
     history.append(("assistant", reply))
+    if transcript_path is not None:
+        emit(transcript_path, "assistant", reply)
     wait_for_shim_tts(client, reply)
+    if transcript_path is not None:
+        emit(transcript_path, "tts", "tts complete on shim")
     send_action(client, "client_state", state="ready")
     return False
 
 
-def run_talk(cwd: str) -> int:
+def run_talk(cwd: str, require_session: bool = True) -> int:
+    if send_session_command("talk"):
+        print(f"talk request sent to {TMUX_SESSION_NAME}")
+        return 0
+    if require_session:
+        print(f"no active STTS session; run `stts start` first", file=sys.stderr)
+        return 2
     client, _status = shim_connect(15.0)
     try:
         stopped = run_stts_turn_on_client(client, cwd, [])
         return 0 if not stopped else 130
     finally:
         client.close()
+
+
+def read_fifo_commands(fifo_fd: int, pending: str) -> tuple[list[str], str]:
+    try:
+        data = os.read(fifo_fd, 4096)
+    except BlockingIOError:
+        return [], pending
+    if not data:
+        return [], pending
+    pending += data.decode("utf-8", errors="replace")
+    lines = pending.splitlines(keepends=True)
+    commands: list[str] = []
+    remainder = ""
+    for line in lines:
+        if line.endswith("\n") or line.endswith("\r"):
+            command = line.strip()
+            if command:
+                commands.append(command)
+        else:
+            remainder = line
+    return commands, remainder
+
+
+def run_session_host(
+    opener: str,
+    post_speech_delay_seconds: int,
+    post_tts_recovery_seconds: float,
+    tts_drain_timeout_seconds: float,
+    timeout_seconds: int,
+    tts_stream: str,
+    tts_backend: str,
+    working_dir: str,
+) -> int:
+    ensure_command("codex")
+    RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+    stop_messages = [stop_existing_session()]
+    helper_stop_messages = cleanup_voice_helpers()
+    stop_messages.extend(helper_stop_messages)
+    stop_status = "; ".join(stop_messages)
+    write_session_pid()
+    prepare_command_fifo()
+
+    session_id = time.strftime("%Y%m%d-%H%M%S")
+    transcript_path = RUNTIME_DIR / f"session-{session_id}.txt"
+    (RUNTIME_DIR / "last-session.txt").write_text(str(transcript_path), encoding="utf-8")
+    append_log(transcript_path, f"session_id: {session_id}")
+    append_log(transcript_path, f"session_pid: {os.getpid()}")
+    append_log(transcript_path, f"mode: session")
+    append_log(transcript_path, f"startup: {stop_status}")
+    append_log(transcript_path, f"working_dir: {working_dir}")
+
+    history: list[tuple[str, str]] = []
+    history.append(("assistant", opener))
+    emit(transcript_path, "assistant", opener)
+    emit(transcript_path, "tts", say_text(opener, stream_name=tts_stream, backend=tts_backend))
+    pause_after_speech(
+        opener,
+        post_speech_delay_seconds,
+        transcript_path,
+        post_tts_recovery_seconds,
+        tts_drain_timeout_seconds,
+        next_state="ready",
+    )
+    emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
+
+    fifo_fd = os.open(COMMAND_FIFO_PATH, os.O_RDONLY | os.O_NONBLOCK)
+    keepalive_fd = os.open(COMMAND_FIFO_PATH, os.O_WRONLY | os.O_NONBLOCK)
+    pending = ""
+    stop_at = time.monotonic() + timeout_seconds
+    try:
+        while time.monotonic() < stop_at:
+            readable, _, _ = select.select([fifo_fd], [], [], 1.0)
+            if not readable:
+                continue
+            commands, pending = read_fifo_commands(fifo_fd, pending)
+            for command in commands:
+                normalized = normalize_text(command)
+                if normalized in {"stop", "quit", "exit"}:
+                    emit(transcript_path, "status", "stopping")
+                    return 0
+                if normalized == "status":
+                    emit(transcript_path, "status", "ready")
+                    continue
+                if normalized == "talk":
+                    try:
+                        turn_client, _status = shim_connect(15.0)
+                        try:
+                            stopped = run_stts_turn_on_client(
+                                turn_client,
+                                working_dir,
+                                history,
+                                transcript_path=transcript_path,
+                            )
+                        finally:
+                            turn_client.close()
+                    except Exception as exc:
+                        emit(transcript_path, "status", f"turn failed: {exc}")
+                        stopped = False
+                    if stopped:
+                        return 0
+                    emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
+                    continue
+                emit(transcript_path, "status", f"unknown command: {command}")
+        timeout_reply = "Timing out."
+        emit(transcript_path, "assistant", timeout_reply)
+        emit(transcript_path, "tts", say_text(timeout_reply, stream_name=tts_stream, backend=tts_backend))
+        return 0
+    finally:
+        os.close(keepalive_fd)
+        os.close(fifo_fd)
+        remove_command_fifo()
+        clear_session_pid()
+
+
+SESSION_COMMANDS = {
+    "start",
+    "say",
+    "listen",
+    "talk",
+    "wake",
+    "doctor",
+    "model-import",
+    "status",
+    "diag",
+    "stt-check",
+    "stop",
+    "cleanup",
+    "session",
+    "loop",
+}
+
+
+def replace_raw_command(raw_args: list[str], replacement: str) -> list[str]:
+    updated = list(raw_args)
+    for index, token in enumerate(updated):
+        if token in SESSION_COMMANDS:
+            updated[index] = replacement
+            return updated
+    return [replacement, *updated]
+
+
+def tmux_session_exists(name: str) -> bool:
+    result = run_command(["tmux", "has-session", "-t", name])
+    return result.returncode == 0
+
+
+def attach_or_switch_tmux_session(name: str) -> int:
+    if not sys.stdout.isatty():
+        print(f"stts session running in tmux: {name}")
+        return 0
+    if os.environ.get("TMUX"):
+        result = run_command(["tmux", "switch-client", "-t", name])
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or f"failed to switch to tmux session {name}")
+        return 0
+    os.execvp("tmux", ["tmux", "attach-session", "-t", name])
+    return 0
+
+
+def run_start_tmux(
+    raw_args: list[str],
+    opener: str,
+    post_speech_delay_seconds: int,
+    post_tts_recovery_seconds: float,
+    tts_drain_timeout_seconds: float,
+    timeout_seconds: int,
+    tts_stream: str,
+    tts_backend: str,
+    working_dir: str,
+) -> int:
+    if os.environ.get("CODEX_STTS_TMUX_HOST") == "1" or shutil.which("tmux") is None:
+        return run_session_host(
+            opener,
+            post_speech_delay_seconds,
+            post_tts_recovery_seconds,
+            tts_drain_timeout_seconds,
+            timeout_seconds,
+            tts_stream,
+            tts_backend,
+            working_dir,
+        )
+
+    session_name = TMUX_SESSION_NAME
+    if not tmux_session_exists(session_name):
+        script_path = str(Path(__file__).with_name("stts-session.sh"))
+        session_args = replace_raw_command(raw_args, "session")
+        command = shlex.join(["env", "CODEX_STTS_TMUX_HOST=1", "sh", script_path, *session_args])
+        result = run_command(["tmux", "new-session", "-d", "-s", session_name, "-n", "stts", command])
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or f"failed to create tmux session {session_name}")
+        print(f"created tmux session: {session_name}")
+    return attach_or_switch_tmux_session(session_name)
 
 
 def summarize_wake_event(event: dict[str, object]) -> str:
@@ -1380,6 +1646,10 @@ def format_status() -> str:
         pid_status = f"stale pid {pid}"
     else:
         pid_status = "not running"
+    fifo_status = "command fifo ready" if COMMAND_FIFO_PATH.exists() else "command fifo missing"
+    tmux_status = "tmux unknown"
+    if shutil.which("tmux"):
+        tmux_status = f"tmux {TMUX_SESSION_NAME} {'running' if tmux_session_exists(TMUX_SESSION_NAME) else 'not running'}"
 
     volume_status = "volume unknown"
     if shutil.which("termux-volume"):
@@ -1400,7 +1670,7 @@ def format_status() -> str:
     last_status = "last session unknown"
     if last_session.exists():
         last_status = f"last session {last_session.read_text(encoding='utf-8').strip()}"
-    return f"{pid_status}; {volume_status}; {last_status}"
+    return f"{pid_status}; {tmux_status}; {fifo_status}; {volume_status}; {last_status}"
 
 
 def run_diag() -> int:
@@ -1573,12 +1843,28 @@ def run_session(
 
 
 def main() -> int:
+    raw_args = sys.argv[1:]
     parser = argparse.ArgumentParser(description="Persistent STTS voice loop for Codex in Termux.")
     parser.add_argument(
         "command",
         nargs="?",
         default="start",
-        choices=["start", "say", "listen", "talk", "wake", "doctor", "model-import", "status", "diag", "stt-check", "stop", "cleanup"],
+        choices=[
+            "start",
+            "say",
+            "listen",
+            "talk",
+            "wake",
+            "doctor",
+            "model-import",
+            "status",
+            "diag",
+            "stt-check",
+            "stop",
+            "cleanup",
+            "session",
+            "loop",
+        ],
     )
     parser.add_argument("text", nargs="*")
     parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_SESSION_TIMEOUT_SECONDS)
@@ -1659,6 +1945,29 @@ def main() -> int:
             return 0
         opener = " ".join(args.text).strip() or DEFAULT_OPENER
         working_dir = resolve_working_dir(args.cwd)
+        if args.command == "start":
+            return run_start_tmux(
+                raw_args,
+                opener,
+                args.post_speech_delay,
+                args.post_tts_recovery,
+                args.tts_drain_timeout,
+                args.timeout_seconds,
+                args.tts_stream,
+                args.tts_backend,
+                working_dir,
+            )
+        if args.command == "session":
+            return run_session_host(
+                opener,
+                args.post_speech_delay,
+                args.post_tts_recovery,
+                args.tts_drain_timeout,
+                args.timeout_seconds,
+                args.tts_stream,
+                args.tts_backend,
+                working_dir,
+            )
         return run_session(
             opener,
             args.post_speech_delay,
