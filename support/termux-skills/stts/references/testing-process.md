@@ -224,7 +224,7 @@ python3 scripts/autotest_termux_stts_skill.py \
   --ssh-config "$SSH_CONFIG" \
   --ready-text 'status: listening' \
   --settle-ms 1000 \
-  --remote-command 'PYTHONUNBUFFERED=1 timeout 300 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" --cwd "$HOME" --tts-backend shim --stt-backend shim --timeout-seconds 240 --post-speech-delay 6 --post-tts-recovery 3 start "Testing full shim tts stt."' \
+  --remote-command 'PYTHONUNBUFFERED=1 timeout 300 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" --cwd "$HOME" --tts-backend shim --stt-backend shim --timeout-seconds 240 --post-speech-delay 6 start "Testing full shim tts stt."' \
   --turn "summarize|$FIXTURE_DIR/clips/01-smoke_current_task.wav|Codex summarize the current task and wait for my next instruction" \
   --turn "risk|$FIXTURE_DIR/clips/03-long_instruction.wav|Review the deployment notes identify the riskiest step and tell me what to test next" \
   --turn "stop|$FIXTURE_DIR/clips/99-stop_voice_mode.wav|stop voice" \
@@ -241,7 +241,7 @@ python3 scripts/autotest_termux_stts_skill.py \
   --ssh-config "$SSH_CONFIG" \
   --ready-text 'status: listening' \
   --settle-ms 1000 \
-  --remote-command 'PYTHONUNBUFFERED=1 timeout 300 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" --cwd "$HOME" --tts-backend shim --timeout-seconds 240 --post-speech-delay 6 --post-tts-recovery 3 start "Testing multi turn tts stt."' \
+  --remote-command 'PYTHONUNBUFFERED=1 timeout 300 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" --cwd "$HOME" --tts-backend shim --timeout-seconds 240 --post-speech-delay 6 start "Testing multi turn tts stt."' \
   --turn "summarize|$FIXTURE_DIR/clips/01-smoke_current_task.wav|Codex summarize the current task and wait for my next instruction" \
   --turn "risk|$FIXTURE_DIR/clips/03-long_instruction.wav|Review the deployment notes identify the riskiest step and tell me what to test next" \
   --turn "stop|$FIXTURE_DIR/clips/99-stop_voice_mode.wav|stop voice" \
@@ -249,7 +249,7 @@ python3 scripts/autotest_termux_stts_skill.py \
   --summary /tmp/codex-termux-stts-multiturn-summary.json
 ```
 
-Known evidence with shim TTS and `--post-tts-recovery 3`:
+Known evidence with shim TTS:
 
 - Forced raw shim STT on `01-smoke_current_task.wav`: 11/11 matched words, 1.0
   recall, no lingering voice/API helpers.
@@ -272,6 +272,9 @@ Known evidence with shim TTS and `--post-tts-recovery 3`:
 - `stop`: accepted by the skill if recognized as either `stop` or `stop voice`;
   harness expectations may need to match the exact generated stop fixture.
 - Final status: not running, no voice/API helper processes.
+- Live human multi-turn pass with `--post-tts-recovery 1`: six useful turns,
+  including weather intent, note creation, Android share retry after lock state,
+  and clean `stop voice mode`.
 
 ## Acceptance Criteria
 
@@ -292,7 +295,8 @@ Known evidence with shim TTS and `--post-tts-recovery 3`:
 - If raw STT fails, tune playback level, phone placement, fixture phrase, or
   recognizer settle timing before changing the full loop.
 - If raw STT passes but full-loop STT fails after TTS, tune post-TTS recovery
-  and response brevity first. The current Android shim-TTS baseline is 3s.
+  and response brevity first. The current Android shim-TTS default is 1s after
+  live human validation; use 3s only as a conservative control.
 - If no-speech windows are only a few seconds, do not treat that as the Python
   loop ending early. The recognizer is returning no-match.
 - If a test is interrupted, run `cleanup` and verify process state before the
@@ -300,14 +304,12 @@ Known evidence with shim TTS and `--post-tts-recovery 3`:
 
 ## Next Hardening Test
 
-The next pass can measure whether 3s is the smallest reliable shim-TTS
-post-TTS recovery gap. Keep 3s as the stable baseline because it now has two
-consecutive forced full-shim three-turn passes plus a forced full-shim
-silence-recovery pass.
+The next pass should confirm the 1s post-TTS recovery default with deterministic
+fixtures.
 
 1. Keep Bluetooth disconnected and reuse the same fixtures.
-2. Run the full multi-turn test with `--post-tts-recovery 3.0`.
-3. If it passes twice, try `2.5`.
-4. If either fails, rerun the current default `3.0` as the control.
-5. Do not change the default until at least two consecutive full-loop passes
-   exist at the candidate value.
+2. Run the full multi-turn test with the default post-TTS recovery.
+3. If it fails, rerun with `--post-tts-recovery 3.0` as the conservative
+   control.
+4. Do not reduce below 1s until at least two consecutive full-loop passes exist
+   at the candidate value.
