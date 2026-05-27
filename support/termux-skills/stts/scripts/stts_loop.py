@@ -1016,6 +1016,37 @@ def extract_codex_reply(stdout_text: str) -> str:
     return reply
 
 
+def extract_codex_error(stdout_text: str) -> str:
+    for line in stdout_text.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        message = event.get("message")
+        if isinstance(message, str) and message.strip():
+            return message.strip()
+        error = event.get("error")
+        if isinstance(error, dict):
+            nested = error.get("message")
+            if isinstance(nested, str) and nested.strip():
+                return nested.strip()
+    return ""
+
+
+def speakable_error(message: str) -> str:
+    lowered = message.lower()
+    if "usage limit" in lowered:
+        return "Codex hit its usage limit. Try again later."
+    if "api key" in lowered or "authentication" in lowered or "unauthorized" in lowered:
+        return "Codex is not authenticated. Check the login or API key."
+    if message:
+        return f"Codex failed: {message[:160]}"
+    return "Codex failed before returning a reply."
+
+
 def generate_reply(prompt: str, cwd: str) -> str:
     ensure_command("codex")
     result = subprocess.run(
@@ -1035,7 +1066,8 @@ def generate_reply(prompt: str, cwd: str) -> str:
         check=False,
     )
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "codex exec failed")
+        detail = extract_codex_error(result.stdout) or result.stderr.strip()
+        raise RuntimeError(speakable_error(detail))
     reply = extract_codex_reply(result.stdout)
     if not reply:
         raise RuntimeError("codex exec returned no assistant message")
@@ -1178,7 +1210,8 @@ exec sh
     stdout = output_path.read_text(encoding="utf-8", errors="replace") if output_path.exists() else ""
     rc = rc_path.read_text(encoding="utf-8", errors="replace").strip() if rc_path.exists() else "1"
     if rc != "0":
-        raise RuntimeError(stdout.strip() or f"codex exec failed with exit {rc}")
+        detail = extract_codex_error(stdout) or stdout.strip() or f"codex exec failed with exit {rc}"
+        raise RuntimeError(speakable_error(detail))
     reply = extract_codex_reply(stdout)
     if not reply:
         raise RuntimeError("codex exec returned no assistant message")
@@ -1415,7 +1448,7 @@ def run_stts_turn_on_client(
     try:
         reply = generate_reply_cancellable(prompt, cwd, client)
     except Exception as exc:
-        reply = "I hit a problem generating my reply. Ask again, or say stop."
+        reply = str(exc).strip() or "Codex failed before returning a reply."
         print(f"stts-turn: {exc}", file=sys.stderr)
     history.append(("assistant", reply))
     if transcript_path is not None:
