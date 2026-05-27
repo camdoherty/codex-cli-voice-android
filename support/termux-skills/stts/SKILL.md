@@ -15,20 +15,20 @@ This mode can be used with Plus accounts and does not require an OpenAI API key
 for the voice path. It uses the Android AEC shim `/v1/text-voice` endpoint for
 local STTS when available, and falls back to Termux API speech commands.
 
-## Start
+## Talk
 
-When invoked as `$stts start`:
+When invoked as `$stts` or `$stts talk`:
 
 1. Keep Termux visible if possible and keep the screen on.
-2. Speak the opener: `Voice activated.` unless the user asked for different wording.
-3. Create or attach the persistent `ccva-stts` tmux session with `sh scripts/stts-session.sh start`.
-4. Keep the session ready until the user triggers a turn, says `stop`, or the session timeout is reached.
-5. Use `stts talk` for one voice turn against the active session history, or `stts wake` for wake/PTT-triggered turns.
+2. Create the persistent `ccva-stts` tmux session if needed.
+3. Run one voice turn with `sh scripts/stts-session.sh talk`.
+4. Keep the session ready until the next turn, `stop`, or the session timeout is reached.
+5. Use `stts session` only when the user wants to inspect/open the tmux workspace without listening.
 
 Manual equivalent from Termux:
 
 ```sh
-sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
 ```
 
 ## One-Shot TTS
@@ -45,7 +45,8 @@ Prefer this path over the full session when the user only wants speech output.
 
 - Prefer `--stt-backend auto` for live use. It tries shim STT first and falls back to Termux STT only when the shim recognizer is unavailable before listening starts.
 - For one-shot speech, prefer `sh scripts/stts-session.sh say "<text>"` instead of starting the full loop.
-- Run the persistent session through `sh scripts/stts-session.sh start`; run one turn with `sh scripts/stts-session.sh talk`.
+- Run one turn with `sh scripts/stts-session.sh talk`; it starts the persistent session if needed.
+- Use `sh scripts/stts-session.sh session` to open the tmux workspace without listening.
 - Use `sh scripts/stts-session.sh loop` only when the user explicitly wants the experimental continuous auto-listen loop.
 - For project-specific work, start the session with `--cwd /path/to/repo` so `codex exec` has the right workspace context.
 - Do not change Android volume unless the user explicitly asks for it.

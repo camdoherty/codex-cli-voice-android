@@ -210,10 +210,6 @@ install_widgets() {
         ln -sfn "$CCVA_PREFIX/bin/$name" "$scripts_dir/$name"
     done
 
-    cat > "$shortcuts_dir/codex" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec codex
-EOF
     cat > "$shortcuts_dir/Codex" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec codex
@@ -222,76 +218,42 @@ EOF
 #!/data/data/com.termux/files/usr/bin/sh
 exec codex resume --last
 EOF
-    cat > "$shortcuts_dir/codex-voice" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec "$HOME/scripts/codex-voice"
-EOF
     cat > "$shortcuts_dir/Start API($) Realtime Voice Mode" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec "$HOME/scripts/codex-voice" --allow-realtime
 EOF
-    cat > "$shortcuts_dir/stts-start" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start
-EOF
     cat > "$shortcuts_dir/Start STTS Voice Mode" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start
-EOF
-    cat > "$shortcuts_dir/STTS Loop" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" loop
-EOF
-    cat > "$shortcuts_dir/stts-stop" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
-EOF
-    cat > "$shortcuts_dir/stts-talk" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
 EOF
-    cat > "$shortcuts_dir/wake-voice-start" <<'EOF'
+    cat > "$shortcuts_dir/Open STTS Session" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" wake
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" session
 EOF
-    cat > "$shortcuts_dir/wake-voice-stop" <<'EOF'
+    cat > "$shortcuts_dir/Stop STTS Voice Mode" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
 EOF
-    cat > "$shortcuts_dir/wake-voice-doctor" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" doctor
-EOF
-    cat > "$shortcuts_dir/stts-status" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-"$HOME/.codex/skills/stts/scripts/stts-session.sh" status
-printf '\nPress enter to close... '
-read _answer
-EOF
-    cat > "$shortcuts_dir/stts-diag" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-"$HOME/.codex/skills/stts/scripts/stts-session.sh" diag
-printf '\nPress enter to close... '
-read _answer
-EOF
     chmod 700 \
-        "$shortcuts_dir/codex" \
         "$shortcuts_dir/Codex" \
         "$shortcuts_dir/Codex Resume Last" \
-        "$shortcuts_dir/codex-voice" \
         "$shortcuts_dir/Start API($) Realtime Voice Mode" \
-        "$shortcuts_dir/stts-start" \
         "$shortcuts_dir/Start STTS Voice Mode" \
-        "$shortcuts_dir/STTS Loop" \
-        "$shortcuts_dir/stts-stop" \
+        "$shortcuts_dir/Open STTS Session" \
+        "$shortcuts_dir/Stop STTS Voice Mode"
+    old_slug="tts""-stt"
+    rm -f \
+        "$shortcuts_dir/codex" \
+        "$shortcuts_dir/codex-voice" \
+        "$shortcuts_dir/stts-start" \
         "$shortcuts_dir/stts-talk" \
+        "$shortcuts_dir/stts-stop" \
+        "$shortcuts_dir/stts-status" \
+        "$shortcuts_dir/stts-diag" \
+        "$shortcuts_dir/STTS Loop" \
         "$shortcuts_dir/wake-voice-start" \
         "$shortcuts_dir/wake-voice-stop" \
         "$shortcuts_dir/wake-voice-doctor" \
-        "$shortcuts_dir/stts-status" \
-        "$shortcuts_dir/stts-diag"
-    old_slug="tts""-stt"
-    rm -f \
         "$shortcuts_dir/${old_slug}-start" \
         "$shortcuts_dir/Start TTS"" STT Voice Mode" \
         "$shortcuts_dir/${old_slug}-talk" \
@@ -386,14 +348,14 @@ EOF
 5. Optional wake-word setup:
    stts-diag --download
 6. Start local voice with:
-   stts start
+   stts talk
 EOF
     else
         cat <<'EOF'
 2. Shim APK staging was skipped. Install the shim APK manually before voice testing.
 3. Open the shim app from Android and grant microphone permission.
 4. Start local voice with:
-   stts start
+   stts talk
 EOF
     fi
     cat <<'EOF'

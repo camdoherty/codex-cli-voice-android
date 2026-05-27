@@ -48,7 +48,7 @@ EOF
     chmod 700 "$path"
 }
 
-for name in stts stts-start stts-stop stts-status stts-diag stts-talk stts-loop wake-voice-start wake-voice-stop wake-voice-status wake-voice-doctor; do
+for name in stts stts-stop stts-status stts-diag stts-talk stts-loop wake-voice-start wake-voice-stop wake-voice-status wake-voice-doctor; do
     case "$name" in
         stts)
             target="$DEST/scripts/stts-session.sh"
@@ -78,6 +78,8 @@ rm -f \
     "$SCRIPTS_DIR/${OLD_SLUG}-status" \
     "$SCRIPTS_DIR/${OLD_SLUG}-diag" \
     "$SCRIPTS_DIR/${OLD_SLUG}-talk" \
+    "$SCRIPTS_DIR/stts-start" \
+    "$BIN_DIR/stts-start" \
     "$BIN_DIR/${OLD_SLUG}-start" \
     "$BIN_DIR/${OLD_SLUG}-stop" \
     "$BIN_DIR/${OLD_SLUG}-status" \

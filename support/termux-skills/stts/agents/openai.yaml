@@ -1,7 +1,7 @@
 interface:
   display_name: "Voice Session"
-  short_description: "Start a live voice loop or speak text aloud in Termux"
-  default_prompt: "Use $stts start for a live voice session, or sh scripts/stts-session.sh say \"text\" for one-shot speech."
+  short_description: "Run a local Android STTS voice turn in Termux"
+  default_prompt: "Use $stts talk for one voice turn, stts session to open the tmux workspace, or sh scripts/stts-session.sh say \"text\" for one-shot speech."
 
 policy:
   allow_implicit_invocation: false

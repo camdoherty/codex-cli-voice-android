@@ -94,7 +94,7 @@ CODEX_VOICE_ALLOW_REALTIME=1 codex-voice
 
 `codex-voice --allow-realtime` is OpenAI Codex CLI Realtime voice mode adapted
 for Android native audio through the AEC shim. It uses OpenAI Realtime API
-billing. Use `$stts start` for the Plus-friendly local half-duplex voice
+billing. Use `$stts talk` for the Plus-friendly local half-duplex voice
 mode.
 
 ## Missing API Key

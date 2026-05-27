@@ -8,17 +8,17 @@ native audio, and uses OpenAI Realtime API billing.
 ## Quick Chooser
 
 Use **Local Half-Duplex Voice** for Plus-friendly mobile voice intake and normal
-agent work. `stts start` creates or attaches the persistent `ccva-stts` tmux
-session; `stts talk` sends one voice turn into that session.
+agent work. `stts talk` starts the persistent `ccva-stts` tmux session if
+needed, listens once, and returns to ready.
 
 ```sh
-sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
 ```
 
 or ask Codex:
 
 ```text
-$stts start
+$stts talk
 ```
 
 Use **OpenAI Codex Realtime Voice** only when you want Codex CLI's realtime
@@ -47,19 +47,17 @@ stts -> termux-tts-speak / termux-speech-to-text
 
 Start surfaces:
 
-- Agent: `$stts start`
-- Command: `sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" start`
-- Termux:Widget: `stts-start`
+- Agent: `$stts talk`
+- Command: `sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk`
 - Termux:Widget friendly label: `Start STTS Voice Mode`
-- Tap-to-talk command: `stts-talk`
-- Wake mode command: `wake-voice-start`
-- Experimental continuous loop: `stts-loop`
+- Session-only command: `stts session`
+- Experimental continuous loop: `stts loop`
 
 Command behavior:
 
-- `stts start`: create or attach the persistent `ccva-stts` tmux session.
-- `stts talk`: run one speech-to-text turn against the active session history.
-- `stts wake`: run wake/PTT-triggered turns.
+- `stts` / `stts talk`: run one speech-to-text turn against the active session history.
+- `stts session`: open or attach the persistent `ccva-stts` tmux workspace without listening.
+- `stts wake`: run wake/PTT-triggered turns from the shell.
 - `stts loop`: run the older continuous auto-listen loop. This is useful for
   testing, but may repeatedly trigger Android SpeechRecognizer beeps.
 - `stts stop`: stop the active session and voice helpers.

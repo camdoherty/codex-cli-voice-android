@@ -104,6 +104,8 @@ RUNTIME_DIR = Path(
 )
 PID_PATH = RUNTIME_DIR / "session.pid"
 COMMAND_FIFO_PATH = RUNTIME_DIR / "session.fifo"
+ACTIVITY_PANE_PATH = RUNTIME_DIR / "activity-pane.txt"
+TURN_DIR = RUNTIME_DIR / "turns"
 TMUX_SESSION_NAME = os.environ.get("CODEX_STTS_TMUX_SESSION", "ccva-stts")
 ACTIVE_TTS_PROCS: list[subprocess.Popen[str]] = []
 LAST_TTS_COMPLETED = False
@@ -915,6 +917,10 @@ def cleanup_voice_processes() -> str:
     messages.extend(cleanup_voice_helpers())
     clear_session_pid()
     remove_command_fifo()
+    try:
+        ACTIVITY_PANE_PATH.unlink()
+    except FileNotFoundError:
+        pass
     return "; ".join(messages)
 
 
@@ -1037,6 +1043,9 @@ def generate_reply(prompt: str, cwd: str) -> str:
 
 
 def generate_reply_cancellable(prompt: str, cwd: str, client: WebSocketTextClient | None) -> str:
+    if client is not None and activity_pane_available():
+        return generate_reply_visible_in_tmux(prompt, cwd, client)
+
     ensure_command("codex")
     proc = subprocess.Popen(
         [
@@ -1079,6 +1088,97 @@ def generate_reply_cancellable(prompt: str, cwd: str, client: WebSocketTextClien
         raise
     if proc.returncode != 0:
         raise RuntimeError(stderr.strip() or stdout.strip() or "codex exec failed")
+    reply = extract_codex_reply(stdout)
+    if not reply:
+        raise RuntimeError("codex exec returned no assistant message")
+    return reply
+
+
+def read_activity_pane_id() -> str:
+    try:
+        return ACTIVITY_PANE_PATH.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return ""
+
+
+def tmux_pane_exists(pane_id: str) -> bool:
+    if not pane_id or shutil.which("tmux") is None:
+        return False
+    result = run_command(["tmux", "list-panes", "-a", "-F", "#{pane_id}"])
+    if result.returncode != 0:
+        return False
+    return pane_id in {line.strip() for line in result.stdout.splitlines()}
+
+
+def activity_pane_available() -> bool:
+    return tmux_pane_exists(read_activity_pane_id())
+
+
+def reset_activity_pane(pane_id: str, message: str = "STTS Codex activity pane ready.") -> None:
+    if not pane_id:
+        return
+    script = f"printf '%s\\n' {shlex.quote(message)}; exec sh"
+    run_command(["tmux", "respawn-pane", "-k", "-t", pane_id, shlex.join(["sh", "-lc", script])])
+
+
+def cancel_activity_pane(pane_id: str) -> None:
+    reset_activity_pane(pane_id, "STTS Codex turn cancelled.")
+
+
+def generate_reply_visible_in_tmux(prompt: str, cwd: str, client: WebSocketTextClient) -> str:
+    pane_id = read_activity_pane_id()
+    if not tmux_pane_exists(pane_id):
+        raise RuntimeError("STTS activity pane is unavailable")
+
+    TURN_DIR.mkdir(parents=True, exist_ok=True)
+    turn_id = time.strftime("%Y%m%d-%H%M%S") + f"-{os.getpid()}"
+    prompt_path = TURN_DIR / f"{turn_id}.prompt.txt"
+    output_path = TURN_DIR / f"{turn_id}.jsonl"
+    rc_path = TURN_DIR / f"{turn_id}.rc"
+    done_path = TURN_DIR / f"{turn_id}.done"
+    pipe_path = TURN_DIR / f"{turn_id}.pipe"
+    prompt_path.write_text(prompt, encoding="utf-8")
+
+    script = f"""
+set -u
+cd {shlex.quote(cwd)} || exit 1
+printf '\\033c'
+printf 'STTS Codex turn {turn_id}\\n\\n'
+rm -f {shlex.quote(str(pipe_path))} {shlex.quote(str(done_path))} {shlex.quote(str(rc_path))}
+mkfifo {shlex.quote(str(pipe_path))}
+tee {shlex.quote(str(output_path))} < {shlex.quote(str(pipe_path))} &
+tee_pid=$!
+codex exec --skip-git-repo-check --ephemeral --json -C {shlex.quote(cwd)} - < {shlex.quote(str(prompt_path))} > {shlex.quote(str(pipe_path))} 2>&1
+rc=$?
+wait "$tee_pid" 2>/dev/null || true
+rm -f {shlex.quote(str(pipe_path))}
+printf '%s\\n' "$rc" > {shlex.quote(str(rc_path))}
+touch {shlex.quote(str(done_path))}
+printf '\\n[exit %s]\\n' "$rc"
+exec sh
+""".strip()
+    result = run_command(["tmux", "respawn-pane", "-k", "-t", pane_id, shlex.join(["sh", "-lc", script])])
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "failed to run codex exec in activity pane")
+
+    deadline = time.monotonic() + 300.0
+    while not done_path.exists():
+        if time.monotonic() >= deadline:
+            cancel_activity_pane(pane_id)
+            raise RuntimeError("codex exec timed out")
+        try:
+            event = client.recv_json_timeout(0.2)
+        except (BrokenPipeError, ConnectionError, OSError, RuntimeError):
+            cancel_activity_pane(pane_id)
+            raise RuntimeError("STTS control socket closed; cancelled codex exec")
+        if event and event.get("event") == "cancel_processing":
+            cancel_activity_pane(pane_id)
+            raise RuntimeError("STTS turn cancelled")
+
+    stdout = output_path.read_text(encoding="utf-8", errors="replace") if output_path.exists() else ""
+    rc = rc_path.read_text(encoding="utf-8", errors="replace").strip() if rc_path.exists() else "1"
+    if rc != "0":
+        raise RuntimeError(stdout.strip() or f"codex exec failed with exit {rc}")
     reply = extract_codex_reply(stdout)
     if not reply:
         raise RuntimeError("codex exec returned no assistant message")
@@ -1332,7 +1432,7 @@ def run_talk(cwd: str, require_session: bool = True) -> int:
         print(f"talk request sent to {TMUX_SESSION_NAME}")
         return 0
     if require_session:
-        print(f"no active STTS session; run `stts start` first", file=sys.stderr)
+        print("no active STTS session; run `stts session` first", file=sys.stderr)
         return 2
     client, _status = shim_connect(15.0)
     try:
@@ -1392,17 +1492,7 @@ def run_session_host(
     append_log(transcript_path, f"working_dir: {working_dir}")
 
     history: list[tuple[str, str]] = []
-    history.append(("assistant", opener))
-    emit(transcript_path, "assistant", opener)
-    emit(transcript_path, "tts", say_text(opener, stream_name=tts_stream, backend=tts_backend))
-    pause_after_speech(
-        opener,
-        post_speech_delay_seconds,
-        transcript_path,
-        post_tts_recovery_seconds,
-        tts_drain_timeout_seconds,
-        next_state="ready",
-    )
+    emit(transcript_path, "status", "STTS ready")
     emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
 
     fifo_fd = os.open(COMMAND_FIFO_PATH, os.O_RDONLY | os.O_NONBLOCK)
@@ -1455,7 +1545,6 @@ def run_session_host(
 
 
 SESSION_COMMANDS = {
-    "start",
     "say",
     "listen",
     "talk",
@@ -1486,6 +1575,51 @@ def tmux_session_exists(name: str) -> bool:
     return result.returncode == 0
 
 
+def wait_for_session_ready(timeout_seconds: float = 10.0) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        pid = read_session_pid()
+        if pid and process_is_alive(pid) and COMMAND_FIFO_PATH.exists():
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def ensure_activity_pane(name: str) -> str:
+    pane_id = read_activity_pane_id()
+    if tmux_pane_exists(pane_id):
+        return pane_id
+
+    result = run_command(["tmux", "list-panes", "-t", f"{name}:0", "-F", "#{pane_id}"])
+    if result.returncode == 0:
+        panes = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        if len(panes) >= 2:
+            pane_id = panes[1]
+            ACTIVITY_PANE_PATH.write_text(f"{pane_id}\n", encoding="utf-8")
+            reset_activity_pane(pane_id)
+            return pane_id
+
+    idle_script = "printf '%s\\n' 'STTS Codex activity pane ready.'; exec sh"
+    split = run_command(
+        [
+            "tmux",
+            "split-window",
+            "-h",
+            "-t",
+            f"{name}:0",
+            "-P",
+            "-F",
+            "#{pane_id}",
+            shlex.join(["sh", "-lc", idle_script]),
+        ]
+    )
+    if split.returncode != 0:
+        raise RuntimeError(split.stderr.strip() or "failed to create STTS activity pane")
+    pane_id = split.stdout.strip()
+    ACTIVITY_PANE_PATH.write_text(f"{pane_id}\n", encoding="utf-8")
+    return pane_id
+
+
 def attach_or_switch_tmux_session(name: str) -> int:
     if not sys.stdout.isatty():
         print(f"stts session running in tmux: {name}")
@@ -1499,7 +1633,32 @@ def attach_or_switch_tmux_session(name: str) -> int:
     return 0
 
 
-def run_start_tmux(
+def ensure_tmux_session(
+    raw_args: list[str],
+    post_speech_delay_seconds: int,
+    post_tts_recovery_seconds: float,
+    tts_drain_timeout_seconds: float,
+    timeout_seconds: int,
+    tts_stream: str,
+    tts_backend: str,
+    working_dir: str,
+) -> None:
+    ensure_command("tmux")
+    session_name = TMUX_SESSION_NAME
+    if not tmux_session_exists(session_name):
+        script_path = str(Path(__file__).with_name("stts-session.sh"))
+        session_args = replace_raw_command(raw_args, "session")
+        command = shlex.join(["env", "CODEX_STTS_TMUX_HOST=1", "sh", script_path, *session_args])
+        result = run_command(["tmux", "new-session", "-d", "-s", session_name, "-n", "stts", command])
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or f"failed to create tmux session {session_name}")
+        print(f"created tmux session: {session_name}")
+    if not wait_for_session_ready():
+        raise RuntimeError("STTS session did not become ready")
+    ensure_activity_pane(session_name)
+
+
+def run_session_tmux(
     raw_args: list[str],
     opener: str,
     post_speech_delay_seconds: int,
@@ -1510,7 +1669,7 @@ def run_start_tmux(
     tts_backend: str,
     working_dir: str,
 ) -> int:
-    if os.environ.get("CODEX_STTS_TMUX_HOST") == "1" or shutil.which("tmux") is None:
+    if os.environ.get("CODEX_STTS_TMUX_HOST") == "1":
         return run_session_host(
             opener,
             post_speech_delay_seconds,
@@ -1522,16 +1681,43 @@ def run_start_tmux(
             working_dir,
         )
 
-    session_name = TMUX_SESSION_NAME
-    if not tmux_session_exists(session_name):
-        script_path = str(Path(__file__).with_name("stts-session.sh"))
-        session_args = replace_raw_command(raw_args, "session")
-        command = shlex.join(["env", "CODEX_STTS_TMUX_HOST=1", "sh", script_path, *session_args])
-        result = run_command(["tmux", "new-session", "-d", "-s", session_name, "-n", "stts", command])
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr.strip() or f"failed to create tmux session {session_name}")
-        print(f"created tmux session: {session_name}")
-    return attach_or_switch_tmux_session(session_name)
+    ensure_tmux_session(
+        raw_args,
+        post_speech_delay_seconds,
+        post_tts_recovery_seconds,
+        tts_drain_timeout_seconds,
+        timeout_seconds,
+        tts_stream,
+        tts_backend,
+        working_dir,
+    )
+    return attach_or_switch_tmux_session(TMUX_SESSION_NAME)
+
+
+def run_talk_tmux(
+    raw_args: list[str],
+    post_speech_delay_seconds: int,
+    post_tts_recovery_seconds: float,
+    tts_drain_timeout_seconds: float,
+    timeout_seconds: int,
+    tts_stream: str,
+    tts_backend: str,
+    working_dir: str,
+) -> int:
+    ensure_tmux_session(
+        raw_args,
+        post_speech_delay_seconds,
+        post_tts_recovery_seconds,
+        tts_drain_timeout_seconds,
+        timeout_seconds,
+        tts_stream,
+        tts_backend,
+        working_dir,
+    )
+    if not send_session_command("talk"):
+        raise RuntimeError("failed to queue STTS talk turn")
+    print(f"talk request sent to {TMUX_SESSION_NAME}")
+    return 0
 
 
 def summarize_wake_event(event: dict[str, object]) -> str:
@@ -1848,9 +2034,8 @@ def main() -> int:
     parser.add_argument(
         "command",
         nargs="?",
-        default="start",
+        default="talk",
         choices=[
-            "start",
             "say",
             "listen",
             "talk",
@@ -1907,11 +2092,22 @@ def main() -> int:
             if transcript:
                 print(transcript)
             return 0
+        opener = " ".join(args.text).strip() or DEFAULT_OPENER
+        working_dir = resolve_working_dir(args.cwd)
         if args.command == "talk":
-            return run_talk(resolve_working_dir(args.cwd))
+            return run_talk_tmux(
+                raw_args,
+                args.post_speech_delay,
+                args.post_tts_recovery,
+                args.tts_drain_timeout,
+                args.timeout_seconds,
+                args.tts_stream,
+                args.tts_backend,
+                working_dir,
+            )
         if args.command == "wake":
             return run_wake_loop(
-                resolve_working_dir(args.cwd),
+                working_dir,
                 once=args.once,
                 fake_wake=args.fake_wake,
                 debug_scores=args.wake_debug_scores,
@@ -1943,22 +2139,9 @@ def main() -> int:
         if args.command in ("stop", "cleanup"):
             print(cleanup_voice_processes())
             return 0
-        opener = " ".join(args.text).strip() or DEFAULT_OPENER
-        working_dir = resolve_working_dir(args.cwd)
-        if args.command == "start":
-            return run_start_tmux(
-                raw_args,
-                opener,
-                args.post_speech_delay,
-                args.post_tts_recovery,
-                args.tts_drain_timeout,
-                args.timeout_seconds,
-                args.tts_stream,
-                args.tts_backend,
-                working_dir,
-            )
         if args.command == "session":
-            return run_session_host(
+            return run_session_tmux(
+                raw_args,
                 opener,
                 args.post_speech_delay,
                 args.post_tts_recovery,
@@ -1986,7 +2169,7 @@ def main() -> int:
     except KeyboardInterrupt:
         return 130
     except Exception as exc:
-        print(f"stts-loop: {exc}", file=sys.stderr)
+        print(f"stts: {exc}", file=sys.stderr)
         return 1
     finally:
         cleanup_tts_helpers()

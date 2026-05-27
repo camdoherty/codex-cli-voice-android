@@ -94,12 +94,12 @@ Say wake phrase, then the test prompt:
 
 Expected: wake phrase triggers listening and produces one spoken reply.
 
-## Batch 4: Multi-Turn Start Mode
+## Batch 4: Multi-Turn Talk Mode
 
-Run:
+Run before each spoken turn:
 
 ```sh
-ssh -F ~/.ssh/config pixel6a-lan 'timeout 240 stts start'
+ssh -F ~/.ssh/config pixel6a-lan 'timeout 240 stts talk'
 ```
 
 Speak these in sequence, waiting for each reply:
@@ -131,6 +131,5 @@ Block the release if any of these appear repeatedly:
 - Silent failures without a visible command error.
 - Shim remains busy after the command exits.
 - `stts cleanup` cannot restore a clean state.
-- `stts start` loses multi-turn context between turns.
+- `stts talk` loses multi-turn context between turns.
 - Wake mode falsely appears to pass when no reply was spoken.
-
