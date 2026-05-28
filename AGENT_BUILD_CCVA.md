@@ -117,9 +117,9 @@ export ANDROID_NDK_HOME=/path/to/android-ndk-r29
 Expected outputs:
 
 ```text
-codex-cli-voice-android-rust-v0.134.0-ccva.1.tar.gz
-codex-cli-voice-android-rust-v0.134.0-ccva.1.tar.gz.sha256
-codex-cli-voice-android-rust-v0.134.0-ccva.1.tar.gz.metadata
+codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz
+codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.sha256
+codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.metadata
 android-aec-shim/app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -127,8 +127,8 @@ Quick local checks:
 
 ```bash
 bash -n build.sh scripts/*.sh
-tar -tzf codex-cli-voice-android-rust-v0.134.0-ccva.1.tar.gz >/dev/null
-sha256sum -c codex-cli-voice-android-rust-v0.134.0-ccva.1.tar.gz.sha256
+tar -tzf codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz >/dev/null
+sha256sum -c codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.sha256
 ```
 
 ## Deploy With SSH
@@ -153,8 +153,8 @@ Deploy the CLI package:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  codex-cli-voice-android-rust-v0.134.0-ccva.1.tar.gz \
-  codex-cli-voice-android-rust-v0.134.0-ccva.1.tar.gz.sha256
+  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz \
+  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.sha256
 ```
 
 Stage the shim APK to Android Downloads from inside Termux. If the APK was

@@ -38,6 +38,11 @@ cat > "$SHORTCUTS_DIR/STTS: Start + Talk" <<'EOF'
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
 EOF
 
+cat > "$SHORTCUTS_DIR/STTS: Wake Word" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" wake
+EOF
+
 cat > "$SHORTCUTS_DIR/STTS: Attach Session" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" session
@@ -54,6 +59,7 @@ chmod 700 \
     "$SHORTCUTS_DIR/Realtime API Voice" \
     "$SHORTCUTS_DIR/Realtime API Voice Stop" \
     "$SHORTCUTS_DIR/STTS: Start + Talk" \
+    "$SHORTCUTS_DIR/STTS: Wake Word" \
     "$SHORTCUTS_DIR/STTS: Attach Session" \
     "$SHORTCUTS_DIR/STTS: Stop"
 
@@ -78,6 +84,7 @@ rm -f \
     "$SHORTCUTS_DIR/stts-status" \
     "$SHORTCUTS_DIR/stts-diag" \
     "$SHORTCUTS_DIR/STTS Loop" \
+    "$SHORTCUTS_DIR/STTS Wake Word" \
     "$SHORTCUTS_DIR/wake-voice-start" \
     "$SHORTCUTS_DIR/wake-voice-stop" \
     "$SHORTCUTS_DIR/wake-voice-doctor" \
@@ -110,5 +117,5 @@ done
 
 printf 'Installed codex-api/codex-voice launchers and Termux:Widget shortcuts.\n'
 printf 'Installed core shortcuts: Codex, Codex Resume Last.\n'
-printf 'Installed voice shortcuts: STTS: Start + Talk, Realtime API Voice, Realtime API Voice Stop.\n'
+printf 'Installed voice shortcuts: STTS: Start + Talk, STTS: Wake Word, Realtime API Voice, Realtime API Voice Stop.\n'
 printf 'Installed STTS control shortcuts: STTS: Attach Session, STTS: Stop.\n'

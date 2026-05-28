@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/release_build.sh v0.134.0-ccva.1
+Usage: scripts/release_build.sh v0.135.0-ccva.1
 
 Builds a versioned CCVA release candidate into dist/<release-tag>/.
 EOF
@@ -20,7 +20,7 @@ case "$release_tag" in
     v[0-9]*.[0-9]*.[0-9]*-ccva.[0-9]*) ;;
     *)
         echo "Invalid release tag: $release_tag" >&2
-        echo "Expected form: v0.134.0-ccva.1" >&2
+        echo "Expected form: v0.135.0-ccva.1" >&2
         exit 2
         ;;
 esac
@@ -74,6 +74,8 @@ cp "$shim_src" "$dist_dir/$shim_asset"
 cli_asset="codex-cli-voice-android-${package_version}.tar.gz"
 cli_sha="$(awk 'NF { print $1; exit }' "$dist_dir/$cli_asset.sha256")"
 shim_sha="$(awk 'NF { print $1; exit }' "$dist_dir/$shim_asset.sha256")"
+validation_status="${CCVA_VALIDATION_STATUS:-candidate}"
+tested_devices_json="${CCVA_TESTED_DEVICES_JSON:-[]}"
 
 cat > "$dist_dir/${release_tag}.json" <<EOF
 {
@@ -81,11 +83,12 @@ cat > "$dist_dir/${release_tag}.json" <<EOF
   "upstream_codex": "$codex_tag",
   "arch": "aarch64",
   "release_tag": "$release_tag",
+  "validation_status": "$validation_status",
   "cli_tarball": "$cli_asset",
   "cli_sha256": "$cli_sha",
   "shim_apk": "$shim_asset",
   "shim_sha256": "$shim_sha",
-  "tested_devices": ["Pixel6a", "Pixel9"]
+  "tested_devices": $tested_devices_json
 }
 EOF
 

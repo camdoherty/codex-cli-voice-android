@@ -55,6 +55,7 @@ Start surfaces:
 - Agent: `$stts talk`
 - Command: `sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk`
 - Termux:Widget friendly label: `STTS: Start + Talk`
+- Wake word Termux:Widget label: `STTS: Wake Word`
 - Session-only command: `stts session`
 - Experimental continuous loop: `stts loop`
 
@@ -62,7 +63,8 @@ Command behavior:
 
 - `stts` / `stts talk`: run one speech-to-text turn against the active session history.
 - `stts session`: open or attach the persistent `ccva-stts` tmux workspace without listening.
-- `stts wake`: run wake/PTT-triggered turns from the shell.
+- `stts wake`: arm Hey Jarvis/PTT-triggered turns in the persistent `ccva-stts`
+  tmux session.
 - `stts loop`: run the older continuous auto-listen loop. This is useful for
   testing, but may repeatedly trigger Android SpeechRecognizer beeps.
 - `stts stop`: stop the active session and voice helpers.

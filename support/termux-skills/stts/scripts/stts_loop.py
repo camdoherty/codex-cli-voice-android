@@ -897,6 +897,17 @@ def stop_existing_session() -> str:
     return f"previous session pid {pid} still stopping"
 
 
+def stop_tmux_session() -> str:
+    if shutil.which("tmux") is None:
+        return "tmux unavailable"
+    if not tmux_session_exists(TMUX_SESSION_NAME):
+        return "tmux session not running"
+    result = run_command(["tmux", "kill-session", "-t", TMUX_SESSION_NAME])
+    if result.returncode == 0:
+        return f"stopped tmux session {TMUX_SESSION_NAME}"
+    return result.stderr.strip() or f"failed to stop tmux session {TMUX_SESSION_NAME}"
+
+
 def cleanup_voice_helpers() -> list[str]:
     messages: list[str] = []
     speech_killed = kill_matching_processes("termux-speech-to-text -p")
@@ -926,6 +937,9 @@ def cleanup_voice_processes() -> str:
     messages.extend(cleanup_voice_helpers())
     clear_session_pid()
     remove_command_fifo()
+    tmux_status = stop_tmux_session()
+    if tmux_status != "tmux session not running":
+        messages.append(tmux_status)
     try:
         ACTIVITY_PANE_PATH.unlink()
     except FileNotFoundError:
@@ -1689,13 +1703,15 @@ def run_session_host(
             commands, pending = read_fifo_commands(fifo_fd, pending)
             for command in commands:
                 normalized = normalize_text(command)
+                tokens = shlex.split(command)
+                command_name = tokens[0] if tokens else ""
                 if normalized in {"stop", "quit", "exit"}:
                     emit(transcript_path, "status", "stopping")
                     return 0
                 if normalized == "status":
                     emit(transcript_path, "status", "ready")
                     continue
-                if normalized == "talk":
+                if command_name == "talk":
                     try:
                         turn_client, _status = shim_connect(15.0)
                         try:
@@ -1713,6 +1729,23 @@ def run_session_host(
                         stopped = False
                     if stopped:
                         return 0
+                    emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
+                    continue
+                if command_name == "wake":
+                    try:
+                        options = parse_wake_command(command)
+                        emit(transcript_path, "status", "wake word armed")
+                        rc = run_wake_loop(
+                            working_dir,
+                            once=bool(options["once"]),
+                            fake_wake=bool(options["fake_wake"]),
+                            debug_scores=bool(options["debug_scores"]),
+                            threshold=float(options["threshold"]),
+                            cue=bool(options["cue"]),
+                        )
+                        emit(transcript_path, "status", f"wake word stopped rc={rc}")
+                    except Exception as exc:
+                        emit(transcript_path, "status", f"wake word failed: {exc}")
                     emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
                     continue
                 emit(transcript_path, "status", f"unknown command: {command}")
@@ -1917,6 +1950,73 @@ def run_talk_tmux(
     return 0
 
 
+def args_after_command(raw_args: list[str], command: str) -> list[str]:
+    for index, token in enumerate(raw_args):
+        if token == command:
+            return raw_args[index + 1 :]
+    return []
+
+
+def parse_wake_command(command: str) -> dict[str, object]:
+    tokens = shlex.split(command)
+    options: dict[str, object] = {
+        "once": False,
+        "fake_wake": False,
+        "debug_scores": False,
+        "threshold": WAKE_THRESHOLD,
+        "cue": True,
+    }
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token == "--once":
+            options["once"] = True
+        elif token == "--fake-wake":
+            options["fake_wake"] = True
+        elif token == "--wake-debug-scores":
+            options["debug_scores"] = True
+        elif token == "--no-wake-cue":
+            options["cue"] = False
+        elif token == "--wake-threshold":
+            index += 1
+            if index >= len(tokens):
+                raise RuntimeError("--wake-threshold requires a value")
+            options["threshold"] = float(tokens[index])
+        else:
+            raise RuntimeError(f"unknown wake option: {token}")
+        index += 1
+    return options
+
+
+def run_wake_tmux(
+    raw_args: list[str],
+    post_speech_delay_seconds: int,
+    post_tts_recovery_seconds: float,
+    tts_drain_timeout_seconds: float,
+    timeout_seconds: int,
+    tts_stream: str,
+    tts_backend: str,
+    working_dir: str,
+) -> int:
+    ensure_tmux_session(
+        raw_args,
+        post_speech_delay_seconds,
+        post_tts_recovery_seconds,
+        tts_drain_timeout_seconds,
+        timeout_seconds,
+        tts_stream,
+        tts_backend,
+        working_dir,
+    )
+    command = shlex.join(["wake", *args_after_command(raw_args, "wake")])
+    if not send_session_command(command):
+        raise RuntimeError("failed to queue STTS wake word mode")
+    print(f"wake request sent to {TMUX_SESSION_NAME}")
+    if sys.stdout.isatty():
+        return attach_or_switch_tmux_session(TMUX_SESSION_NAME)
+    return 0
+
+
 def summarize_wake_event(event: dict[str, object]) -> str:
     name = event.get("event", "unknown")
     score = event.get("score", event.get("lastWakeScore", ""))
@@ -1948,7 +2048,12 @@ def run_wake_loop(
 ) -> int:
     ok, message = validate_wake_models(threshold)
     if not ok and not fake_wake:
-        raise RuntimeError(message)
+        print(f"wake_model: {message}", flush=True)
+        print("wake_model: attempting download/import", flush=True)
+        run_stts_doctor(download=True)
+        ok, message = validate_wake_models(threshold)
+        if not ok:
+            raise RuntimeError(message)
     client, _status = shim_connect(15.0)
     history: list[tuple[str, str]] = []
     source_notes: list[str] = []
@@ -2310,13 +2415,15 @@ def main() -> int:
                 working_dir,
             )
         if args.command == "wake":
-            return run_wake_loop(
+            return run_wake_tmux(
+                raw_args,
+                args.post_speech_delay,
+                args.post_tts_recovery,
+                args.tts_drain_timeout,
+                args.timeout_seconds,
+                args.tts_stream,
+                args.tts_backend,
                 working_dir,
-                once=args.once,
-                fake_wake=args.fake_wake,
-                debug_scores=args.wake_debug_scores,
-                threshold=args.wake_threshold,
-                cue=not args.no_wake_cue,
             )
         if args.command == "doctor":
             return run_stts_doctor(download=args.download)

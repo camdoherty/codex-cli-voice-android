@@ -47,8 +47,8 @@ Despite the `PIXEL_*` variable names, the target can be any Android device runni
 
 ```bash
 scripts/deploy_termux_package.sh \
-  codex-cli-voice-android-rust-v0.134.0-ccva.1.tar.gz \
-  codex-cli-voice-android-rust-v0.134.0-ccva.1.tar.gz.sha256
+  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz \
+  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.sha256
 ```
 
 The script refuses to continue if the remote checksum differs.
@@ -57,8 +57,8 @@ For a first install on a clean Termux device:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  codex-cli-voice-android-rust-v0.134.0-ccva.1.tar.gz \
-  codex-cli-voice-android-rust-v0.134.0-ccva.1.tar.gz.sha256
+  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz \
+  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.sha256
 ```
 
 The deploy also installs or updates:
@@ -87,6 +87,7 @@ Realtime API Voice
 Realtime API Voice Stop
 STTS: Attach Session
 STTS: Start + Talk
+STTS: Wake Word
 STTS: Stop
 ```
 

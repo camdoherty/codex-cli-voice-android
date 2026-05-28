@@ -147,6 +147,65 @@ for name in codex-api codex-voice codex-install-stts ccva-tmux-run ccva-realtime
     ln -sfn "$PREFIX/bin/$name" "$HOME/scripts/$name"
 done
 
+mkdir -p "$HOME/.shortcuts"
+cat > "$HOME/.shortcuts/Codex" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-tmux-run" codex -- codex
+EOF
+cat > "$HOME/.shortcuts/Codex Resume Last" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-tmux-run" resume -- codex resume --last
+EOF
+cat > "$HOME/.shortcuts/Realtime API Voice" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-tmux-run" realtime -- "$HOME/scripts/codex-voice" --allow-realtime
+EOF
+cat > "$HOME/.shortcuts/Realtime API Voice Stop" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-realtime-stop"
+EOF
+cat > "$HOME/.shortcuts/STTS: Start + Talk" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
+EOF
+cat > "$HOME/.shortcuts/STTS: Wake Word" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" wake
+EOF
+cat > "$HOME/.shortcuts/STTS: Attach Session" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" session
+EOF
+cat > "$HOME/.shortcuts/STTS: Stop" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
+EOF
+chmod 700 \
+    "$HOME/.shortcuts/Codex" \
+    "$HOME/.shortcuts/Codex Resume Last" \
+    "$HOME/.shortcuts/Realtime API Voice" \
+    "$HOME/.shortcuts/Realtime API Voice Stop" \
+    "$HOME/.shortcuts/STTS: Start + Talk" \
+    "$HOME/.shortcuts/STTS: Wake Word" \
+    "$HOME/.shortcuts/STTS: Attach Session" \
+    "$HOME/.shortcuts/STTS: Stop"
+rm -f \
+    "$HOME/.shortcuts/Realtime API Stop" \
+    "$HOME/.shortcuts/Start API(\$) Realtime Voice Mode" \
+    "$HOME/.shortcuts/Start STTS Voice Mode" \
+    "$HOME/.shortcuts/Open STTS Session" \
+    "$HOME/.shortcuts/Stop STTS Voice Mode" \
+    "$HOME/.shortcuts/stts-start" \
+    "$HOME/.shortcuts/stts-talk" \
+    "$HOME/.shortcuts/stts-stop" \
+    "$HOME/.shortcuts/stts-status" \
+    "$HOME/.shortcuts/stts-diag" \
+    "$HOME/.shortcuts/STTS Loop" \
+    "$HOME/.shortcuts/STTS Wake Word" \
+    "$HOME/.shortcuts/wake-voice-start" \
+    "$HOME/.shortcuts/wake-voice-stop" \
+    "$HOME/.shortcuts/wake-voice-doctor"
+
 echo "backup=$backup"
 REMOTE_DEPLOY
 

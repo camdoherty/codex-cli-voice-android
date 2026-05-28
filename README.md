@@ -8,7 +8,7 @@
 
 Codex CLI compiled for Android/Termux with Android-native voice modes.
 
-Status: `alpha`. The current upstream target is Codex `rust-v0.134.0`.
+Status: `alpha`. The current upstream target is Codex `rust-v0.135.0`.
 This release was validated on Pixel 9 and 6a, Android 16, Termux 0.118.3.
 
 This repository does not vendor the upstream Codex source tree.
@@ -55,7 +55,7 @@ building Termux:API flows.
 
 | Mode | How to start | Cost profile | Best for |
 | --- | --- | --- | --- |
-| Local Android STTS | Use the `$stts` skill or `STTS: Start + Talk` | Uses normal Codex authentication; no Realtime API billing | Walkie-talkie-like voice sessions |
+| Local Android STTS | Use the `$stts` skill, `STTS: Start + Talk`, or `STTS: Wake Word` | Uses normal Codex authentication; no Realtime API billing | Walkie-talkie-like voice sessions |
 | OpenAI Codex Realtime Voice | `codex-voice --allow-realtime` or `Realtime API Voice` | Uses OpenAI Realtime API billing | Codex CLI realtime voice on Android native audio |
 
 Local Android STTS uses the Android shim `/v1/text-voice` endpoint first:
@@ -97,7 +97,8 @@ expected user-facing surfaces are:
 - Codex skill: `$stts`
 - Termux:Widget shortcuts: `Codex`, `Codex Resume Last`,
   `Realtime API Voice`, `Realtime API Voice Stop`,
-  `STTS: Start + Talk`, `STTS: Attach Session`, `STTS: Stop`
+  `STTS: Start + Talk`, `STTS: Wake Word`, `STTS: Attach Session`,
+  `STTS: Stop`
 
 The `Codex`, `Codex Resume Last`, and `Realtime API Voice` shortcuts open
 stable tmux sessions named `ccva-codex`, `ccva-resume`, and `ccva-realtime`.
@@ -193,7 +194,7 @@ may also require Termux's `Draw over other apps` permission.
 Pin a specific version with:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh | bash -s -- --version v0.134.0-ccva.1
+curl -fsSL https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh | bash -s -- --version v0.135.0-ccva.1
 ```
 
 Verify release assets without installing:

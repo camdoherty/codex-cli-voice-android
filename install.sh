@@ -230,6 +230,10 @@ EOF
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
 EOF
+    cat > "$shortcuts_dir/STTS: Wake Word" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" wake
+EOF
     cat > "$shortcuts_dir/STTS: Attach Session" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" session
@@ -244,6 +248,7 @@ EOF
         "$shortcuts_dir/Realtime API Voice" \
         "$shortcuts_dir/Realtime API Voice Stop" \
         "$shortcuts_dir/STTS: Start + Talk" \
+        "$shortcuts_dir/STTS: Wake Word" \
         "$shortcuts_dir/STTS: Attach Session" \
         "$shortcuts_dir/STTS: Stop"
     old_slug="tts""-stt"
@@ -261,6 +266,7 @@ EOF
         "$shortcuts_dir/stts-status" \
         "$shortcuts_dir/stts-diag" \
         "$shortcuts_dir/STTS Loop" \
+        "$shortcuts_dir/STTS Wake Word" \
         "$shortcuts_dir/wake-voice-start" \
         "$shortcuts_dir/wake-voice-stop" \
         "$shortcuts_dir/wake-voice-doctor" \
