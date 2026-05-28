@@ -87,6 +87,11 @@ STTS: Start + Talk
 STTS: Stop
 ```
 
+The `Codex`, `Codex Resume Last`, and `Realtime API Voice` shortcuts use
+`ccva-tmux-run` and attach stable tmux sessions named `ccva-codex`,
+`ccva-resume`, and `ccva-realtime`. Pane logging is opt-in with
+`CCVA_TMUX_LOG=1`; normal Codex session history remains the default record.
+
 ## Clean Staging Device
 
 Use the Pixel6a or another staging phone to validate clean installs before

@@ -10,20 +10,21 @@ mkdir -p "$SCRIPTS_DIR" "$SHORTCUTS_DIR"
 install -m 700 "$REPO_DIR/scripts/termux-codex-api" "$SCRIPTS_DIR/codex-api"
 install -m 700 "$REPO_DIR/scripts/termux-codex-voice" "$SCRIPTS_DIR/codex-voice"
 install -m 700 "$REPO_DIR/scripts/install_stts_skill.sh" "$SCRIPTS_DIR/codex-install-stts"
+install -m 700 "$REPO_DIR/scripts/ccva-tmux-run" "$SCRIPTS_DIR/ccva-tmux-run"
 
 cat > "$SHORTCUTS_DIR/Codex" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec codex
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-tmux-run" codex -- codex
 EOF
 
 cat > "$SHORTCUTS_DIR/Codex Resume Last" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec codex resume --last
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-tmux-run" resume -- codex resume --last
 EOF
 
 cat > "$SHORTCUTS_DIR/Realtime API Voice" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec "$HOME/scripts/codex-voice" --allow-realtime
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-tmux-run" realtime -- "$HOME/scripts/codex-voice" --allow-realtime
 EOF
 
 cat > "$SHORTCUTS_DIR/STTS: Start + Talk" <<'EOF'

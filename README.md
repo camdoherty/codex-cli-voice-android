@@ -99,6 +99,12 @@ expected user-facing surfaces are:
   `Realtime API Voice`, `STTS: Start + Talk`,
   `STTS: Attach Session`, `STTS: Stop`
 
+The `Codex`, `Codex Resume Last`, and `Realtime API Voice` shortcuts open
+stable tmux sessions named `ccva-codex`, `ccva-resume`, and `ccva-realtime`.
+They attach to an existing session instead of starting a duplicate. Set
+`CCVA_TMUX_LOG=1` before launching if you want optional pane logs under
+`~/.local/state/ccva-tmux/logs/`.
+
 `stts` and `stts talk` start the persistent `ccva-stts` tmux session if needed
 and immediately run one voice turn. `stts session` opens the tmux workspace
 without listening. `stts loop` is an experimental shell-only continuous mode.

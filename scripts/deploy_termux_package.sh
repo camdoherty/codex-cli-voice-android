@@ -103,6 +103,7 @@ set --
 [ -e bin/codex-api ] && set -- "$@" bin/codex-api
 [ -e bin/codex-voice ] && set -- "$@" bin/codex-voice
 [ -e bin/codex-install-stts ] && set -- "$@" bin/codex-install-stts
+[ -e bin/ccva-tmux-run ] && set -- "$@" bin/ccva-tmux-run
 [ -e bin/codex-install-tts-stt ] && set -- "$@" bin/codex-install-tts-stt
 [ -e libexec/codex-cli-voice-android ] && set -- "$@" libexec/codex-cli-voice-android
 [ -e opt/codex-termux ] && set -- "$@" opt/codex-termux
@@ -123,7 +124,8 @@ fi
 
 rm -rf "$PREFIX/libexec/codex-cli-voice-android" "$PREFIX/opt/codex-termux"
 rm -f "$PREFIX/bin/codex" "$PREFIX/bin/codex-api" "$PREFIX/bin/codex-voice" \
-    "$PREFIX/bin/codex-install-stts" "$PREFIX/bin/codex-install-tts-stt" \
+    "$PREFIX/bin/codex-install-stts" "$PREFIX/bin/ccva-tmux-run" \
+    "$PREFIX/bin/codex-install-tts-stt" \
     "$PREFIX/bin/tts-stt-start" "$PREFIX/bin/tts-stt-stop" \
     "$PREFIX/bin/tts-stt-status" "$PREFIX/bin/tts-stt-diag" \
     "$PREFIX/bin/tts-stt-talk"
@@ -136,7 +138,7 @@ rm -f "$HOME/scripts/codex-install-tts-stt" \
     "$HOME/scripts/tts-stt-start" "$HOME/scripts/tts-stt-stop" \
     "$HOME/scripts/tts-stt-status" "$HOME/scripts/tts-stt-diag" \
     "$HOME/scripts/tts-stt-talk"
-for name in codex-api codex-voice codex-install-stts; do
+for name in codex-api codex-voice codex-install-stts ccva-tmux-run; do
     if [ -e "$HOME/scripts/$name" ] && [ ! -L "$HOME/scripts/$name" ]; then
         mkdir -p "$HOME/codex-script-backups-$ts"
         mv "$HOME/scripts/$name" "$HOME/codex-script-backups-$ts/$name"
@@ -164,7 +166,7 @@ set -e
     exit 1
 }
 
-for name in codex-api codex-voice codex-install-stts; do
+for name in codex-api codex-voice codex-install-stts ccva-tmux-run; do
     target="$(readlink "$HOME/scripts/$name" 2>/dev/null || true)"
     [ "$target" = "$PREFIX/bin/$name" ] || {
         echo "$HOME/scripts/$name does not point to $PREFIX/bin/$name" >&2

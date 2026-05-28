@@ -206,21 +206,21 @@ install_widgets() {
     shortcuts_dir="$CCVA_WIDGET_DIR"
     mkdir -p "$scripts_dir" "$shortcuts_dir"
 
-    for name in codex-api codex-voice codex-install-stts; do
+    for name in codex-api codex-voice codex-install-stts ccva-tmux-run; do
         ln -sfn "$CCVA_PREFIX/bin/$name" "$scripts_dir/$name"
     done
 
     cat > "$shortcuts_dir/Codex" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec codex
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-tmux-run" codex -- codex
 EOF
     cat > "$shortcuts_dir/Codex Resume Last" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec codex resume --last
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-tmux-run" resume -- codex resume --last
 EOF
     cat > "$shortcuts_dir/Realtime API Voice" <<'EOF'
-#!/data/data/com.termux/files/usr/bin/sh
-exec "$HOME/scripts/codex-voice" --allow-realtime
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-tmux-run" realtime -- "$HOME/scripts/codex-voice" --allow-realtime
 EOF
     cat > "$shortcuts_dir/STTS: Start + Talk" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
@@ -273,6 +273,7 @@ remove_existing_install() {
         "$CCVA_PREFIX/bin/codex-api" \
         "$CCVA_PREFIX/bin/codex-voice" \
         "$CCVA_PREFIX/bin/codex-install-stts" \
+        "$CCVA_PREFIX/bin/ccva-tmux-run" \
         "$CCVA_PREFIX/bin/codex-install-tts-stt" \
         "$CCVA_PREFIX/bin/tts-stt-start" \
         "$CCVA_PREFIX/bin/tts-stt-stop" \
@@ -283,6 +284,7 @@ remove_existing_install() {
     rm -rf "$HOME/.codex/skills/$old_slug"
     rm -f \
         "$HOME/scripts/codex-install-tts-stt" \
+        "$HOME/scripts/ccva-tmux-run" \
         "$HOME/scripts/${old_slug}-start" \
         "$HOME/scripts/${old_slug}-stop" \
         "$HOME/scripts/${old_slug}-status" \
@@ -323,6 +325,7 @@ run_smoke() {
     log "running non-billable smoke checks"
     codex --version
     codex-api --version
+    command -v ccva-tmux-run >/dev/null 2>&1 || die "ccva-tmux-run is not on PATH"
     command -v codex-install-stts >/dev/null 2>&1 || die "codex-install-stts is not on PATH"
     [ -x "$HOME/.codex/skills/stts/scripts/stts-session.sh" ] || die "stts skill is not installed"
     sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" status

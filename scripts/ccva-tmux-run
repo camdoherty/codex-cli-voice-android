@@ -1,0 +1,86 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -euo pipefail
+
+usage() {
+    cat >&2 <<'EOF'
+Usage: ccva-tmux-run <name> -- <command> [args...]
+
+Start or attach a stable CCVA tmux session.
+
+Environment:
+  CCVA_TMUX_LOG=1  Capture pane output to ~/.local/state/ccva-tmux/logs.
+EOF
+}
+
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] || [ "$#" -lt 3 ]; then
+    usage
+    exit 2
+fi
+
+name="$1"
+shift
+if [ "${1:-}" != "--" ]; then
+    usage
+    exit 2
+fi
+shift
+if [ "$#" -eq 0 ]; then
+    usage
+    exit 2
+fi
+
+case "$name" in
+    codex|resume|realtime) ;;
+    *)
+        printf 'unsupported CCVA tmux session name: %s\n' "$name" >&2
+        exit 2
+        ;;
+esac
+
+command -v tmux >/dev/null 2>&1 || {
+    printf 'tmux is required for CCVA shortcuts\n' >&2
+    exit 1
+}
+
+session="ccva-$name"
+state_dir="${CCVA_TMUX_STATE_DIR:-$HOME/.local/state/ccva-tmux}"
+logs_dir="$state_dir/logs"
+
+attach_or_switch() {
+    if [ ! -t 1 ]; then
+        printf 'ccva tmux session: %s\n' "$session"
+        exit 0
+    fi
+    if [ -n "${TMUX:-}" ]; then
+        exec tmux switch-client -t "=$session"
+    fi
+    exec tmux attach-session -t "=$session"
+}
+
+if tmux has-session -t "=$session" 2>/dev/null; then
+    attach_or_switch
+fi
+
+mkdir -p "$state_dir"
+
+command_line="$(printf '%q ' "$@")"
+run_script=$(
+    cat <<EOF
+set +e
+printf '%s\n\n' 'CCVA session: $session'
+$command_line
+rc=\$?
+printf '\n[exit %s] %s\n' "\$rc" 'Press Ctrl-d or type exit to close this tmux session.'
+exec "\${SHELL:-/data/data/com.termux/files/usr/bin/sh}"
+EOF
+)
+
+tmux new-session -d -s "$session" -n "$name" -- bash -lc "$run_script"
+
+if [ "${CCVA_TMUX_LOG:-0}" = "1" ]; then
+    mkdir -p "$logs_dir"
+    stamp="$(date +%Y%m%d-%H%M%S)"
+    tmux pipe-pane -o -t "=$session:0.0" "cat >> '$logs_dir/$name-$stamp.log'"
+fi
+
+attach_or_switch
