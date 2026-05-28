@@ -1762,6 +1762,8 @@ def run_talk_tmux(
     if not send_session_command("talk"):
         raise RuntimeError("failed to queue STTS talk turn")
     print(f"talk request sent to {TMUX_SESSION_NAME}")
+    if sys.stdout.isatty():
+        return attach_or_switch_tmux_session(TMUX_SESSION_NAME)
     return 0
 
 
