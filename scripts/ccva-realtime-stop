@@ -1,0 +1,38 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -euo pipefail
+
+session="${CCVA_REALTIME_TMUX_SESSION:-ccva-realtime}"
+pattern='[r]ealtime_conversation'
+
+stopped=0
+
+if command -v tmux >/dev/null 2>&1 && tmux has-session -t "=$session" 2>/dev/null; then
+    tmux send-keys -t "=$session" C-c 2>/dev/null || true
+    sleep 1
+    if tmux has-session -t "=$session" 2>/dev/null; then
+        tmux send-keys -t "=$session" C-c 2>/dev/null || true
+        sleep 1
+    fi
+    tmux kill-session -t "=$session" 2>/dev/null || true
+    stopped=1
+fi
+
+if pgrep -f "$pattern" >/dev/null 2>&1; then
+    pkill -TERM -f "$pattern" 2>/dev/null || true
+    sleep 1
+fi
+
+if pgrep -f "$pattern" >/dev/null 2>&1; then
+    pkill -KILL -f "$pattern" 2>/dev/null || true
+fi
+
+if pgrep -f "$pattern" >/dev/null 2>&1; then
+    printf '%s\n' "Realtime stop requested, but a Realtime process is still running." >&2
+    exit 1
+fi
+
+if [ "$stopped" -eq 1 ]; then
+    printf '%s\n' "Realtime stopped."
+else
+    printf '%s\n' "Realtime was not running."
+fi

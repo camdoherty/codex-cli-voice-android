@@ -9,6 +9,7 @@ mkdir -p "$SCRIPTS_DIR" "$SHORTCUTS_DIR"
 
 install -m 700 "$REPO_DIR/scripts/termux-codex-api" "$SCRIPTS_DIR/codex-api"
 install -m 700 "$REPO_DIR/scripts/termux-codex-voice" "$SCRIPTS_DIR/codex-voice"
+install -m 700 "$REPO_DIR/scripts/ccva-realtime-stop" "$SCRIPTS_DIR/ccva-realtime-stop"
 install -m 700 "$REPO_DIR/scripts/install_stts_skill.sh" "$SCRIPTS_DIR/codex-install-stts"
 install -m 700 "$REPO_DIR/scripts/ccva-tmux-run" "$SCRIPTS_DIR/ccva-tmux-run"
 
@@ -25,6 +26,11 @@ EOF
 cat > "$SHORTCUTS_DIR/Realtime API Voice" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 exec "$HOME/scripts/ccva-tmux-run" realtime -- "$HOME/scripts/codex-voice" --allow-realtime
+EOF
+
+cat > "$SHORTCUTS_DIR/Realtime API Voice Stop" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-realtime-stop"
 EOF
 
 cat > "$SHORTCUTS_DIR/STTS: Start + Talk" <<'EOF'
@@ -46,6 +52,7 @@ chmod 700 \
     "$SHORTCUTS_DIR/Codex" \
     "$SHORTCUTS_DIR/Codex Resume Last" \
     "$SHORTCUTS_DIR/Realtime API Voice" \
+    "$SHORTCUTS_DIR/Realtime API Voice Stop" \
     "$SHORTCUTS_DIR/STTS: Start + Talk" \
     "$SHORTCUTS_DIR/STTS: Attach Session" \
     "$SHORTCUTS_DIR/STTS: Stop"
@@ -53,6 +60,7 @@ chmod 700 \
 OLD_SLUG="tts""-stt"
 rm -f \
     "$SCRIPTS_DIR/codex-install-tts-stt" \
+    "$SHORTCUTS_DIR/Realtime API Stop" \
     "$SCRIPTS_DIR/${OLD_SLUG}-start" \
     "$SCRIPTS_DIR/${OLD_SLUG}-stop" \
     "$SCRIPTS_DIR/${OLD_SLUG}-status" \
@@ -102,5 +110,5 @@ done
 
 printf 'Installed codex-api/codex-voice launchers and Termux:Widget shortcuts.\n'
 printf 'Installed core shortcuts: Codex, Codex Resume Last.\n'
-printf 'Installed voice shortcuts: STTS: Start + Talk, Realtime API Voice.\n'
+printf 'Installed voice shortcuts: STTS: Start + Talk, Realtime API Voice, Realtime API Voice Stop.\n'
 printf 'Installed STTS control shortcuts: STTS: Attach Session, STTS: Stop.\n'

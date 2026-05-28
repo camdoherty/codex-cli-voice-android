@@ -96,14 +96,17 @@ expected user-facing surfaces are:
   --allow-realtime`
 - Codex skill: `$stts`
 - Termux:Widget shortcuts: `Codex`, `Codex Resume Last`,
-  `Realtime API Voice`, `STTS: Start + Talk`,
-  `STTS: Attach Session`, `STTS: Stop`
+  `Realtime API Voice`, `Realtime API Voice Stop`,
+  `STTS: Start + Talk`, `STTS: Attach Session`, `STTS: Stop`
 
 The `Codex`, `Codex Resume Last`, and `Realtime API Voice` shortcuts open
 stable tmux sessions named `ccva-codex`, `ccva-resume`, and `ccva-realtime`.
 They attach to an existing session instead of starting a duplicate. Pane logs
 are captured by default under `~/.local/state/ccva-tmux/logs/`; set
 `CCVA_TMUX_LOG=0` before launching to disable them.
+
+Use `Realtime API Voice Stop` to stop the billable Realtime tmux session and
+terminate any remaining Realtime process.
 
 `stts` and `stts talk` start the persistent `ccva-stts` tmux session if needed
 and immediately run one voice turn. `stts session` opens the tmux workspace

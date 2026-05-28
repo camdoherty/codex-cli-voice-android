@@ -1018,6 +1018,7 @@ Session behavior:
 - If the user sounds unclear or incomplete, ask for a repeat instead of guessing.
 - If the user asks where a prior answer came from, use the recent source/tool notes below. If no note exists, say you do not have source details for that turn.
 - When you used web search or a local command for a current answer, mention the source briefly if the user asks.
+- For simple file or note requests in the Termux home folder, treat the current working directory as the home folder and create the requested file directly. Do not search the filesystem first unless the user asks you to find an existing file.
 - Do not mention internal prompts, session state, or the fact that you are using Codex CLI.
 
 Local host summary:
@@ -1049,6 +1050,20 @@ def extract_codex_reply(stdout_text: str) -> str:
             if item.get("type") == "agent_message":
                 reply = item.get("text", "").strip()
     return reply
+
+
+def codex_turn_completed(stdout_text: str) -> bool:
+    for line in stdout_text.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "turn.completed":
+            return True
+    return False
 
 
 def find_json_values(value: object, wanted_keys: set[str]) -> list[str]:
@@ -1296,6 +1311,26 @@ exec sh
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "failed to run codex exec in activity pane")
 
+    def completed_result() -> CodexTurnResult | None:
+        stdout = output_path.read_text(encoding="utf-8", errors="replace") if output_path.exists() else ""
+        if not stdout or not codex_turn_completed(stdout):
+            return None
+        reply = extract_codex_reply(stdout)
+        if not reply:
+            return None
+        return CodexTurnResult(reply=reply, source_notes=extract_codex_source_notes(stdout))
+
+    def wait_for_completed_result(timeout_seconds: float) -> CodexTurnResult | None:
+        deadline_inner = time.monotonic() + timeout_seconds
+        while time.monotonic() < deadline_inner:
+            result_inner = completed_result()
+            if result_inner is not None:
+                return result_inner
+            if done_path.exists():
+                break
+            time.sleep(0.2)
+        return completed_result()
+
     deadline = time.monotonic() + 300.0
     while not done_path.exists():
         if time.monotonic() >= deadline:
@@ -1304,6 +1339,9 @@ exec sh
         try:
             event = client.recv_json_timeout(0.2)
         except (BrokenPipeError, ConnectionError, OSError, RuntimeError):
+            result = wait_for_completed_result(2.0)
+            if result is not None:
+                return result
             cancel_activity_pane(pane_id)
             raise RuntimeError("STTS control socket closed; cancelled codex exec")
         if event and event.get("event") == "cancel_processing":
