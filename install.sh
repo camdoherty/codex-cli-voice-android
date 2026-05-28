@@ -333,6 +333,7 @@ run_smoke() {
     log "running non-billable smoke checks"
     codex --version
     codex-api --version
+    codex-voice --allow-realtime --version
     command -v ccva-tmux-run >/dev/null 2>&1 || die "ccva-tmux-run is not on PATH"
     command -v ccva-realtime-stop >/dev/null 2>&1 || die "ccva-realtime-stop is not on PATH"
     command -v codex-install-stts >/dev/null 2>&1 || die "codex-install-stts is not on PATH"
