@@ -33,6 +33,11 @@ codex-voice --allow-realtime
 `$stts` is a walkie-talkie-like voice mode that can be used with Plus
 accounts. No OpenAI API key is required for the voice path.
 
+STTS runs Codex turns through `codex exec` with `gpt-5.4-mini` and
+`model_reasoning_effort="low"` by default to keep voice turns faster and
+lower cost. Advanced users can override this with `CODEX_STTS_CODEX_MODEL` and
+`CODEX_STTS_CODEX_REASONING_EFFORT`.
+
 Default path:
 
 ```text

@@ -31,6 +31,8 @@ DEFAULT_TTS_STREAM = "MUSIC"
 DEFAULT_TTS_BACKEND = "auto"
 DEFAULT_STT_BACKEND = "auto"
 DEFAULT_SHIM_STT_TIMEOUT_SECONDS = 12.0
+DEFAULT_CODEX_MODEL = os.environ.get("CODEX_STTS_CODEX_MODEL", "gpt-5.4-mini")
+DEFAULT_CODEX_REASONING_EFFORT = os.environ.get("CODEX_STTS_CODEX_REASONING_EFFORT", "low")
 SHIM_TEXT_VOICE_HOST = "127.0.0.1"
 SHIM_TEXT_VOICE_PORT = 8765
 SHIM_TEXT_VOICE_PATH = "/v1/text-voice"
@@ -1144,19 +1146,31 @@ def speakable_error(message: str) -> str:
     return "Codex failed before returning a reply."
 
 
+def codex_exec_command(cwd: str) -> list[str]:
+    command = [
+        "codex",
+        "exec",
+        "--skip-git-repo-check",
+        "--ephemeral",
+        "--json",
+    ]
+    if DEFAULT_CODEX_MODEL:
+        command.extend(["-m", DEFAULT_CODEX_MODEL])
+    if DEFAULT_CODEX_REASONING_EFFORT:
+        command.extend(["-c", f'model_reasoning_effort="{DEFAULT_CODEX_REASONING_EFFORT}"'])
+    command.extend(["-C", cwd, "-"])
+    return command
+
+
+def codex_exec_shell_command(cwd: str, prompt_path: Path, pipe_path: Path) -> str:
+    command = codex_exec_command(cwd)
+    return f"{shlex.join(command)} < {shlex.quote(str(prompt_path))} > {shlex.quote(str(pipe_path))} 2>&1"
+
+
 def generate_reply(prompt: str, cwd: str) -> CodexTurnResult:
     ensure_command("codex")
     result = subprocess.run(
-        [
-            "codex",
-            "exec",
-            "--skip-git-repo-check",
-            "--ephemeral",
-            "--json",
-            "-C",
-            cwd,
-            "-",
-        ],
+        codex_exec_command(cwd),
         input=prompt,
         text=True,
         capture_output=True,
@@ -1177,16 +1191,7 @@ def generate_reply_cancellable(prompt: str, cwd: str, client: WebSocketTextClien
 
     ensure_command("codex")
     proc = subprocess.Popen(
-        [
-            "codex",
-            "exec",
-            "--skip-git-repo-check",
-            "--ephemeral",
-            "--json",
-            "-C",
-            cwd,
-            "-",
-        ],
+        codex_exec_command(cwd),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -1267,6 +1272,7 @@ def generate_reply_visible_in_tmux(prompt: str, cwd: str, client: WebSocketTextC
     done_path = TURN_DIR / f"{turn_id}.done"
     pipe_path = TURN_DIR / f"{turn_id}.pipe"
     prompt_path.write_text(prompt, encoding="utf-8")
+    codex_command = codex_exec_shell_command(cwd, prompt_path, pipe_path)
 
     script = f"""
 set -u
@@ -1277,7 +1283,7 @@ rm -f {shlex.quote(str(pipe_path))} {shlex.quote(str(done_path))} {shlex.quote(s
 mkfifo {shlex.quote(str(pipe_path))}
 tee {shlex.quote(str(output_path))} < {shlex.quote(str(pipe_path))} &
 tee_pid=$!
-codex exec --skip-git-repo-check --ephemeral --json -C {shlex.quote(cwd)} - < {shlex.quote(str(prompt_path))} > {shlex.quote(str(pipe_path))} 2>&1
+{codex_command}
 rc=$?
 wait "$tee_pid" 2>/dev/null || true
 rm -f {shlex.quote(str(pipe_path))}

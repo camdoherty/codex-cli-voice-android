@@ -60,7 +60,9 @@ building Termux:API flows.
 
 Local Android STTS uses the Android shim `/v1/text-voice` endpoint first:
 Android `TextToSpeech` for spoken output and Android `SpeechRecognizer` for
-one-shot speech input. Termux:API speech commands remain fallback paths.
+one-shot speech input. Termux:API speech commands remain fallback paths. STTS
+pins Codex turns to `gpt-5.4-mini` with low reasoning by default, with
+environment overrides available for testing.
 
 OpenAI Codex Realtime Voice uses the shim `/v1/audio` endpoint for Android
 native microphone/speaker routing and streams audio through the OpenAI Realtime
