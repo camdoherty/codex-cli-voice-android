@@ -89,8 +89,9 @@ STTS: Stop
 
 The `Codex`, `Codex Resume Last`, and `Realtime API Voice` shortcuts use
 `ccva-tmux-run` and attach stable tmux sessions named `ccva-codex`,
-`ccva-resume`, and `ccva-realtime`. Pane logging is opt-in with
-`CCVA_TMUX_LOG=1`; normal Codex session history remains the default record.
+`ccva-resume`, and `ccva-realtime`. Pane logging is enabled by default under
+`~/.local/state/ccva-tmux/logs/`; set `CCVA_TMUX_LOG=0` before launch to
+disable it.
 
 ## Clean Staging Device
 

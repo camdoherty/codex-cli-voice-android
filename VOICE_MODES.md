@@ -122,8 +122,9 @@ Start surfaces:
 - Termux:Widget friendly label: `Realtime API Voice`
 
 The widget opens or attaches the stable `ccva-realtime` tmux session. It does
-not start duplicate Realtime sessions when tapped again. Optional pane logging
-is available by setting `CCVA_TMUX_LOG=1` before launch.
+not start duplicate Realtime sessions when tapped again. Pane logging is enabled
+by default under `~/.local/state/ccva-tmux/logs/`; set `CCVA_TMUX_LOG=0` before
+launch to disable it.
 
 ## Core CLI Surfaces
 
@@ -134,8 +135,9 @@ The standard Codex surfaces remain available alongside voice:
 - Termux:Widget friendly labels: `Codex` and `Codex Resume Last`
 
 The core widgets open or attach stable tmux sessions named `ccva-codex` and
-`ccva-resume`. Normal Codex session history remains the default record; pane
-logs are opt-in with `CCVA_TMUX_LOG=1`.
+`ccva-resume`. Pane logs are enabled by default under
+`~/.local/state/ccva-tmux/logs/`; normal Codex session history remains the
+default record.
 
 Agents can install or refresh the widget shortcuts from a synced repo:
 

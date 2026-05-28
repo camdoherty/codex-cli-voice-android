@@ -8,7 +8,7 @@ Usage: ccva-tmux-run <name> -- <command> [args...]
 Start or attach a stable CCVA tmux session.
 
 Environment:
-  CCVA_TMUX_LOG=1  Capture pane output to ~/.local/state/ccva-tmux/logs.
+  CCVA_TMUX_LOG=0  Disable pane output logs, which are enabled by default.
 EOF
 }
 
@@ -77,7 +77,7 @@ EOF
 
 tmux new-session -d -s "$session" -n "$name" -- bash -lc "$run_script"
 
-if [ "${CCVA_TMUX_LOG:-0}" = "1" ]; then
+if [ "${CCVA_TMUX_LOG:-1}" != "0" ]; then
     mkdir -p "$logs_dir"
     stamp="$(date +%Y%m%d-%H%M%S)"
     tmux pipe-pane -o -t "=$session:0.0" "cat >> '$logs_dir/$name-$stamp.log'"
