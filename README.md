@@ -8,7 +8,7 @@
 
 Codex CLI compiled for Android/Termux with Android-native voice modes.
 
-Status: Alpha. The current upstream target is Codex `rust-v0.134.0`.
+Status: `alpha`. The current upstream target is Codex `rust-v0.134.0`.
 This release was validated on Pixel 9 and 6a, Android 16, Termux 0.118.3.
 
 This repository does not vendor the upstream Codex source tree.
@@ -56,7 +56,7 @@ building Termux:API flows.
 | Mode | How to start | Cost profile | Best for |
 | --- | --- | --- | --- |
 | Local Android STTS | Use the `$stts` skill or `STTS: Start + Talk` | Uses normal Codex authentication; no Realtime API billing | Walkie-talkie-like voice sessions |
-| OpenAI Codex Realtime Voice | `codex-voice --allow-realtime` or `Start API($) Realtime Voice Mode` | Uses OpenAI Realtime API billing | Codex CLI realtime voice on Android native audio |
+| OpenAI Codex Realtime Voice | `codex-voice --allow-realtime` or `Realtime API Voice` | Uses OpenAI Realtime API billing | Codex CLI realtime voice on Android native audio |
 
 Local Android STTS uses the Android shim `/v1/text-voice` endpoint first:
 Android `TextToSpeech` for spoken output and Android `SpeechRecognizer` for

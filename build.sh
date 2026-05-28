@@ -113,8 +113,10 @@ cp "$SCRIPT_DIR/scripts/termux-codex-api" "$STAGE/bin/codex-api"
 cp "$SCRIPT_DIR/scripts/termux-codex-voice" "$STAGE/bin/codex-voice"
 cp "$SCRIPT_DIR/scripts/install_stts_skill.sh" "$STAGE/bin/codex-install-stts"
 cp "$SCRIPT_DIR/scripts/ccva-tmux-run" "$STAGE/bin/ccva-tmux-run"
+cp "$SCRIPT_DIR/scripts/ccva-realtime-stop" "$STAGE/bin/ccva-realtime-stop"
 chmod +x "$STAGE/bin/codex-api" "$STAGE/bin/codex-voice" \
-    "$STAGE/bin/codex-install-stts" "$STAGE/bin/ccva-tmux-run"
+    "$STAGE/bin/codex-install-stts" "$STAGE/bin/ccva-tmux-run" \
+    "$STAGE/bin/ccva-realtime-stop"
 
 # -- Package --
 VERSION=$(cd "$WORK_DIR" && git describe --tags --exact-match 2>/dev/null || echo "$CODEX_TAG")

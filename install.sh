@@ -206,7 +206,7 @@ install_widgets() {
     shortcuts_dir="$CCVA_WIDGET_DIR"
     mkdir -p "$scripts_dir" "$shortcuts_dir"
 
-    for name in codex-api codex-voice codex-install-stts ccva-tmux-run; do
+    for name in codex-api codex-voice codex-install-stts ccva-tmux-run ccva-realtime-stop; do
         ln -sfn "$CCVA_PREFIX/bin/$name" "$scripts_dir/$name"
     done
 
@@ -221,6 +221,10 @@ EOF
     cat > "$shortcuts_dir/Realtime API Voice" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 exec "$HOME/scripts/ccva-tmux-run" realtime -- "$HOME/scripts/codex-voice" --allow-realtime
+EOF
+    cat > "$shortcuts_dir/Realtime API Voice Stop" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+exec "$HOME/scripts/ccva-realtime-stop"
 EOF
     cat > "$shortcuts_dir/STTS: Start + Talk" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
@@ -238,6 +242,7 @@ EOF
         "$shortcuts_dir/Codex" \
         "$shortcuts_dir/Codex Resume Last" \
         "$shortcuts_dir/Realtime API Voice" \
+        "$shortcuts_dir/Realtime API Voice Stop" \
         "$shortcuts_dir/STTS: Start + Talk" \
         "$shortcuts_dir/STTS: Attach Session" \
         "$shortcuts_dir/STTS: Stop"
@@ -245,6 +250,7 @@ EOF
     rm -f \
         "$shortcuts_dir/codex" \
         "$shortcuts_dir/codex-voice" \
+        "$shortcuts_dir/Realtime API Stop" \
         "$shortcuts_dir/Start API($) Realtime Voice Mode" \
         "$shortcuts_dir/Start STTS Voice Mode" \
         "$shortcuts_dir/Open STTS Session" \
@@ -274,6 +280,7 @@ remove_existing_install() {
         "$CCVA_PREFIX/bin/codex-voice" \
         "$CCVA_PREFIX/bin/codex-install-stts" \
         "$CCVA_PREFIX/bin/ccva-tmux-run" \
+        "$CCVA_PREFIX/bin/ccva-realtime-stop" \
         "$CCVA_PREFIX/bin/codex-install-tts-stt" \
         "$CCVA_PREFIX/bin/tts-stt-start" \
         "$CCVA_PREFIX/bin/tts-stt-stop" \
@@ -285,6 +292,7 @@ remove_existing_install() {
     rm -f \
         "$HOME/scripts/codex-install-tts-stt" \
         "$HOME/scripts/ccva-tmux-run" \
+        "$HOME/scripts/ccva-realtime-stop" \
         "$HOME/scripts/${old_slug}-start" \
         "$HOME/scripts/${old_slug}-stop" \
         "$HOME/scripts/${old_slug}-status" \
@@ -326,6 +334,7 @@ run_smoke() {
     codex --version
     codex-api --version
     command -v ccva-tmux-run >/dev/null 2>&1 || die "ccva-tmux-run is not on PATH"
+    command -v ccva-realtime-stop >/dev/null 2>&1 || die "ccva-realtime-stop is not on PATH"
     command -v codex-install-stts >/dev/null 2>&1 || die "codex-install-stts is not on PATH"
     [ -x "$HOME/.codex/skills/stts/scripts/stts-session.sh" ] || die "stts skill is not installed"
     sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" status

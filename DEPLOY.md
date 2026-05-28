@@ -68,6 +68,8 @@ $HOME/.codex/skills/stts
 $HOME/scripts/codex-api
 $HOME/scripts/codex-voice
 $HOME/scripts/codex-install-stts
+$HOME/scripts/ccva-tmux-run
+$HOME/scripts/ccva-realtime-stop
 ```
 
 Refresh user-facing Termux:Widget shortcuts from a synced repo with:
@@ -82,6 +84,7 @@ Expected launch surfaces after refresh:
 Codex
 Codex Resume Last
 Realtime API Voice
+Realtime API Voice Stop
 STTS: Attach Session
 STTS: Start + Talk
 STTS: Stop
@@ -92,6 +95,9 @@ The `Codex`, `Codex Resume Last`, and `Realtime API Voice` shortcuts use
 `ccva-resume`, and `ccva-realtime`. Pane logging is enabled by default under
 `~/.local/state/ccva-tmux/logs/`; set `CCVA_TMUX_LOG=0` before launch to
 disable it.
+
+Use `Realtime API Voice Stop` to stop the billable Realtime tmux session and
+terminate any remaining Realtime process.
 
 ## Clean Staging Device
 

@@ -120,11 +120,15 @@ Start surfaces:
 
 - Command: `codex-voice --allow-realtime`
 - Termux:Widget friendly label: `Realtime API Voice`
+- Stop shortcut: `Realtime API Voice Stop`
 
 The widget opens or attaches the stable `ccva-realtime` tmux session. It does
 not start duplicate Realtime sessions when tapped again. Pane logging is enabled
 by default under `~/.local/state/ccva-tmux/logs/`; set `CCVA_TMUX_LOG=0` before
 launch to disable it.
+
+Use `Realtime API Voice Stop` to stop the billable Realtime tmux session and
+terminate any remaining Realtime process.
 
 ## Core CLI Surfaces
 
