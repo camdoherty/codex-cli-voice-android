@@ -174,6 +174,8 @@ termux-reload-settings
 
 Then grant `Run commands in Termux environment` to Codex Bridge in Android app
 permissions. Widgets and terminal commands work without this optional setup.
+Open Codex Bridge and tap `Check Termux Controls` once to enable notification
+buttons. The bridge does not run periodic Termux command probes.
 For notification buttons that open visible Termux sessions immediately, Android
 may also require Termux's `Draw over other apps` permission.
 

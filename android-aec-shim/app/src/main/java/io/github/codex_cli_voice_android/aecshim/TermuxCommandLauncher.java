@@ -45,15 +45,25 @@ final class TermuxCommandLauncher {
         return "available".equals(AecShimState.termuxControlsState);
     }
 
-    static void refreshAvailability(Context context, boolean force) {
+    static void refreshAvailability(Context context) {
+        if (isTermuxInstalled(context)
+                && context.checkSelfPermission(TERMUX_RUN_COMMAND_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
+            if ("unknown".equals(AecShimState.termuxControlsState)) {
+                AecShimState.termuxControlsState = "not checked";
+                AecShimState.termuxControlsLastError = "tap Check Termux Controls";
+            }
+            return;
+        }
+        if (!isTermuxInstalled(context)) {
+            setUnavailable("Termux not installed");
+            return;
+        }
+        setUnavailable("grant Run commands in Termux permission");
+    }
+
+    static void checkControls(Context context) {
         long now = System.currentTimeMillis();
-        if (!force && now - lastProbeStartedAtMs < 60000L && !"unknown".equals(AecShimState.termuxControlsState)) {
-            return;
-        }
-        if (!force && "checking".equals(AecShimState.termuxControlsState) && now - lastProbeStartedAtMs < 15000L) {
-            return;
-        }
-        if (!force && controlsAvailable() && now - lastProbeStartedAtMs < 60000L) {
+        if ("checking".equals(AecShimState.termuxControlsState) && now - lastProbeStartedAtMs < 15000L) {
             return;
         }
         if (!isTermuxInstalled(context)) {
@@ -149,7 +159,7 @@ final class TermuxCommandLauncher {
         if (controlsAvailable()) {
             return true;
         }
-        refreshAvailability(context, true);
+        refreshAvailability(context);
         return false;
     }
 

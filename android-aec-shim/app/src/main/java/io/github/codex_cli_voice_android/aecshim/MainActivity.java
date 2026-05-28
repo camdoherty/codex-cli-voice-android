@@ -81,6 +81,15 @@ public final class MainActivity extends Activity {
         refresh.setOnClickListener(v -> refreshStatus());
         root.addView(refresh);
 
+        Button checkTermux = new Button(this);
+        checkTermux.setText("Check Termux Controls");
+        styleButton(checkTermux);
+        checkTermux.setOnClickListener(v -> {
+            TermuxCommandLauncher.checkControls(this);
+            statusView.postDelayed(this::refreshStatus, 1000);
+        });
+        root.addView(checkTermux);
+
         termuxControlsView = new TextView(this);
         termuxControlsView.setTextSize(16);
         termuxControlsView.setTextColor(Color.WHITE);
@@ -155,7 +164,7 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshStatus() {
-        TermuxCommandLauncher.refreshAvailability(this, false);
+        TermuxCommandLauncher.refreshAvailability(this);
         termuxControlsView.setText("Termux controls: " + AecShimState.termuxControlsSummary());
         statusView.setText(AecShimState.summary());
     }
