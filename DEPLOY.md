@@ -169,6 +169,10 @@ Attach       -> stts session
 Stop         -> stts stop, plus immediate shim-side audio cancel
 ```
 
+`STTS: Idle` in the Codex Bridge notification is normal between turns. The
+persistent `ccva-stts` tmux session can be ready while no `/v1/text-voice`
+client is connected.
+
 ## Rollback
 
 Each deploy creates a backup archive on the device and updates:

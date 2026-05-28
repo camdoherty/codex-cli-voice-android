@@ -13,6 +13,12 @@ import android.os.IBinder;
 import java.net.InetSocketAddress;
 
 public final class AecShimService extends Service {
+    private static final String STTS_IDLE = "STTS: Idle";
+    private static final String STTS_READY = "STTS: Ready";
+    private static final String STTS_LISTENING = "STTS: Listening...";
+    private static final String STTS_THINKING = "STTS: Thinking...";
+    private static final String STTS_SPEAKING = "STTS: Speaking...";
+
     static final String ACTION_WAKE_TEST_START = "io.github.codex_cli_voice_android.aecshim.WAKE_TEST_START";
     static final String ACTION_WAKE_TEST_STOP = "io.github.codex_cli_voice_android.aecshim.WAKE_TEST_STOP";
     static final String ACTION_WAKE_TEST_PASS = "io.github.codex_cli_voice_android.aecshim.WAKE_TEST_PASS";
@@ -145,18 +151,21 @@ public final class AecShimService extends Service {
         String state = TextVoiceStatus.state;
         String wake = WakeWordStatus.wakeState;
         if ("stt_starting".equals(state) || "stt_listening".equals(state)) {
-            return "STTS: Listening...";
+            return STTS_LISTENING;
         }
         if ("client_processing".equals(state)) {
-            return "STTS: Thinking...";
+            return STTS_THINKING;
         }
         if ("tts_starting".equals(state) || "tts_speaking".equals(state)) {
-            return "STTS: Speaking...";
+            return STTS_SPEAKING;
         }
         if ("listening".equals(wake)) {
-            return "STTS: Ready";
+            return STTS_READY;
         }
-        return TextVoiceStatus.textClientConnected ? "STTS: Connected" : "STTS: Not connected";
+        if (TextVoiceStatus.textClientConnected) {
+            return STTS_READY;
+        }
+        return STTS_IDLE;
     }
 
     private void createNotificationChannel() {

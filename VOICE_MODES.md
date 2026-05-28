@@ -67,6 +67,14 @@ Command behavior:
   testing, but may repeatedly trigger Android SpeechRecognizer beeps.
 - `stts stop`: stop the active session and voice helpers.
 
+Codex Bridge notification states:
+
+- `STTS: Idle`: Bridge is running and no STTS turn is connected right now.
+- `STTS: Ready`: STTS is connected or wake/PTT is armed.
+- `STTS: Listening...`: Android speech recognition is active.
+- `STTS: Thinking...`: Codex is generating a reply.
+- `STTS: Speaking...`: Android TTS is playing the reply.
+
 The default session safety timeout is one hour. Use `--timeout-seconds` only
 for bounded tests.
 
