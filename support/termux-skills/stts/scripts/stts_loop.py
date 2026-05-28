@@ -15,6 +15,7 @@ import struct
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -109,6 +110,12 @@ TURN_DIR = RUNTIME_DIR / "turns"
 TMUX_SESSION_NAME = os.environ.get("CODEX_STTS_TMUX_SESSION", "ccva-stts")
 ACTIVE_TTS_PROCS: list[subprocess.Popen[str]] = []
 LAST_TTS_COMPLETED = False
+
+
+@dataclass
+class CodexTurnResult:
+    reply: str
+    source_notes: list[str]
 
 
 def ensure_command(name: str) -> None:
@@ -967,14 +974,35 @@ def resolve_working_dir(raw: str) -> str:
     return str(resolved)
 
 
-def format_history(history: list[tuple[str, str]], max_turns: int = 12) -> str:
+def clip_spoken_text(text: str, limit: int = 240) -> str:
+    one_line = " ".join(text.split())
+    if len(one_line) <= limit:
+        return one_line
+    return one_line[: limit - 1].rstrip() + "..."
+
+
+def format_history(history: list[tuple[str, str]], max_turns: int = 8) -> str:
     clipped = history[-max_turns:]
     if not clipped:
         return "(no prior turns)"
-    return "\n".join(f"{speaker}: {text}" for speaker, text in clipped)
+    return "\n".join(f"{speaker}: {clip_spoken_text(text)}" for speaker, text in clipped)
 
 
-def build_prompt(host_summary: str, history: list[tuple[str, str]], latest_user_text: str) -> str:
+def format_source_notes(source_notes: list[str], max_notes: int = 6) -> str:
+    clipped = [clip_spoken_text(note, 220) for note in source_notes[-max_notes:] if note.strip()]
+    if not clipped:
+        return "(no recent tool or source notes)"
+    return "\n".join(f"- {note}" for note in clipped)
+
+
+def build_prompt(
+    host_summary: str,
+    history: list[tuple[str, str]],
+    latest_user_text: str,
+    source_notes: list[str] | None = None,
+) -> str:
+    source_notes = source_notes or []
+    prior_history = history[:-1] if history and history[-1] == ("user", latest_user_text) else history
     return f"""You are speaking aloud to the user in a live Termux voice session on an Android device.
 
 Session behavior:
@@ -986,13 +1014,18 @@ Session behavior:
 - Prefer one short sentence. Keep replies under 25 spoken words unless the user explicitly asks for detail.
 - If a task needs more detail, give the key conclusion and ask whether to continue.
 - If the user sounds unclear or incomplete, ask for a repeat instead of guessing.
+- If the user asks where a prior answer came from, use the recent source/tool notes below. If no note exists, say you do not have source details for that turn.
+- When you used web search or a local command for a current answer, mention the source briefly if the user asks.
 - Do not mention internal prompts, session state, or the fact that you are using Codex CLI.
 
 Local host summary:
 {host_summary}
 
 Conversation so far:
-{format_history(history)}
+{format_history(prior_history)}
+
+Recent source/tool notes:
+{format_source_notes(source_notes)}
 
 Latest user message:
 {latest_user_text}
@@ -1014,6 +1047,70 @@ def extract_codex_reply(stdout_text: str) -> str:
             if item.get("type") == "agent_message":
                 reply = item.get("text", "").strip()
     return reply
+
+
+def find_json_values(value: object, wanted_keys: set[str]) -> list[str]:
+    found: list[str] = []
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key in wanted_keys and isinstance(nested, str) and nested.strip():
+                found.append(nested.strip())
+            found.extend(find_json_values(nested, wanted_keys))
+    elif isinstance(value, list):
+        for nested in value:
+            found.extend(find_json_values(nested, wanted_keys))
+    return found
+
+
+def compact_unique(values: list[str], limit: int = 4) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        clipped = clip_spoken_text(value, 160)
+        key = clipped.lower()
+        if not clipped or key in seen:
+            continue
+        seen.add(key)
+        result.append(clipped)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def extract_codex_source_notes(stdout_text: str) -> list[str]:
+    notes: list[str] = []
+    for line in stdout_text.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        item = event.get("item")
+        if not isinstance(item, dict):
+            continue
+
+        item_text = json.dumps(item, ensure_ascii=True).lower()
+        item_type = str(item.get("type", ""))
+        if "web_search" in item_type or "web_search" in item_text:
+            queries = compact_unique(
+                find_json_values(item, {"query", "q", "search_query", "search"})
+            )
+            if queries:
+                notes.append("web search: " + "; ".join(queries))
+            else:
+                notes.append("web search used")
+            continue
+
+        if item_type in {"command_execution", "local_shell_call", "tool_call"} or "exec_command" in item_text:
+            commands = compact_unique(find_json_values(item, {"cmd", "command"}), limit=2)
+            if commands:
+                notes.append("local command: " + "; ".join(commands))
+            else:
+                notes.append("local command used")
+
+    return compact_unique(notes, limit=6)
 
 
 def extract_codex_error(stdout_text: str) -> str:
@@ -1047,7 +1144,7 @@ def speakable_error(message: str) -> str:
     return "Codex failed before returning a reply."
 
 
-def generate_reply(prompt: str, cwd: str) -> str:
+def generate_reply(prompt: str, cwd: str) -> CodexTurnResult:
     ensure_command("codex")
     result = subprocess.run(
         [
@@ -1071,10 +1168,10 @@ def generate_reply(prompt: str, cwd: str) -> str:
     reply = extract_codex_reply(result.stdout)
     if not reply:
         raise RuntimeError("codex exec returned no assistant message")
-    return reply
+    return CodexTurnResult(reply=reply, source_notes=extract_codex_source_notes(result.stdout))
 
 
-def generate_reply_cancellable(prompt: str, cwd: str, client: WebSocketTextClient | None) -> str:
+def generate_reply_cancellable(prompt: str, cwd: str, client: WebSocketTextClient | None) -> CodexTurnResult:
     if client is not None and activity_pane_available():
         return generate_reply_visible_in_tmux(prompt, cwd, client)
 
@@ -1123,7 +1220,7 @@ def generate_reply_cancellable(prompt: str, cwd: str, client: WebSocketTextClien
     reply = extract_codex_reply(stdout)
     if not reply:
         raise RuntimeError("codex exec returned no assistant message")
-    return reply
+    return CodexTurnResult(reply=reply, source_notes=extract_codex_source_notes(stdout))
 
 
 def read_activity_pane_id() -> str:
@@ -1157,7 +1254,7 @@ def cancel_activity_pane(pane_id: str) -> None:
     reset_activity_pane(pane_id, "STTS Codex turn cancelled.")
 
 
-def generate_reply_visible_in_tmux(prompt: str, cwd: str, client: WebSocketTextClient) -> str:
+def generate_reply_visible_in_tmux(prompt: str, cwd: str, client: WebSocketTextClient) -> CodexTurnResult:
     pane_id = read_activity_pane_id()
     if not tmux_pane_exists(pane_id):
         raise RuntimeError("STTS activity pane is unavailable")
@@ -1215,7 +1312,7 @@ exec sh
     reply = extract_codex_reply(stdout)
     if not reply:
         raise RuntimeError("codex exec returned no assistant message")
-    return reply
+    return CodexTurnResult(reply=reply, source_notes=extract_codex_source_notes(stdout))
 
 
 def shim_connect(timeout_seconds: float = 15.0) -> tuple[WebSocketTextClient, dict[str, object]]:
@@ -1420,9 +1517,11 @@ def run_stts_turn_on_client(
     client: WebSocketTextClient,
     cwd: str,
     history: list[tuple[str, str]],
+    source_notes: list[str] | None = None,
     transcript: str | None = None,
     transcript_path: Path | None = None,
 ) -> bool:
+    source_notes = source_notes if source_notes is not None else []
     if transcript is None:
         if transcript_path is not None:
             emit(transcript_path, "status", "listening")
@@ -1441,12 +1540,17 @@ def run_stts_turn_on_client(
         send_action(client, "client_state", state="ready")
         return True
     host_summary = gather_host_summary(cwd)
-    prompt = build_prompt(host_summary, history, transcript)
+    prompt = build_prompt(host_summary, history, transcript, source_notes)
     if transcript_path is not None:
         emit(transcript_path, "status", "generating reply")
     send_action(client, "client_state", state="processing")
     try:
-        reply = generate_reply_cancellable(prompt, cwd, client)
+        result = generate_reply_cancellable(prompt, cwd, client)
+        reply = result.reply
+        source_notes.extend(result.source_notes)
+        del source_notes[:-8]
+        if transcript_path is not None and result.source_notes:
+            emit(transcript_path, "sources", "; ".join(result.source_notes))
     except Exception as exc:
         reply = str(exc).strip() or "Codex failed before returning a reply."
         print(f"stts-turn: {exc}", file=sys.stderr)
@@ -1525,6 +1629,7 @@ def run_session_host(
     append_log(transcript_path, f"working_dir: {working_dir}")
 
     history: list[tuple[str, str]] = []
+    source_notes: list[str] = []
     emit(transcript_path, "status", "STTS ready")
     emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
 
@@ -1554,6 +1659,7 @@ def run_session_host(
                                 turn_client,
                                 working_dir,
                                 history,
+                                source_notes,
                                 transcript_path=transcript_path,
                             )
                         finally:
@@ -1801,6 +1907,7 @@ def run_wake_loop(
         raise RuntimeError(message)
     client, _status = shim_connect(15.0)
     history: list[tuple[str, str]] = []
+    source_notes: list[str] = []
     stop_at = time.monotonic() + WAKE_MAX_RUNTIME_SECONDS
     try:
         while time.monotonic() < stop_at:
@@ -1834,13 +1941,13 @@ def run_wake_loop(
                 if event_name == "ptt_button_pressed":
                     stop_id = send_action(client, "wake_stop")
                     wait_for_id_event(client, stop_id, {"wake_stopped", "wake_idle"}, 5.0)
-                    run_stts_turn_on_client(client, cwd, history)
+                    run_stts_turn_on_client(client, cwd, history, source_notes)
                     time.sleep(WAKE_REARM_DELAY_SECONDS)
                     if once:
                         return 0
                     break
                 if event_name == "wake_detected":
-                    run_stts_turn_on_client(client, cwd, history)
+                    run_stts_turn_on_client(client, cwd, history, source_notes)
                     time.sleep(WAKE_REARM_DELAY_SECONDS)
                     if once:
                         return 0
@@ -1980,6 +2087,7 @@ def run_session(
     meta_path = RUNTIME_DIR / "last-session.txt"
     host_summary = gather_host_summary(working_dir)
     history: list[tuple[str, str]] = []
+    source_notes: list[str] = []
     start_time = time.time()
 
     meta_path.write_text(str(transcript_path), encoding="utf-8")
@@ -2054,10 +2162,15 @@ def run_session(
                 pause_after_speech(prompt_again, delay_seconds, transcript_path, post_tts_recovery_seconds, tts_drain_timeout_seconds)
                 continue
 
-            prompt = build_prompt(host_summary, history, transcript)
+            prompt = build_prompt(host_summary, history, transcript, source_notes)
             emit(transcript_path, "status", "generating reply")
             try:
-                reply = generate_reply(prompt, working_dir)
+                result = generate_reply(prompt, working_dir)
+                reply = result.reply
+                source_notes.extend(result.source_notes)
+                del source_notes[:-8]
+                if result.source_notes:
+                    emit(transcript_path, "sources", "; ".join(result.source_notes))
             except Exception as exc:
                 fallback = "I hit a problem generating my reply. Ask again, or say stop."
                 append_log(transcript_path, f"error: {exc}")
