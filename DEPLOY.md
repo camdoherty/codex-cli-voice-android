@@ -81,10 +81,10 @@ Expected launch surfaces after refresh:
 ```text
 Codex
 Codex Resume Last
-Start STTS Voice Mode
-Open STTS Session
-Stop STTS Voice Mode
-Start API($) Realtime Voice Mode
+Realtime API Voice
+STTS: Attach Session
+STTS: Start + Talk
+STTS: Stop
 ```
 
 ## Clean Staging Device
@@ -128,7 +128,42 @@ step. The cleanup script reports whether the package is installed, but a fully
 clean device may still require:
 
 ```text
-Android Settings -> Apps -> Codex AEC Shim / Codex Bridge -> Uninstall
+Android Settings -> Apps -> Codex Bridge -> Uninstall
+```
+
+## Optional Notification Controls
+
+Codex Bridge can show STTS notification buttons only when Termux allows
+external command execution. The bridge hides those buttons until setup is
+available, so widgets and shell commands remain the default reliable controls.
+
+Enable the Termux side:
+
+```sh
+mkdir -p ~/.termux
+grep -qxF 'allow-external-apps=true' ~/.termux/termux.properties 2>/dev/null \
+  || printf '%s\n' 'allow-external-apps=true' >> ~/.termux/termux.properties
+termux-reload-settings
+```
+
+Then grant Codex Bridge the Android permission:
+
+```text
+Android Settings -> Apps -> Codex Bridge -> Permissions
+-> Additional permissions -> Run commands in Termux environment
+```
+
+On Android 10+, Termux may require `Draw over other apps` for foreground
+commands such as `Start / Talk` and `Attach` to open immediately from a
+notification button. Without it, Android may require tapping the Termux
+notification before the terminal session becomes visible.
+
+When available, the notification buttons map to:
+
+```text
+Start / Talk -> stts talk
+Attach       -> stts session
+Stop         -> stts stop, plus immediate shim-side audio cancel
 ```
 
 ## Rollback

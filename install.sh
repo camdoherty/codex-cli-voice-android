@@ -218,33 +218,37 @@ EOF
 #!/data/data/com.termux/files/usr/bin/sh
 exec codex resume --last
 EOF
-    cat > "$shortcuts_dir/Start API($) Realtime Voice Mode" <<'EOF'
+    cat > "$shortcuts_dir/Realtime API Voice" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec "$HOME/scripts/codex-voice" --allow-realtime
 EOF
-    cat > "$shortcuts_dir/Start STTS Voice Mode" <<'EOF'
+    cat > "$shortcuts_dir/STTS: Start + Talk" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
 EOF
-    cat > "$shortcuts_dir/Open STTS Session" <<'EOF'
+    cat > "$shortcuts_dir/STTS: Attach Session" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" session
 EOF
-    cat > "$shortcuts_dir/Stop STTS Voice Mode" <<'EOF'
+    cat > "$shortcuts_dir/STTS: Stop" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
 EOF
     chmod 700 \
         "$shortcuts_dir/Codex" \
         "$shortcuts_dir/Codex Resume Last" \
-        "$shortcuts_dir/Start API($) Realtime Voice Mode" \
-        "$shortcuts_dir/Start STTS Voice Mode" \
-        "$shortcuts_dir/Open STTS Session" \
-        "$shortcuts_dir/Stop STTS Voice Mode"
+        "$shortcuts_dir/Realtime API Voice" \
+        "$shortcuts_dir/STTS: Start + Talk" \
+        "$shortcuts_dir/STTS: Attach Session" \
+        "$shortcuts_dir/STTS: Stop"
     old_slug="tts""-stt"
     rm -f \
         "$shortcuts_dir/codex" \
         "$shortcuts_dir/codex-voice" \
+        "$shortcuts_dir/Start API($) Realtime Voice Mode" \
+        "$shortcuts_dir/Start STTS Voice Mode" \
+        "$shortcuts_dir/Open STTS Session" \
+        "$shortcuts_dir/Stop STTS Voice Mode" \
         "$shortcuts_dir/stts-start" \
         "$shortcuts_dir/stts-talk" \
         "$shortcuts_dir/stts-stop" \

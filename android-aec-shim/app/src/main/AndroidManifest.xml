@@ -7,8 +7,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
     <queries>
+        <package android:name="com.termux" />
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
@@ -19,7 +21,7 @@
 
     <application
         android:allowBackup="false"
-        android:label="Codex AEC Shim"
+        android:label="Codex Bridge"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
@@ -35,5 +37,9 @@
             android:name=".AecShimService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+
+        <receiver
+            android:name=".TermuxRunCommandResultReceiver"
+            android:exported="false" />
     </application>
 </manifest>

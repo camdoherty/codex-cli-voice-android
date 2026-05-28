@@ -21,22 +21,22 @@ cat > "$SHORTCUTS_DIR/Codex Resume Last" <<'EOF'
 exec codex resume --last
 EOF
 
-cat > "$SHORTCUTS_DIR/Start API($) Realtime Voice Mode" <<'EOF'
+cat > "$SHORTCUTS_DIR/Realtime API Voice" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec "$HOME/scripts/codex-voice" --allow-realtime
 EOF
 
-cat > "$SHORTCUTS_DIR/Start STTS Voice Mode" <<'EOF'
+cat > "$SHORTCUTS_DIR/STTS: Start + Talk" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
 EOF
 
-cat > "$SHORTCUTS_DIR/Open STTS Session" <<'EOF'
+cat > "$SHORTCUTS_DIR/STTS: Attach Session" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" session
 EOF
 
-cat > "$SHORTCUTS_DIR/Stop STTS Voice Mode" <<'EOF'
+cat > "$SHORTCUTS_DIR/STTS: Stop" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
 EOF
@@ -44,10 +44,10 @@ EOF
 chmod 700 \
     "$SHORTCUTS_DIR/Codex" \
     "$SHORTCUTS_DIR/Codex Resume Last" \
-    "$SHORTCUTS_DIR/Start API($) Realtime Voice Mode" \
-    "$SHORTCUTS_DIR/Start STTS Voice Mode" \
-    "$SHORTCUTS_DIR/Open STTS Session" \
-    "$SHORTCUTS_DIR/Stop STTS Voice Mode"
+    "$SHORTCUTS_DIR/Realtime API Voice" \
+    "$SHORTCUTS_DIR/STTS: Start + Talk" \
+    "$SHORTCUTS_DIR/STTS: Attach Session" \
+    "$SHORTCUTS_DIR/STTS: Stop"
 
 OLD_SLUG="tts""-stt"
 rm -f \
@@ -59,6 +59,10 @@ rm -f \
     "$SCRIPTS_DIR/${OLD_SLUG}-talk" \
     "$SHORTCUTS_DIR/codex" \
     "$SHORTCUTS_DIR/codex-voice" \
+    "$SHORTCUTS_DIR/Start API(\$) Realtime Voice Mode" \
+    "$SHORTCUTS_DIR/Start STTS Voice Mode" \
+    "$SHORTCUTS_DIR/Open STTS Session" \
+    "$SHORTCUTS_DIR/Stop STTS Voice Mode" \
     "$SHORTCUTS_DIR/stts-start" \
     "$SHORTCUTS_DIR/stts-talk" \
     "$SHORTCUTS_DIR/stts-stop" \
@@ -97,5 +101,5 @@ done
 
 printf 'Installed codex-api/codex-voice launchers and Termux:Widget shortcuts.\n'
 printf 'Installed core shortcuts: Codex, Codex Resume Last.\n'
-printf 'Installed voice shortcuts: Start STTS Voice Mode, Start API($) Realtime Voice Mode.\n'
-printf 'Installed STTS control shortcuts: Open STTS Session, Stop STTS Voice Mode.\n'
+printf 'Installed voice shortcuts: STTS: Start + Talk, Realtime API Voice.\n'
+printf 'Installed STTS control shortcuts: STTS: Attach Session, STTS: Stop.\n'

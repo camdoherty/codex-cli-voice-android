@@ -17,9 +17,9 @@ public final class AecShimService extends Service {
     static final String ACTION_WAKE_TEST_STOP = "io.github.codex_cli_voice_android.aecshim.WAKE_TEST_STOP";
     static final String ACTION_WAKE_TEST_PASS = "io.github.codex_cli_voice_android.aecshim.WAKE_TEST_PASS";
     static final String ACTION_WAKE_TEST_FAIL = "io.github.codex_cli_voice_android.aecshim.WAKE_TEST_FAIL";
-    static final String ACTION_STTS_TALK = "io.github.codex_cli_voice_android.aecshim.STTS_TALK";
-    static final String ACTION_STTS_DONE = "io.github.codex_cli_voice_android.aecshim.STTS_DONE";
-    static final String ACTION_STTS_CANCEL = "io.github.codex_cli_voice_android.aecshim.STTS_CANCEL";
+    static final String ACTION_REFRESH_NOTIFICATION = "io.github.codex_cli_voice_android.aecshim.REFRESH_NOTIFICATION";
+    static final String ACTION_STTS_START_TALK = "io.github.codex_cli_voice_android.aecshim.STTS_START_TALK";
+    static final String ACTION_STTS_ATTACH = "io.github.codex_cli_voice_android.aecshim.STTS_ATTACH";
     static final String ACTION_STTS_STOP = "io.github.codex_cli_voice_android.aecshim.STTS_STOP";
 
     private AudioEngine audioEngine;
@@ -37,6 +37,7 @@ public final class AecShimService extends Service {
         audioEngine = new AudioEngine(this, audioModeCoordinator);
         textVoiceController = new TextVoiceController(this, audioModeCoordinator);
         wakeWordTestController = new WakeWordTestController(this, audioModeCoordinator);
+        TermuxCommandLauncher.refreshAvailability(this, false);
         server = new LoopbackAudioServer(
                 new InetSocketAddress("127.0.0.1", 8765),
                 audioEngine,
@@ -89,16 +90,7 @@ public final class AecShimService extends Service {
     }
 
     private void startForegroundNow() {
-        Notification.Builder builder = new Notification.Builder(this, NotificationIds.CHANNEL_ID)
-                .setContentTitle("STTS")
-                .setContentText(notificationText())
-                .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                .setOngoing(true)
-                .addAction(android.R.drawable.ic_btn_speak_now, "Talk", serviceIntent(ACTION_STTS_TALK, 10))
-                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Done", serviceIntent(ACTION_STTS_DONE, 11))
-                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", serviceIntent(ACTION_STTS_CANCEL, 12))
-                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop STTS", serviceIntent(ACTION_STTS_STOP, 13));
-        Notification notification = builder.build();
+        Notification notification = buildNotification();
 
         if (Build.VERSION.SDK_INT >= 29) {
             startForeground(
@@ -113,17 +105,31 @@ public final class AecShimService extends Service {
     void updateNotification() {
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager != null) {
-            manager.notify(NotificationIds.SERVICE_ID, new Notification.Builder(this, NotificationIds.CHANNEL_ID)
-                    .setContentTitle("STTS")
-                    .setContentText(notificationText())
-                    .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-                    .setOngoing(true)
-                    .addAction(android.R.drawable.ic_btn_speak_now, "Talk", serviceIntent(ACTION_STTS_TALK, 10))
-                    .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Done", serviceIntent(ACTION_STTS_DONE, 11))
-                    .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", serviceIntent(ACTION_STTS_CANCEL, 12))
-                    .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop STTS", serviceIntent(ACTION_STTS_STOP, 13))
-                    .build());
+            manager.notify(NotificationIds.SERVICE_ID, buildNotification());
         }
+    }
+
+    private Notification buildNotification() {
+        Notification.Builder builder = new Notification.Builder(this, NotificationIds.CHANNEL_ID)
+                .setContentTitle("Codex Bridge")
+                .setContentText(notificationText())
+                .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+                .setOngoing(true);
+        if (TermuxCommandLauncher.controlsAvailable()) {
+            builder.addAction(
+                    android.R.drawable.ic_btn_speak_now,
+                    "Start / Talk",
+                    serviceIntent(ACTION_STTS_START_TALK, 10));
+            builder.addAction(
+                    android.R.drawable.ic_menu_view,
+                    "Attach",
+                    serviceIntent(ACTION_STTS_ATTACH, 11));
+            builder.addAction(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    "Stop",
+                    serviceIntent(ACTION_STTS_STOP, 12));
+        }
+        return builder.build();
     }
 
     private PendingIntent serviceIntent(String action, int requestCode) {
@@ -159,7 +165,7 @@ public final class AecShimService extends Service {
         }
         NotificationChannel channel = new NotificationChannel(
                 NotificationIds.CHANNEL_ID,
-                "Codex AEC Shim",
+                "Codex Bridge",
                 NotificationManager.IMPORTANCE_LOW);
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager != null) {
@@ -179,14 +185,15 @@ public final class AecShimService extends Service {
             wakeWordTestController.pass();
         } else if (ACTION_WAKE_TEST_FAIL.equals(action)) {
             wakeWordTestController.fail();
-        } else if (ACTION_STTS_TALK.equals(action)) {
-            textVoiceController.onPttButtonPressed();
-        } else if (ACTION_STTS_DONE.equals(action)) {
-            textVoiceController.onDoneButtonPressed();
-        } else if (ACTION_STTS_CANCEL.equals(action)) {
-            textVoiceController.onCancelButtonPressed();
+        } else if (ACTION_REFRESH_NOTIFICATION.equals(action)) {
+            // Notification refresh only.
+        } else if (ACTION_STTS_START_TALK.equals(action)) {
+            TermuxCommandLauncher.runStartTalk(this);
+        } else if (ACTION_STTS_ATTACH.equals(action)) {
+            TermuxCommandLauncher.runAttach(this);
         } else if (ACTION_STTS_STOP.equals(action)) {
             textVoiceController.onStopButtonPressed();
+            TermuxCommandLauncher.runStop(this);
         }
         updateNotification();
     }

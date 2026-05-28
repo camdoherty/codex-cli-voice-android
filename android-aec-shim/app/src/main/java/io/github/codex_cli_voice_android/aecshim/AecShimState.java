@@ -15,6 +15,8 @@ final class AecShimState {
     static volatile int captureRate;
     static volatile int playbackRate;
     static volatile String lastError = "";
+    static volatile String termuxControlsState = "unknown";
+    static volatile String termuxControlsLastError = "";
     static final AtomicLong micFrames = new AtomicLong();
     static final AtomicLong playFrames = new AtomicLong();
     static final AtomicLong micDrops = new AtomicLong();
@@ -57,6 +59,7 @@ final class AecShimState {
                 + "AEC available/enabled: " + aecAvailable + "/" + aecEnabled + "\n"
                 + "NS available/enabled: " + nsAvailable + "/" + nsEnabled + "\n"
                 + "Rates capture/playback: " + captureRate + "/" + playbackRate + "\n"
+                + "Termux controls: " + termuxControlsSummary() + "\n"
                 + "Mic frames/drops: " + micFrames.get() + "/" + micDrops.get() + "\n"
                 + "Play frames/drops: " + playFrames.get() + "/" + playDrops.get() + "\n"
                 + "Play bytes queued/written: " + playBytesQueued.get() + "/" + playBytesWritten.get() + "\n"
@@ -64,5 +67,10 @@ final class AecShimState {
                 + TextVoiceStatus.summary() + "\n"
                 + WakeWordTestStatus.summary() + "\n"
                 + "Last error: " + (lastError.isEmpty() ? "none" : lastError);
+    }
+
+    static String termuxControlsSummary() {
+        return termuxControlsState
+                + (termuxControlsLastError.isEmpty() ? "" : " (" + termuxControlsLastError + ")");
     }
 }

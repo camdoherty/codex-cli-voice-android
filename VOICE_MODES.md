@@ -49,7 +49,7 @@ Start surfaces:
 
 - Agent: `$stts talk`
 - Command: `sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk`
-- Termux:Widget friendly label: `Start STTS Voice Mode`
+- Termux:Widget friendly label: `STTS: Start + Talk`
 - Session-only command: `stts session`
 - Experimental continuous loop: `stts loop`
 
@@ -106,8 +106,7 @@ CODEX_VOICE_ALLOW_REALTIME=1 codex-voice
 Start surfaces:
 
 - Command: `codex-voice --allow-realtime`
-- Termux:Widget: `codex-voice`
-- Termux:Widget friendly label: `Start API($) Realtime Voice Mode`
+- Termux:Widget friendly label: `Realtime API Voice`
 
 ## Core CLI Surfaces
 

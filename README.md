@@ -55,7 +55,7 @@ building Termux:API flows.
 
 | Mode | How to start | Cost profile | Best for |
 | --- | --- | --- | --- |
-| Local Android STTS | Use the `$stts` skill or `Start STTS Voice Mode` | Uses normal Codex authentication; no Realtime API billing | Walkie-talkie-like voice sessions |
+| Local Android STTS | Use the `$stts` skill or `STTS: Start + Talk` | Uses normal Codex authentication; no Realtime API billing | Walkie-talkie-like voice sessions |
 | OpenAI Codex Realtime Voice | `codex-voice --allow-realtime` or `Start API($) Realtime Voice Mode` | Uses OpenAI Realtime API billing | Codex CLI realtime voice on Android native audio |
 
 Local Android STTS uses the Android shim `/v1/text-voice` endpoint first:
@@ -94,8 +94,8 @@ expected user-facing surfaces are:
   --allow-realtime`
 - Codex skill: `$stts`
 - Termux:Widget shortcuts: `Codex`, `Codex Resume Last`,
-  `Start STTS Voice Mode`, `Start API($) Realtime Voice Mode`,
-  `Open STTS Session`, `Stop STTS Voice Mode`
+  `Realtime API Voice`, `STTS: Start + Talk`,
+  `STTS: Attach Session`, `STTS: Stop`
 
 `stts` and `stts talk` start the persistent `ccva-stts` tmux session if needed
 and immediately run one voice turn. `stts session` opens the tmux workspace
@@ -162,6 +162,20 @@ cleanup process in [DEPLOY.md](DEPLOY.md#clean-staging-device).
 Android approval steps remain explicit: shared-storage permission, APK install,
 microphone permission, and any Realtime billing opt-in. The installer does not
 start Realtime.
+
+Optional Codex Bridge notification controls require Termux external commands:
+
+```sh
+mkdir -p ~/.termux
+grep -qxF 'allow-external-apps=true' ~/.termux/termux.properties 2>/dev/null \
+  || printf '%s\n' 'allow-external-apps=true' >> ~/.termux/termux.properties
+termux-reload-settings
+```
+
+Then grant `Run commands in Termux environment` to Codex Bridge in Android app
+permissions. Widgets and terminal commands work without this optional setup.
+For notification buttons that open visible Termux sessions immediately, Android
+may also require Termux's `Draw over other apps` permission.
 
 Pin a specific version with:
 
