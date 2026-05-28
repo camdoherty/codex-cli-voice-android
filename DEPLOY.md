@@ -79,10 +79,56 @@ sh scripts/install_termux_launchers.sh
 Expected launch surfaces after refresh:
 
 ```text
-codex
-codex resume --last
+Codex
+Codex Resume Last
 Start STTS Voice Mode
+Open STTS Session
+Stop STTS Voice Mode
 Start API($) Realtime Voice Mode
+```
+
+## Clean Staging Device
+
+Use the Pixel6a or another staging phone to validate clean installs before
+publishing a release. Cleanup should remove only CCVA-owned files and preserve
+Termux, Termux:API, zsh, SSH, credentials, notes, projects, and shell history.
+
+The cleanup helper is dry-run first:
+
+```sh
+sh scripts/clean_termux_ccva.sh
+```
+
+Apply the cleanup only after reviewing the dry-run output:
+
+```sh
+sh scripts/clean_termux_ccva.sh --apply
+sh scripts/clean_termux_ccva.sh --verify
+```
+
+The script removes known CCVA-owned paths under `$PREFIX` and `$HOME`, including
+the CLI launchers, libexec install, STTS skill, STTS runtime/cache, Termux
+scripts, Termux:Widget shortcuts, installer cache, wake-model cache, release
+artifacts/backups, and staged shim APKs.
+
+It never removes:
+
+```text
+Termux or Termux:API
+$HOME/.codex/config*
+$HOME/.oaienv
+$HOME/.ssh
+shell config or history
+repo clones
+user notes or project files
+```
+
+On non-rooted Android, uninstalling the shim app is usually a manual Android UI
+step. The cleanup script reports whether the package is installed, but a fully
+clean device may still require:
+
+```text
+Android Settings -> Apps -> Codex AEC Shim / Codex Bridge -> Uninstall
 ```
 
 ## Rollback

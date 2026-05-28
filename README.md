@@ -156,6 +156,9 @@ checksums, installs the CLI package into `$PREFIX`, installs `$stts`, creates
 Termux:Widget shortcuts, and stages the shim APK in Android Downloads. It may
 install missing Termux packages such as `python` and `termux-api`.
 
+For clean staging-device validation before reinstalling, use the dry-run-first
+cleanup process in [DEPLOY.md](DEPLOY.md#clean-staging-device).
+
 Android approval steps remain explicit: shared-storage permission, APK install,
 microphone permission, and any Realtime billing opt-in. The installer does not
 start Realtime.
