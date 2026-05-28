@@ -119,7 +119,7 @@ ensure_termux() {
 
 install_missing_packages() {
     missing=""
-    for cmd in bash curl sed tar sha256sum python; do
+    for cmd in bash curl sed tar sha256sum python tmux; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             case "$cmd" in
                 sha256sum) pkg_name=coreutils ;;
