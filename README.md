@@ -10,6 +10,8 @@ Codex CLI compiled for Android/Termux with Android-native voice modes.
 
 Status: `alpha`. The current upstream target is Codex `rust-v0.135.0`.
 This release was validated on Pixel 9 and 6a, Android 16, Termux 0.118.3.
+On Pixel6a, STTS Wake Word was validated with the screen off through a full
+wake -> STT -> Codex -> TTS -> re-arm turn.
 
 This repository does not vendor the upstream Codex source tree.
 
@@ -62,7 +64,9 @@ Local Android STTS uses the Android shim `/v1/text-voice` endpoint first:
 Android `TextToSpeech` for spoken output and Android `SpeechRecognizer` for
 one-shot speech input. Termux:API speech commands remain fallback paths. STTS
 pins Codex turns to `gpt-5.4-mini` with low reasoning by default, with
-environment overrides available for testing.
+environment overrides available for testing. `STTS: Wake Word` arms a bounded
+Hey Jarvis wake listener and plays its subtle cue after wake detection,
+immediately before request STT starts.
 
 OpenAI Codex Realtime Voice uses the shim `/v1/audio` endpoint for Android
 native microphone/speaker routing and streams audio through the OpenAI Realtime
@@ -133,6 +137,7 @@ What it does:
 - Requires explicit `--allow-realtime` opt-in before starting billable
   Realtime.
 - Ships release checksums and documents the tested install path.
+- Documents device-specific validation separately from broader Android claims.
 
 What it does not do:
 
@@ -142,6 +147,8 @@ What it does not do:
 - Does not expose the shim as a public network service.
 - Does not claim broad Android support beyond Pixel6a and Pixel9 for this
   release.
+- Does not guarantee lock-screen or screen-off wake reliability across Android
+  devices, even though Pixel6a screen-off WWS was validated in this release.
 
 If you want to install the project without trusting release assets, give
 [AGENT_BUILD_CCVA.md](AGENT_BUILD_CCVA.md) to Codex or another modern coding

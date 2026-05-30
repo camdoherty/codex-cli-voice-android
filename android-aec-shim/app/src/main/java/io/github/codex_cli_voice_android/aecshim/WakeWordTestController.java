@@ -250,6 +250,7 @@ final class WakeWordTestController {
                 WakeOnnxClipProbe.SAMPLE_RATE,
                 80,
                 DEFAULT_THRESHOLD,
+                0.0,
                 1500L,
                 true);
     }

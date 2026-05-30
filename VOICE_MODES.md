@@ -80,6 +80,18 @@ Codex Bridge notification states:
 The default session safety timeout is one hour. Use `--timeout-seconds` only
 for bounded tests.
 
+Wake word notes:
+
+- `stts wake` uses a bounded long wake-listen window instead of restarting
+  every minute.
+- The subtle cue means "wake detected; speak now." It is not played just
+  because wake listening is armed.
+- Pixel6a validation included a screen-off run through wake detection, STT,
+  Codex reply generation, TTS playback, and re-arm.
+- Treat screen-off behavior as device-validated alpha behavior, not a general
+  Android guarantee. Android microphone, foreground-service, and
+  SpeechRecognizer behavior can vary by device, OS version, and permissions.
+
 Useful checks:
 
 ```sh

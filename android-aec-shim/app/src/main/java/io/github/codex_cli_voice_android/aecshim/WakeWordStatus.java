@@ -9,10 +9,15 @@ final class WakeWordStatus {
     static volatile long wakeStartedAtMs;
     static volatile long wakeDeadlineAtMs;
     static volatile long wakeMaxListenMs;
+    static volatile double wakeInputGainDb;
     static volatile long lastWakeLatencyMs;
     static volatile double lastWakeScore;
     static volatile int lastWakeFrame;
     static volatile long lastWakeComputeMs;
+    static volatile double lastWakeInputRmsDbfs = -120.0;
+    static volatile double lastWakeInputPeakDbfs = -120.0;
+    static volatile double maxWakeScore;
+    static volatile int maxWakeFrame;
     static volatile String lastWakeEvent = "";
     static volatile String lastWakeError = "";
     static volatile String lastWakeStopReason = "";
@@ -34,10 +39,15 @@ final class WakeWordStatus {
         out.put("wakeStartedAtMs", wakeStartedAtMs);
         out.put("wakeDeadlineAtMs", wakeDeadlineAtMs);
         out.put("wakeMaxListenMs", wakeMaxListenMs);
+        out.put("wakeInputGainDb", wakeInputGainDb);
         out.put("lastWakeLatencyMs", lastWakeLatencyMs);
         out.put("lastWakeScore", lastWakeScore);
         out.put("lastWakeFrame", lastWakeFrame);
         out.put("lastWakeComputeMs", lastWakeComputeMs);
+        out.put("lastWakeInputRmsDbfs", lastWakeInputRmsDbfs);
+        out.put("lastWakeInputPeakDbfs", lastWakeInputPeakDbfs);
+        out.put("maxWakeScore", maxWakeScore);
+        out.put("maxWakeFrame", maxWakeFrame);
         out.put("lastWakeEvent", lastWakeEvent);
         out.put("lastWakeError", lastWakeError);
         out.put("lastWakeStopReason", lastWakeStopReason);
@@ -50,7 +60,10 @@ final class WakeWordStatus {
     static String summary() {
         return "Wake state/profile: " + wakeState + "/" + wakeProfileId + "\n"
                 + "Wake max listen/deadline ms: " + wakeMaxListenMs + "/" + wakeDeadlineAtMs + "\n"
+                + "Wake input gain dB: " + wakeInputGainDb + "\n"
                 + "Last wake score/frame/compute ms: " + lastWakeScore + "/" + lastWakeFrame + "/" + lastWakeComputeMs + "\n"
+                + "Last wake input RMS/peak dBFS: " + lastWakeInputRmsDbfs + "/" + lastWakeInputPeakDbfs + "\n"
+                + "Max wake score/frame: " + maxWakeScore + "/" + maxWakeFrame + "\n"
                 + "Last wake latency/event: " + lastWakeLatencyMs + "/" + (lastWakeEvent.isEmpty() ? "none" : lastWakeEvent) + "\n"
                 + "Last wake stop reason/start/done: " + lastWakeStopReason + "/" + lastWakeStopStartedAtMs + "/" + lastWakeStopCompletedAtMs + "\n"
                 + "Last wake error/thread: " + (lastWakeError.isEmpty() ? "none" : lastWakeError) + "/" + lastWakeEngineThreadState;

@@ -19,11 +19,12 @@ final class WakeProfile {
     final int sampleRate;
     final int frameMs;
     final double threshold;
+    final double inputGainDb;
     final long cooldownMs;
     final boolean licenseAcknowledged;
 
     WakeProfile(String id, String engine, String phrase) {
-        this(id, engine, phrase, "", "", "", "", 0, 0, 0.0, 0L, false);
+        this(id, engine, phrase, "", "", "", "", 0, 0, 0.0, 0.0, 0L, false);
     }
 
     WakeProfile(
@@ -37,6 +38,7 @@ final class WakeProfile {
             int sampleRate,
             int frameMs,
             double threshold,
+            double inputGainDb,
             long cooldownMs,
             boolean licenseAcknowledged
     ) {
@@ -50,6 +52,7 @@ final class WakeProfile {
         this.sampleRate = sampleRate;
         this.frameMs = frameMs;
         this.threshold = threshold;
+        this.inputGainDb = inputGainDb;
         this.cooldownMs = cooldownMs;
         this.licenseAcknowledged = licenseAcknowledged;
     }
@@ -76,6 +79,7 @@ final class WakeProfile {
                 source.optInt("sampleRate", 0),
                 source.optInt("frameMs", 0),
                 source.optDouble("threshold", 0.0),
+                source.optDouble("inputGainDb", 0.0),
                 source.optLong("cooldownMs", 0L),
                 source.optBoolean("licenseAcknowledged", false)
         );
@@ -99,6 +103,7 @@ final class WakeProfile {
             out.put("sampleRate", sampleRate);
             out.put("frameMs", frameMs);
             out.put("threshold", threshold);
+            out.put("inputGainDb", inputGainDb);
             out.put("cooldownMs", cooldownMs);
             out.put("licenseAcknowledged", licenseAcknowledged);
         }

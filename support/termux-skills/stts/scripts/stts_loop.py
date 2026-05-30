@@ -31,6 +31,10 @@ DEFAULT_TTS_STREAM = "MUSIC"
 DEFAULT_TTS_BACKEND = "auto"
 DEFAULT_STT_BACKEND = "auto"
 DEFAULT_SHIM_STT_TIMEOUT_SECONDS = 12.0
+DEFAULT_WAKE_STT_TIMEOUT_SECONDS = 20.0
+DEFAULT_SHIM_STT_COMPLETE_SILENCE_MS = 5000
+DEFAULT_SHIM_STT_POSSIBLY_COMPLETE_SILENCE_MS = 5000
+DEFAULT_SHIM_STT_MINIMUM_LENGTH_MS = 1000
 DEFAULT_CODEX_MODEL = os.environ.get("CODEX_STTS_CODEX_MODEL", "gpt-5.4-mini")
 DEFAULT_CODEX_REASONING_EFFORT = os.environ.get("CODEX_STTS_CODEX_REASONING_EFFORT", "low")
 SHIM_TEXT_VOICE_HOST = "127.0.0.1"
@@ -39,8 +43,10 @@ SHIM_TEXT_VOICE_PATH = "/v1/text-voice"
 WAKE_PROFILE_ID = "hey_jarvis_dev"
 WAKE_PHRASE = "hey jarvis"
 WAKE_THRESHOLD = 0.997
+WAKE_INPUT_GAIN_DB = 6.0
 WAKE_COOLDOWN_MS = 1500
 WAKE_MAX_RUNTIME_SECONDS = 60 * 60
+WAKE_BRIDGE_MAX_LISTEN_MS = 60 * 60 * 1000
 WAKE_REARM_DELAY_SECONDS = 1.0
 WAKE_MODEL_RELEASE_BASE_URL = "https://github.com/dscripka/openWakeWord/releases/download/v0.5.1"
 WAKE_MODEL_CACHE_DIR = Path(
@@ -118,6 +124,29 @@ LAST_TTS_COMPLETED = False
 class CodexTurnResult:
     reply: str
     source_notes: list[str]
+
+
+class WakeDiagnostics:
+    def __init__(self, transcript_path: Path | None = None) -> None:
+        self.transcript_path = transcript_path
+        self.started_at = time.monotonic()
+        self.wake_detected = False
+        self.transcript = ""
+        self.no_transcript = False
+        self.assistant_done = False
+        self.tts_complete = False
+        self.rearm_ready = False
+        self.failure = ""
+
+    def mark(self, name: str, detail: str = "") -> None:
+        elapsed_ms = int((time.monotonic() - self.started_at) * 1000)
+        message = f"{name} t={elapsed_ms}ms"
+        if detail:
+            message = f"{message} {detail}"
+        if self.transcript_path is not None:
+            emit(self.transcript_path, "diag", message)
+        else:
+            print(f"diag: {message}", flush=True)
 
 
 def ensure_command(name: str) -> None:
@@ -287,6 +316,56 @@ class WebSocketTextClient:
         if not readable:
             return None
         return self.recv_json()
+
+
+class ReconnectableTextClient:
+    def __init__(self, timeout_seconds: float = 15.0) -> None:
+        self.timeout_seconds = timeout_seconds
+        self.client: WebSocketTextClient | None = None
+        self.status: dict[str, object] = {}
+        self.reconnect()
+
+    def reconnect(self, reason: str = "", transcript_path: Path | None = None) -> dict[str, object]:
+        if self.client is not None:
+            try:
+                self.client.close()
+            except Exception:
+                pass
+        if transcript_path is not None:
+            detail = f"refreshing voice connection"
+            if reason:
+                detail = f"{detail} ({reason})"
+            emit(transcript_path, "status", detail)
+        self.client = WebSocketTextClient(
+            SHIM_TEXT_VOICE_HOST,
+            SHIM_TEXT_VOICE_PORT,
+            SHIM_TEXT_VOICE_PATH,
+            self.timeout_seconds,
+        )
+        self.status = self.client.recv_json()
+        return self.status
+
+    def close(self) -> None:
+        if self.client is not None:
+            self.client.close()
+
+    def send_json(self, payload: dict[str, object]) -> None:
+        if self.client is None:
+            self.reconnect()
+        assert self.client is not None
+        self.client.send_json(payload)
+
+    def recv_json(self) -> dict[str, object]:
+        if self.client is None:
+            self.reconnect()
+        assert self.client is not None
+        return self.client.recv_json()
+
+    def recv_json_timeout(self, timeout_seconds: float) -> dict[str, object] | None:
+        if self.client is None:
+            self.reconnect()
+        assert self.client is not None
+        return self.client.recv_json_timeout(timeout_seconds)
 
 
 def say_text_shim(text: str) -> str:
@@ -661,6 +740,9 @@ def listen_once_shim(
     stream_partials: bool = False,
     timeout_seconds: float = DEFAULT_SHIM_STT_TIMEOUT_SECONDS,
     offline_only: bool = False,
+    complete_silence_ms: int = DEFAULT_SHIM_STT_COMPLETE_SILENCE_MS,
+    possibly_complete_silence_ms: int = DEFAULT_SHIM_STT_POSSIBLY_COMPLETE_SILENCE_MS,
+    minimum_length_ms: int = DEFAULT_SHIM_STT_MINIMUM_LENGTH_MS,
 ) -> tuple[str, str]:
     if delay_seconds > 0:
         if remaining_seconds is not None:
@@ -695,9 +777,9 @@ def listen_once_shim(
                 "action": "start_stt",
                 "offlineOnly": offline_only,
                 "timeoutMs": int(hard_timeout_seconds * 1000),
-                "completeSilenceMs": 3000,
-                "possiblyCompleteSilenceMs": 3000,
-                "minimumLengthMs": 1000,
+                "completeSilenceMs": complete_silence_ms,
+                "possiblyCompleteSilenceMs": possibly_complete_silence_ms,
+                "minimumLengthMs": minimum_length_ms,
             }
         )
         while True:
@@ -751,6 +833,9 @@ def listen_once(
     backend: str = DEFAULT_STT_BACKEND,
     shim_timeout_seconds: float = DEFAULT_SHIM_STT_TIMEOUT_SECONDS,
     shim_offline_only: bool = False,
+    complete_silence_ms: int = DEFAULT_SHIM_STT_COMPLETE_SILENCE_MS,
+    possibly_complete_silence_ms: int = DEFAULT_SHIM_STT_POSSIBLY_COMPLETE_SILENCE_MS,
+    minimum_length_ms: int = DEFAULT_SHIM_STT_MINIMUM_LENGTH_MS,
 ) -> tuple[str, str]:
     if backend == "termux":
         return listen_once_termux(
@@ -767,6 +852,9 @@ def listen_once(
             stream_partials=stream_partials,
             timeout_seconds=shim_timeout_seconds,
             offline_only=shim_offline_only,
+            complete_silence_ms=complete_silence_ms,
+            possibly_complete_silence_ms=possibly_complete_silence_ms,
+            minimum_length_ms=minimum_length_ms,
         )
     try:
         return listen_once_shim(
@@ -776,6 +864,9 @@ def listen_once(
             stream_partials=stream_partials,
             timeout_seconds=shim_timeout_seconds,
             offline_only=shim_offline_only,
+            complete_silence_ms=complete_silence_ms,
+            possibly_complete_silence_ms=possibly_complete_silence_ms,
+            minimum_length_ms=minimum_length_ms,
         )
     except ShimUnavailable as exc:
         emit_stt_status(transcript_path, f"shim unavailable; falling back to termux ({exc})")
@@ -1235,7 +1326,9 @@ def generate_reply_cancellable(prompt: str, cwd: str, client: WebSocketTextClien
             if client is not None:
                 try:
                     event = client.recv_json_timeout(0.2)
-                except (BrokenPipeError, ConnectionError, OSError, RuntimeError):
+                except (BrokenPipeError, ConnectionError, OSError, RuntimeError) as exc:
+                    if is_socket_closed_exception(exc) and reconnect_if_possible(client, "codex generation"):
+                        continue
                     stop_process_group(proc)
                     raise RuntimeError("STTS control socket closed; cancelled codex exec")
                 if event and event.get("event") == "cancel_processing":
@@ -1352,7 +1445,9 @@ exec sh
             raise RuntimeError("codex exec timed out")
         try:
             event = client.recv_json_timeout(0.2)
-        except (BrokenPipeError, ConnectionError, OSError, RuntimeError):
+        except (BrokenPipeError, ConnectionError, OSError, RuntimeError) as exc:
+            if is_socket_closed_exception(exc) and reconnect_if_possible(client, "codex generation"):
+                continue
             result = wait_for_completed_result(2.0)
             if result is not None:
                 return result
@@ -1411,6 +1506,40 @@ def wait_for_id_event(
             return event
 
 
+def is_socket_closed_exception(exc: Exception) -> bool:
+    message = str(exc)
+    return (
+        isinstance(exc, (BrokenPipeError, ConnectionError, OSError))
+        or "shim websocket closed" in message
+        or "socket closed" in message
+        or "Broken pipe" in message
+        or "Connection reset" in message
+    )
+
+
+def reconnect_if_possible(client: object, reason: str, transcript_path: Path | None = None) -> bool:
+    reconnect = getattr(client, "reconnect", None)
+    if reconnect is None:
+        return False
+    reconnect(reason, transcript_path)
+    return True
+
+
+def classify_wake_exception(exc: Exception, start_timeout_reason: str = "wake_start_timeout") -> str:
+    message = str(exc)
+    if isinstance(exc, TimeoutError):
+        return "socket_timeout"
+    if is_socket_closed_exception(exc):
+        return "socket_closed"
+    if "wake_audio_busy" in message:
+        return "audio_busy"
+    if "timeout waiting" in message and "wake_started" in message:
+        return start_timeout_reason
+    if "timed out" in message:
+        return "socket_timeout"
+    return "wake_error"
+
+
 def cue_ready(client: WebSocketTextClient) -> None:
     try:
         request_id = send_action(client, "cue_ready")
@@ -1420,7 +1549,7 @@ def cue_ready(client: WebSocketTextClient) -> None:
         print(f"wake_event: cue_failed message={exc}", flush=True)
 
 
-def wake_profile(threshold: float = WAKE_THRESHOLD) -> dict[str, object]:
+def wake_profile(threshold: float = WAKE_THRESHOLD, input_gain_db: float = WAKE_INPUT_GAIN_DB) -> dict[str, object]:
     return {
         "id": WAKE_PROFILE_ID,
         "label": WAKE_PHRASE,
@@ -1431,9 +1560,17 @@ def wake_profile(threshold: float = WAKE_THRESHOLD) -> dict[str, object]:
         "sampleRate": 16000,
         "frameMs": 80,
         "threshold": threshold,
+        "inputGainDb": input_gain_db,
         "cooldownMs": WAKE_COOLDOWN_MS,
         "licenseAcknowledged": True,
     }
+
+
+def wake_listen_window_ms(stop_at: float) -> int:
+    remaining_ms = int(max(0.0, stop_at - time.monotonic()) * 1000)
+    if remaining_ms <= 0:
+        return 0
+    return min(WAKE_BRIDGE_MAX_LISTEN_MS, remaining_ms)
 
 
 def sha256_path(path: Path) -> str:
@@ -1529,24 +1666,55 @@ def run_stts_doctor(download: bool = False) -> int:
 
 
 def wait_for_shim_tts(client: WebSocketTextClient, text: str, timeout_seconds: float = 60.0) -> None:
-    request_id = send_action(client, "tts_speak", text=sanitize_for_tts(text), interrupt=True)
-    wait_for_id_event(client, request_id, {"tts_complete"}, timeout_seconds)
+    try:
+        request_id = send_action(client, "tts_speak", text=sanitize_for_tts(text), interrupt=True)
+        wait_for_id_event(client, request_id, {"tts_complete"}, timeout_seconds)
+    except (BrokenPipeError, ConnectionError, OSError, RuntimeError) as exc:
+        if not is_socket_closed_exception(exc) or not reconnect_if_possible(client, "tts"):
+            raise
+        request_id = send_action(client, "tts_speak", text=sanitize_for_tts(text), interrupt=True)
+        wait_for_id_event(client, request_id, {"tts_complete"}, timeout_seconds)
 
 
-def listen_once_on_client(client: WebSocketTextClient, timeout_seconds: float) -> str:
+def send_client_state(client: WebSocketTextClient, state: str) -> None:
+    try:
+        send_action(client, "client_state", state=state)
+    except (BrokenPipeError, ConnectionError, OSError, RuntimeError) as exc:
+        if not is_socket_closed_exception(exc) or not reconnect_if_possible(client, f"client_state:{state}"):
+            raise
+        send_action(client, "client_state", state=state)
+
+
+def listen_once_on_client(
+    client: WebSocketTextClient,
+    timeout_seconds: float,
+    complete_silence_ms: int = DEFAULT_SHIM_STT_COMPLETE_SILENCE_MS,
+    possibly_complete_silence_ms: int = DEFAULT_SHIM_STT_POSSIBLY_COMPLETE_SILENCE_MS,
+    minimum_length_ms: int = DEFAULT_SHIM_STT_MINIMUM_LENGTH_MS,
+    diagnostics: WakeDiagnostics | None = None,
+) -> str:
+    if diagnostics is not None:
+        diagnostics.mark(
+            "post_wake_stt_request",
+            f"timeoutMs={int(timeout_seconds * 1000)} completeSilenceMs={complete_silence_ms}",
+        )
     request_id = send_action(
         client,
         "start_stt",
         timeoutMs=int(timeout_seconds * 1000),
-        completeSilenceMs=3000,
-        possiblyCompleteSilenceMs=3000,
-        minimumLengthMs=1000,
+        completeSilenceMs=complete_silence_ms,
+        possiblyCompleteSilenceMs=possibly_complete_silence_ms,
+        minimumLengthMs=minimum_length_ms,
     )
     deadline = time.monotonic() + timeout_seconds + 3.0
     candidates: list[str] = []
     while True:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
+            if diagnostics is not None:
+                diagnostics.no_transcript = True
+                diagnostics.failure = diagnostics.failure or "post_wake_stt_deadline"
+                diagnostics.mark("post_wake_stt_deadline")
             return ""
         event = client.recv_json_timeout(min(0.5, remaining))
         if event is None:
@@ -1555,19 +1723,35 @@ def listen_once_on_client(client: WebSocketTextClient, timeout_seconds: float) -
             raise RuntimeError("STTS turn cancelled")
         if event.get("id") not in (request_id, None):
             continue
-        if event.get("event") == "stt_partial":
+        if event.get("event") == "stt_listening":
+            if diagnostics is not None:
+                diagnostics.mark("post_wake_stt_listening")
+        elif event.get("event") == "stt_partial":
             candidate = str(event.get("text", "")).strip()
             if candidate:
                 candidates.append(candidate)
+                if diagnostics is not None:
+                    diagnostics.mark("post_wake_stt_partial", f"text={json.dumps(candidate, ensure_ascii=True)}")
         elif event.get("event") == "stt_final":
             candidate = str(event.get("text", "")).strip()
             if candidate:
                 candidates.append(candidate)
-            return extract_final_transcript("\n".join(candidates))
+            transcript = extract_final_transcript("\n".join(candidates))
+            if diagnostics is not None:
+                diagnostics.transcript = transcript
+                diagnostics.mark("post_wake_stt_final", f"text={json.dumps(transcript, ensure_ascii=True)}")
+            return transcript
         elif event.get("event") == "error":
             code = str(event.get("code", "stt_error"))
             if code in {"stt_timeout", "speech_timeout", "stt_no_match", "no_match"}:
+                if diagnostics is not None:
+                    diagnostics.no_transcript = True
+                    diagnostics.failure = diagnostics.failure or code
+                    diagnostics.mark("post_wake_stt_no_transcript", f"code={code}")
                 return ""
+            if diagnostics is not None:
+                diagnostics.failure = code
+                diagnostics.mark("post_wake_stt_error", f"code={code}")
             raise RuntimeError(f"{code}: {event.get('message', '')}")
 
 
@@ -1578,16 +1762,31 @@ def run_stts_turn_on_client(
     source_notes: list[str] | None = None,
     transcript: str | None = None,
     transcript_path: Path | None = None,
+    timeout_seconds: float = DEFAULT_SHIM_STT_TIMEOUT_SECONDS,
+    complete_silence_ms: int = DEFAULT_SHIM_STT_COMPLETE_SILENCE_MS,
+    possibly_complete_silence_ms: int = DEFAULT_SHIM_STT_POSSIBLY_COMPLETE_SILENCE_MS,
+    minimum_length_ms: int = DEFAULT_SHIM_STT_MINIMUM_LENGTH_MS,
+    diagnostics: WakeDiagnostics | None = None,
 ) -> bool:
     source_notes = source_notes if source_notes is not None else []
     if transcript is None:
         if transcript_path is not None:
             emit(transcript_path, "status", "listening")
-        transcript = listen_once_on_client(client, 15.0)
+        transcript = listen_once_on_client(
+            client,
+            timeout_seconds,
+            complete_silence_ms=complete_silence_ms,
+            possibly_complete_silence_ms=possibly_complete_silence_ms,
+            minimum_length_ms=minimum_length_ms,
+            diagnostics=diagnostics,
+        )
     if not transcript:
         if transcript_path is not None:
             emit(transcript_path, "status", "no transcript")
-        send_action(client, "client_state", state="ready")
+        if diagnostics is not None:
+            diagnostics.no_transcript = True
+            diagnostics.failure = diagnostics.failure or "no_transcript"
+        send_client_state(client, "ready")
         return False
     history.append(("user", transcript))
     if transcript_path is not None:
@@ -1595,13 +1794,13 @@ def run_stts_turn_on_client(
     if should_stop(transcript):
         if transcript_path is not None:
             emit(transcript_path, "assistant", "Okay, stopping here.")
-        send_action(client, "client_state", state="ready")
+        send_client_state(client, "ready")
         return True
     host_summary = gather_host_summary(cwd)
     prompt = build_prompt(host_summary, history, transcript, source_notes)
     if transcript_path is not None:
         emit(transcript_path, "status", "generating reply")
-    send_action(client, "client_state", state="processing")
+    send_client_state(client, "processing")
     try:
         result = generate_reply_cancellable(prompt, cwd, client)
         reply = result.reply
@@ -1615,11 +1814,52 @@ def run_stts_turn_on_client(
     history.append(("assistant", reply))
     if transcript_path is not None:
         emit(transcript_path, "assistant", reply)
+    if diagnostics is not None:
+        diagnostics.assistant_done = True
+        diagnostics.mark("assistant_done")
     wait_for_shim_tts(client, reply)
     if transcript_path is not None:
         emit(transcript_path, "tts", "tts complete on shim")
-    send_action(client, "client_state", state="ready")
+    if diagnostics is not None:
+        diagnostics.tts_complete = True
+        diagnostics.mark("tts_complete")
+    send_client_state(client, "ready")
     return False
+
+
+def run_stts_turn_with_socket_recovery(
+    client: WebSocketTextClient,
+    cwd: str,
+    history: list[tuple[str, str]],
+    source_notes: list[str],
+    transcript_path: Path | None,
+    timeout_seconds: float,
+    complete_silence_ms: int,
+    diagnostics: WakeDiagnostics | None = None,
+) -> bool:
+    try:
+        return run_stts_turn_on_client(
+            client,
+            cwd,
+            history,
+            source_notes,
+            transcript_path=transcript_path,
+            timeout_seconds=timeout_seconds,
+            complete_silence_ms=complete_silence_ms,
+            possibly_complete_silence_ms=complete_silence_ms,
+            diagnostics=diagnostics,
+        )
+    except (BrokenPipeError, ConnectionError, OSError, RuntimeError) as exc:
+        if not is_socket_closed_exception(exc) or not reconnect_if_possible(client, "turn recovery", transcript_path):
+            raise
+        if transcript_path is not None:
+            emit(transcript_path, "assistant", "Voice connection refreshed. Please try again.")
+        try:
+            wait_for_shim_tts(client, "Voice connection refreshed. Please try again.")
+            send_client_state(client, "ready")
+        except Exception:
+            pass
+        return False
 
 
 def run_talk(cwd: str, require_session: bool = True) -> int:
@@ -1731,21 +1971,42 @@ def run_session_host(
                         return 0
                     emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
                     continue
-                if command_name == "wake":
+                if command_name in {"wake", "wake-test"}:
                     try:
                         options = parse_wake_command(command)
-                        emit(transcript_path, "status", "wake word armed")
-                        rc = run_wake_loop(
-                            working_dir,
-                            once=bool(options["once"]),
-                            fake_wake=bool(options["fake_wake"]),
-                            debug_scores=bool(options["debug_scores"]),
-                            threshold=float(options["threshold"]),
-                            cue=bool(options["cue"]),
-                        )
-                        emit(transcript_path, "status", f"wake word stopped rc={rc}")
+                        if command_name == "wake-test":
+                            rc = run_wake_test_loop(
+                                working_dir,
+                                fake_wake=bool(options["fake_wake"]),
+                                debug_scores=bool(options["debug_scores"]),
+                                threshold=float(options["threshold"]),
+                                input_gain_db=float(options["input_gain_db"]),
+                                cue=bool(options["cue"]),
+                                stt_timeout_seconds=float(options["stt_timeout_seconds"]),
+                                complete_silence_ms=int(options["complete_silence_ms"]),
+                                transcript_path=transcript_path,
+                            )
+                        else:
+                            emit(transcript_path, "status", "wake word armed")
+                            rc = run_wake_loop(
+                                working_dir,
+                                once=bool(options["once"]),
+                                fake_wake=bool(options["fake_wake"]),
+                                debug_scores=bool(options["debug_scores"]),
+                                threshold=float(options["threshold"]),
+                                input_gain_db=float(options["input_gain_db"]),
+                                cue=bool(options["cue"]),
+                                stt_timeout_seconds=float(options["stt_timeout_seconds"]),
+                                complete_silence_ms=int(options["complete_silence_ms"]),
+                                transcript_path=transcript_path,
+                            )
+                            emit(transcript_path, "status", f"wake word stopped rc={rc}")
                     except Exception as exc:
-                        emit(transcript_path, "status", f"wake word failed: {exc}")
+                        label = "wake test failed" if command_name == "wake-test" else "wake word failed"
+                        if command_name in {"wake", "wake-test"}:
+                            emit(transcript_path, "status", f"{label}: {classify_wake_exception(exc)} ({exc})")
+                        else:
+                            emit(transcript_path, "status", f"{label}: {exc}")
                     emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
                     continue
                 emit(transcript_path, "status", f"unknown command: {command}")
@@ -1964,7 +2225,10 @@ def parse_wake_command(command: str) -> dict[str, object]:
         "fake_wake": False,
         "debug_scores": False,
         "threshold": WAKE_THRESHOLD,
+        "input_gain_db": WAKE_INPUT_GAIN_DB,
         "cue": True,
+        "stt_timeout_seconds": DEFAULT_WAKE_STT_TIMEOUT_SECONDS,
+        "complete_silence_ms": DEFAULT_SHIM_STT_COMPLETE_SILENCE_MS,
     }
     index = 1
     while index < len(tokens):
@@ -1982,6 +2246,21 @@ def parse_wake_command(command: str) -> dict[str, object]:
             if index >= len(tokens):
                 raise RuntimeError("--wake-threshold requires a value")
             options["threshold"] = float(tokens[index])
+        elif token == "--wake-input-gain-db":
+            index += 1
+            if index >= len(tokens):
+                raise RuntimeError("--wake-input-gain-db requires a value")
+            options["input_gain_db"] = float(tokens[index])
+        elif token in {"--stt-timeout-seconds", "--wake-stt-timeout-seconds"}:
+            index += 1
+            if index >= len(tokens):
+                raise RuntimeError(f"{token} requires a value")
+            options["stt_timeout_seconds"] = float(tokens[index])
+        elif token == "--stt-complete-silence-ms":
+            index += 1
+            if index >= len(tokens):
+                raise RuntimeError("--stt-complete-silence-ms requires a value")
+            options["complete_silence_ms"] = int(tokens[index])
         else:
             raise RuntimeError(f"unknown wake option: {token}")
         index += 1
@@ -2017,22 +2296,66 @@ def run_wake_tmux(
     return 0
 
 
+def run_wake_test_tmux(
+    raw_args: list[str],
+    post_speech_delay_seconds: int,
+    post_tts_recovery_seconds: float,
+    tts_drain_timeout_seconds: float,
+    timeout_seconds: int,
+    tts_stream: str,
+    tts_backend: str,
+    working_dir: str,
+) -> int:
+    ensure_tmux_session(
+        raw_args,
+        post_speech_delay_seconds,
+        post_tts_recovery_seconds,
+        tts_drain_timeout_seconds,
+        timeout_seconds,
+        tts_stream,
+        tts_backend,
+        working_dir,
+    )
+    command = shlex.join(["wake-test", *args_after_command(raw_args, "wake-test")])
+    if not send_session_command(command):
+        raise RuntimeError("failed to queue STTS wake diagnostic")
+    print(f"wake diagnostic request sent to {TMUX_SESSION_NAME}")
+    if sys.stdout.isatty():
+        return attach_or_switch_tmux_session(TMUX_SESSION_NAME)
+    return 0
+
+
 def summarize_wake_event(event: dict[str, object]) -> str:
     name = event.get("event", "unknown")
     score = event.get("score", event.get("lastWakeScore", ""))
     threshold = event.get("threshold", "")
+    input_gain = event.get("inputGainDb", event.get("wakeInputGainDb", ""))
     frame = event.get("frame", event.get("lastWakeFrame", ""))
     elapsed = event.get("elapsedMs", event.get("lastWakeLatencyMs", ""))
+    input_rms = event.get("inputRmsDbfs", event.get("lastWakeInputRmsDbfs", ""))
+    input_peak = event.get("inputPeakDbfs", event.get("lastWakeInputPeakDbfs", ""))
+    max_score = event.get("maxScore", event.get("maxWakeScore", ""))
+    max_frame = event.get("maxFrame", event.get("maxWakeFrame", ""))
     message = event.get("message", "")
     parts = [f"wake_event: {name}"]
     if score != "":
         parts.append(f"score={score}")
     if threshold != "":
         parts.append(f"threshold={threshold}")
+    if input_gain != "":
+        parts.append(f"inputGainDb={input_gain}")
     if frame != "":
         parts.append(f"frame={frame}")
     if elapsed != "":
         parts.append(f"elapsedMs={elapsed}")
+    if input_rms != "":
+        parts.append(f"inputRmsDbfs={input_rms}")
+    if input_peak != "":
+        parts.append(f"inputPeakDbfs={input_peak}")
+    if max_score != "":
+        parts.append(f"maxScore={max_score}")
+    if max_frame != "":
+        parts.append(f"maxFrame={max_frame}")
     if message != "":
         parts.append(f"message={message}")
     return " ".join(parts)
@@ -2044,7 +2367,11 @@ def run_wake_loop(
     fake_wake: bool = False,
     debug_scores: bool = False,
     threshold: float = WAKE_THRESHOLD,
+    input_gain_db: float = WAKE_INPUT_GAIN_DB,
     cue: bool = True,
+    stt_timeout_seconds: float = DEFAULT_WAKE_STT_TIMEOUT_SECONDS,
+    complete_silence_ms: int = DEFAULT_SHIM_STT_COMPLETE_SILENCE_MS,
+    transcript_path: Path | None = None,
 ) -> int:
     ok, message = validate_wake_models(threshold)
     if not ok and not fake_wake:
@@ -2054,27 +2381,41 @@ def run_wake_loop(
         ok, message = validate_wake_models(threshold)
         if not ok:
             raise RuntimeError(message)
-    client, _status = shim_connect(15.0)
+    client = ReconnectableTextClient(15.0)
     history: list[tuple[str, str]] = []
     source_notes: list[str] = []
     stop_at = time.monotonic() + WAKE_MAX_RUNTIME_SECONDS
     try:
         while time.monotonic() < stop_at:
+            max_listen_ms = wake_listen_window_ms(stop_at)
+            if max_listen_ms <= 0:
+                return 0
             payload = {
-                "maxListenMs": 60_000,
+                "maxListenMs": max_listen_ms,
                 "debugScores": debug_scores,
             }
             if not fake_wake:
-                payload["profile"] = wake_profile(threshold)
+                payload["profile"] = wake_profile(threshold, input_gain_db)
             request_id = send_action(client, "wake_start", **payload)
             started_event = wait_for_id_event(client, request_id, {"wake_started"}, 15.0)
             print(summarize_wake_event(started_event), flush=True)
-            if cue:
-                cue_ready(client)
             if fake_wake:
                 send_action(client, "wake_fake_detect")
             while True:
-                event = client.recv_json_timeout(1.0)
+                try:
+                    event = client.recv_json_timeout(1.0)
+                except TimeoutError:
+                    event = None
+                except RuntimeError as exc:
+                    if not is_socket_closed_exception(exc):
+                        raise
+                    reconnect_if_possible(client, "wake listener socket closed", transcript_path)
+                    try:
+                        stop_id = send_action(client, "wake_stop")
+                        wait_for_id_event(client, stop_id, {"wake_stopped", "wake_idle"}, 5.0)
+                    except Exception:
+                        pass
+                    break
                 if event is None:
                     if time.monotonic() >= stop_at:
                         send_action(client, "wake_stop")
@@ -2088,15 +2429,39 @@ def run_wake_loop(
                         return 1
                     break
                 if event_name == "ptt_button_pressed":
+                    if transcript_path is not None:
+                        emit(transcript_path, "status", "wake button detected; listening")
                     stop_id = send_action(client, "wake_stop")
                     wait_for_id_event(client, stop_id, {"wake_stopped", "wake_idle"}, 5.0)
-                    run_stts_turn_on_client(client, cwd, history, source_notes)
+                    reconnect_if_possible(client, "ptt handoff", transcript_path)
+                    run_stts_turn_with_socket_recovery(
+                        client,
+                        cwd,
+                        history,
+                        source_notes,
+                        transcript_path=transcript_path,
+                        timeout_seconds=stt_timeout_seconds,
+                        complete_silence_ms=complete_silence_ms,
+                    )
                     time.sleep(WAKE_REARM_DELAY_SECONDS)
                     if once:
                         return 0
                     break
                 if event_name == "wake_detected":
-                    run_stts_turn_on_client(client, cwd, history, source_notes)
+                    if transcript_path is not None:
+                        emit(transcript_path, "status", "wake word detected; listening")
+                    reconnect_if_possible(client, "wake handoff", transcript_path)
+                    if cue:
+                        cue_ready(client)
+                    run_stts_turn_with_socket_recovery(
+                        client,
+                        cwd,
+                        history,
+                        source_notes,
+                        transcript_path=transcript_path,
+                        timeout_seconds=stt_timeout_seconds,
+                        complete_silence_ms=complete_silence_ms,
+                    )
                     time.sleep(WAKE_REARM_DELAY_SECONDS)
                     if once:
                         return 0
@@ -2105,6 +2470,150 @@ def run_wake_loop(
                     send_action(client, "wake_stop")
                     return 130
         return 0
+    finally:
+        try:
+            send_action(client, "wake_stop")
+            send_action(client, "stop_stt")
+            send_action(client, "tts_stop")
+        except Exception:
+            pass
+        client.close()
+
+
+def run_wake_test_loop(
+    cwd: str,
+    fake_wake: bool = False,
+    debug_scores: bool = False,
+    threshold: float = WAKE_THRESHOLD,
+    input_gain_db: float = WAKE_INPUT_GAIN_DB,
+    cue: bool = True,
+    stt_timeout_seconds: float = DEFAULT_WAKE_STT_TIMEOUT_SECONDS,
+    complete_silence_ms: int = DEFAULT_SHIM_STT_COMPLETE_SILENCE_MS,
+    transcript_path: Path | None = None,
+) -> int:
+    diagnostics = WakeDiagnostics(transcript_path)
+    diagnostics.mark("wake_test_started")
+    ok, message = validate_wake_models(threshold)
+    if not ok and not fake_wake:
+        diagnostics.failure = "wake_model_invalid"
+        diagnostics.mark("wake_model_invalid", message)
+        raise RuntimeError(message)
+
+    client, _status = shim_connect(15.0)
+    history: list[tuple[str, str]] = []
+    source_notes: list[str] = []
+    try:
+        payload = {
+            "maxListenMs": 60_000,
+            "debugScores": debug_scores,
+        }
+        if not fake_wake:
+            payload["profile"] = wake_profile(threshold, input_gain_db)
+        diagnostics.mark("wake_armed", f"threshold={threshold}")
+        try:
+            request_id = send_action(client, "wake_start", **payload)
+            started_event = wait_for_id_event(client, request_id, {"wake_started"}, 15.0)
+        except Exception as exc:
+            reason = classify_wake_exception(exc, "wake_start_timeout")
+            diagnostics.failure = reason
+            diagnostics.mark("wake_start_failed", f"reason={reason} message={exc}")
+            emit(transcript_path, "diag_result", f"FAIL reason={reason}") if transcript_path else print(f"diag_result: FAIL reason={reason}", flush=True)
+            return 2
+        diagnostics.mark("wake_started", summarize_wake_event(started_event))
+        if fake_wake:
+            send_action(client, "wake_fake_detect")
+
+        wake_deadline = time.monotonic() + 70.0
+        while True:
+            if time.monotonic() >= wake_deadline:
+                diagnostics.failure = "wake_timeout"
+                diagnostics.mark("wake_failed", "reason=local_wake_wait_deadline")
+                if transcript_path:
+                    emit(transcript_path, "diag_result", "FAIL reason=wake_timeout")
+                else:
+                    print("diag_result: FAIL reason=wake_timeout", flush=True)
+                return 2
+            try:
+                event = client.recv_json_timeout(1.0)
+            except TimeoutError:
+                event = None
+            except RuntimeError as exc:
+                reason = classify_wake_exception(exc)
+                diagnostics.failure = reason
+                diagnostics.mark("wake_failed", f"reason={reason} message={exc}")
+                emit(transcript_path, "diag_result", f"FAIL reason={reason}") if transcript_path else print(f"diag_result: FAIL reason={reason}", flush=True)
+                return 2
+            if event is None:
+                continue
+            event_name = event.get("event")
+            if event_name in {"wake_score", "wake_timeout", "wake_detected", "wake_stopped", "wake_idle", "wake_error"}:
+                print(summarize_wake_event(event), flush=True)
+            if event_name == "wake_detected":
+                diagnostics.wake_detected = True
+                diagnostics.mark("wake_detected", summarize_wake_event(event))
+                if cue:
+                    cue_ready(client)
+                break
+            if event_name in {"wake_timeout", "wake_stopped", "wake_idle"}:
+                diagnostics.failure = str(event_name)
+                diagnostics.mark("wake_failed", summarize_wake_event(event))
+                emit(transcript_path, "diag_result", f"FAIL reason={event_name}") if transcript_path else print(f"diag_result: FAIL reason={event_name}", flush=True)
+                return 2
+            if event_name == "wake_error":
+                diagnostics.failure = "wake_error"
+                diagnostics.mark("wake_error", summarize_wake_event(event))
+                emit(transcript_path, "diag_result", "FAIL reason=wake_error") if transcript_path else print("diag_result: FAIL reason=wake_error", flush=True)
+                return 2
+            if event_name == "cancel_processing":
+                diagnostics.failure = "cancelled"
+                diagnostics.mark("cancelled")
+                return 130
+
+        stopped = run_stts_turn_on_client(
+            client,
+            cwd,
+            history,
+            source_notes,
+            transcript_path=transcript_path,
+            timeout_seconds=stt_timeout_seconds,
+            complete_silence_ms=complete_silence_ms,
+            possibly_complete_silence_ms=complete_silence_ms,
+            diagnostics=diagnostics,
+        )
+        if stopped:
+            diagnostics.mark("wake_test_stopped_by_user")
+            emit(transcript_path, "diag_result", "PASS stopped_by_user=true") if transcript_path else print("diag_result: PASS stopped_by_user=true", flush=True)
+            return 0
+        if not diagnostics.transcript:
+            reason = diagnostics.failure or "no_transcript"
+            emit(transcript_path, "diag_result", f"FAIL reason={reason}") if transcript_path else print(f"diag_result: FAIL reason={reason}", flush=True)
+            return 2
+
+        diagnostics.mark("wake_rearm_started")
+        rearm_payload = {
+            "maxListenMs": 60_000,
+            "debugScores": False,
+        }
+        if not fake_wake:
+            rearm_payload["profile"] = wake_profile(threshold, input_gain_db)
+        try:
+            rearm_id = send_action(client, "wake_start", **rearm_payload)
+            rearm_event = wait_for_id_event(client, rearm_id, {"wake_started"}, 15.0)
+            diagnostics.rearm_ready = True
+            diagnostics.mark("wake_rearm_ready", summarize_wake_event(rearm_event))
+            stop_id = send_action(client, "wake_stop")
+            wait_for_id_event(client, stop_id, {"wake_stopped", "wake_idle"}, 5.0)
+        except Exception as exc:
+            reason = classify_wake_exception(exc, "rearm_start_timeout")
+            diagnostics.failure = reason
+            diagnostics.mark("wake_rearm_failed", f"reason={reason} message={exc}")
+
+        if diagnostics.wake_detected and diagnostics.transcript and diagnostics.tts_complete and diagnostics.rearm_ready:
+            emit(transcript_path, "diag_result", "PASS wake_turn_and_rearm=true") if transcript_path else print("diag_result: PASS wake_turn_and_rearm=true", flush=True)
+            return 0
+        reason = diagnostics.failure or "incomplete"
+        emit(transcript_path, "diag_result", f"FAIL reason={reason}") if transcript_path else print(f"diag_result: FAIL reason={reason}", flush=True)
+        return 2
     finally:
         try:
             send_action(client, "wake_stop")
@@ -2179,6 +2688,7 @@ def run_stt_check(
     stt_backend: str,
     stt_timeout_seconds: float,
     stt_offline_only: bool,
+    complete_silence_ms: int,
 ) -> int:
     print("status: listening for raw STT")
     transcript, raw_transcript = listen_once(
@@ -2187,6 +2697,8 @@ def run_stt_check(
         backend=stt_backend,
         shim_timeout_seconds=stt_timeout_seconds,
         shim_offline_only=stt_offline_only,
+        complete_silence_ms=complete_silence_ms,
+        possibly_complete_silence_ms=complete_silence_ms,
     )
     candidates = extract_transcript_candidates(raw_transcript)
     print(f"stt_candidates: {json.dumps(candidates, ensure_ascii=True)}")
@@ -2214,6 +2726,7 @@ def run_session(
     stt_backend: str,
     stt_timeout_seconds: float,
     stt_offline_only: bool,
+    complete_silence_ms: int,
     working_dir: str,
 ) -> int:
     if tts_backend == "termux":
@@ -2278,6 +2791,8 @@ def run_session(
                     backend=stt_backend,
                     shim_timeout_seconds=stt_timeout_seconds,
                     shim_offline_only=stt_offline_only,
+                    complete_silence_ms=complete_silence_ms,
+                    possibly_complete_silence_ms=complete_silence_ms,
                 )
                 if transcript:
                     break
@@ -2349,6 +2864,7 @@ def main() -> int:
             "listen",
             "talk",
             "wake",
+            "wake-test",
             "doctor",
             "model-import",
             "status",
@@ -2371,6 +2887,18 @@ def main() -> int:
     parser.add_argument("--tts-backend", default=DEFAULT_TTS_BACKEND, choices=["auto", "shim", "termux"])
     parser.add_argument("--stt-backend", default=DEFAULT_STT_BACKEND, choices=["auto", "shim", "termux"])
     parser.add_argument("--stt-timeout-seconds", type=float, default=DEFAULT_SHIM_STT_TIMEOUT_SECONDS)
+    parser.add_argument(
+        "--wake-stt-timeout-seconds",
+        type=float,
+        default=DEFAULT_WAKE_STT_TIMEOUT_SECONDS,
+        help="For wake mode: STT listen window after wake detection.",
+    )
+    parser.add_argument(
+        "--stt-complete-silence-ms",
+        type=int,
+        default=DEFAULT_SHIM_STT_COMPLETE_SILENCE_MS,
+        help="Silence duration before Android STT finalizes a transcript.",
+    )
     parser.add_argument("--stt-offline-only", action="store_true")
     parser.add_argument("--cwd", default="")
     parser.add_argument("--download", action="store_true", help="Download and import pinned openWakeWord assets before diagnostics.")
@@ -2379,7 +2907,8 @@ def main() -> int:
     parser.add_argument("--fake-wake", action="store_true", help="For wake mode: use fake/manual wake instead of ONNX.")
     parser.add_argument("--wake-debug-scores", action="store_true", help="For wake mode: print live wake score events.")
     parser.add_argument("--wake-threshold", type=float, default=WAKE_THRESHOLD, help="For wake mode: override the wake detection threshold.")
-    parser.add_argument("--no-wake-cue", action="store_true", help="For wake mode: do not play the ready tone after arming.")
+    parser.add_argument("--wake-input-gain-db", type=float, default=WAKE_INPUT_GAIN_DB, help="For wake mode: software input gain before ONNX inference.")
+    parser.add_argument("--no-wake-cue", action="store_true", help="For wake mode: do not play the subtle cue after wake detection.")
     args = parser.parse_args()
 
     try:
@@ -2397,6 +2926,8 @@ def main() -> int:
                 backend=args.stt_backend,
                 shim_timeout_seconds=args.stt_timeout_seconds,
                 shim_offline_only=args.stt_offline_only,
+                complete_silence_ms=args.stt_complete_silence_ms,
+                possibly_complete_silence_ms=args.stt_complete_silence_ms,
             )
             if transcript:
                 print(transcript)
@@ -2416,6 +2947,17 @@ def main() -> int:
             )
         if args.command == "wake":
             return run_wake_tmux(
+                raw_args,
+                args.post_speech_delay,
+                args.post_tts_recovery,
+                args.tts_drain_timeout,
+                args.timeout_seconds,
+                args.tts_stream,
+                args.tts_backend,
+                working_dir,
+            )
+        if args.command == "wake-test":
+            return run_wake_test_tmux(
                 raw_args,
                 args.post_speech_delay,
                 args.post_tts_recovery,
@@ -2446,6 +2988,7 @@ def main() -> int:
                 args.stt_backend,
                 args.stt_timeout_seconds,
                 args.stt_offline_only,
+                args.stt_complete_silence_ms,
             )
         if args.command in ("stop", "cleanup"):
             print(cleanup_voice_processes())
@@ -2475,6 +3018,7 @@ def main() -> int:
             args.stt_backend,
             args.stt_timeout_seconds,
             args.stt_offline_only,
+            args.stt_complete_silence_ms,
             working_dir,
         )
     except KeyboardInterrupt:

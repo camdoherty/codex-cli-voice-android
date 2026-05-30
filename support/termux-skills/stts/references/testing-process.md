@@ -11,7 +11,8 @@ retuning timing.
 ## Test Conditions
 
 - Keep Bluetooth disconnected unless explicitly testing Bluetooth routing.
-- Keep the phone unlocked, Termux visible, and the device near the host speaker.
+- Start with the phone unlocked, Termux visible, and the device near the host
+  speaker unless the run explicitly tests wake-word screen-off behavior.
 - Start every run from a clean voice state.
 - Save every harness summary JSON under `/tmp` with a descriptive name.
 - Treat raw STT and full-loop behavior as separate signals. Raw STT can pass
@@ -21,6 +22,9 @@ retuning timing.
 - Treat shim TTS and Termux API TTS as separate signals. Current Android
   evidence prefers shim TTS; direct `termux-tts-speak` can hang even when shim
   TTS is audible and reports completion.
+- Treat Pixel6a screen-off WWS success as device-specific validation. It is a
+  release signal for Pixel6a, not a guarantee for every Android device or OEM
+  background policy.
 
 ## Required Tools
 

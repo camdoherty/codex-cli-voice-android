@@ -12,6 +12,10 @@ Codex CLI + Voice on Android/Termux.
 - Treat `codex-voice` as billable unless the realtime guard is active.
 - Treat `support/termux-skills/stts` as the source mirror for the local Termux `stts` skill.
 - Keep experimental activation prototypes, private logs, personal profiles, and prototype routing assumptions out of the stable release.
+- A successful Bridge APK build is not a device deploy. When Android Bridge
+  behavior changes, install the rebuilt APK on the target device, restart the
+  Bridge foreground service, and verify `127.0.0.1:8765` from Termux before
+  asking for user testing. See `DEPLOY.md`.
 
 ## Validation
 

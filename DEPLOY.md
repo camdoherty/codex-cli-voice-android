@@ -268,3 +268,46 @@ sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" \
 ```
 
 The final TTS smoke requires user audible confirmation.
+
+## Developer Bridge APK Update
+
+For developer iterations, building the Bridge APK is only a compile/package
+check. It does not update the Android device. After any Bridge-side change,
+install the rebuilt APK, restart the foreground service, and verify the
+loopback service before user testing.
+
+With ADB connected to the target:
+
+```sh
+adb ${ANDROID_SERIAL:+-s "$ANDROID_SERIAL"} install -r \
+  android-aec-shim/app/build/outputs/apk/debug/app-debug.apk
+adb ${ANDROID_SERIAL:+-s "$ANDROID_SERIAL"} shell am start \
+  -a io.github.codex_cli_voice_android.aecshim.START_SERVICE \
+  -n io.github.codex_cli_voice_android.aecshim/.MainActivity
+```
+
+Then verify from Termux on the device:
+
+```sh
+python3 - <<'PY'
+import socket
+s = socket.create_connection(("127.0.0.1", 8765), 5)
+print("bridge_port=ok")
+s.close()
+PY
+```
+
+If the changed STTS Python skill is part of the same test, deploy or reinstall
+`support/termux-skills/stts/scripts/stts_loop.py` as well, then run:
+
+```sh
+python -m py_compile "$HOME/.codex/skills/stts/scripts/stts_loop.py"
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" \
+  wake --fake-wake --once --no-wake-cue \
+  --wake-stt-timeout-seconds 1 \
+  --stt-complete-silence-ms 500
+```
+
+Capture the `ccva-stts` tmux pane or session log to confirm the fake-wake path
+reached the expected `no transcript` or successful turn result before moving to
+a live spoken test.

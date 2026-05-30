@@ -15,9 +15,21 @@ final class WakeOnnxLiveEngine {
     private static final String TAG = "CodexWakeOnnx";
 
     interface Listener {
-        void onScore(double score, int frames, long elapsedMs, long computeMs);
+        void onScore(
+                double score,
+                int frames,
+                long elapsedMs,
+                long computeMs,
+                double inputRmsDbfs,
+                double inputPeakDbfs);
 
-        void onDetected(double score, int frames, long elapsedMs, long computeMs);
+        void onDetected(
+                double score,
+                int frames,
+                long elapsedMs,
+                long computeMs,
+                double inputRmsDbfs,
+                double inputPeakDbfs);
 
         void onError(String code, String message);
     }
@@ -112,8 +124,10 @@ final class WakeOnnxLiveEngine {
                     if (!running) {
                         break;
                     }
+                    InputLevel inputLevel = inputLevel(chunk);
+                    short[] inferenceChunk = applyGain(chunk, profile.inputGainDb);
                     long computeStart = System.currentTimeMillis();
-                    state.accept(chunk);
+                    state.accept(inferenceChunk);
                     double score = WakeOnnxClipProbe.runWakeClassifier(
                             env,
                             wakeSession,
@@ -126,11 +140,23 @@ final class WakeOnnxLiveEngine {
                     frames++;
                     if (score >= profile.threshold) {
                         Log.i(TAG, "detected score=" + score + " frame=" + frames + " elapsedMs=" + elapsedMs);
-                        listener.onDetected(score, frames, elapsedMs, computeMs);
+                        listener.onDetected(
+                                score,
+                                frames,
+                                elapsedMs,
+                                computeMs,
+                                inputLevel.rmsDbfs,
+                                inputLevel.peakDbfs);
                         running = false;
                         break;
                     }
-                    listener.onScore(score, frames, elapsedMs, computeMs);
+                    listener.onScore(
+                            score,
+                            frames,
+                            elapsedMs,
+                            computeMs,
+                            inputLevel.rmsDbfs,
+                            inputLevel.peakDbfs);
                 }
             }
         } catch (SecurityException e) {
@@ -174,6 +200,55 @@ final class WakeOnnxLiveEngine {
             throw new IllegalStateException("AudioRecord failed to initialize");
         }
         return record;
+    }
+
+    private static InputLevel inputLevel(short[] samples) {
+        long squares = 0L;
+        int peak = 0;
+        for (short sample : samples) {
+            int value = Math.abs((int) sample);
+            if (value > peak) {
+                peak = value;
+            }
+            squares += (long) value * (long) value;
+        }
+        double rms = Math.sqrt(squares / (double) Math.max(1, samples.length));
+        return new InputLevel(dbfs(rms), dbfs(peak));
+    }
+
+    private static short[] applyGain(short[] samples, double gainDb) {
+        if (Math.abs(gainDb) < 0.001) {
+            return samples;
+        }
+        double multiplier = Math.pow(10.0, gainDb / 20.0);
+        short[] out = new short[samples.length];
+        for (int i = 0; i < samples.length; i++) {
+            int value = (int) Math.round(samples[i] * multiplier);
+            if (value > Short.MAX_VALUE) {
+                value = Short.MAX_VALUE;
+            } else if (value < Short.MIN_VALUE) {
+                value = Short.MIN_VALUE;
+            }
+            out[i] = (short) value;
+        }
+        return out;
+    }
+
+    private static double dbfs(double value) {
+        if (value <= 0.0) {
+            return -120.0;
+        }
+        return 20.0 * Math.log10(value / 32767.0);
+    }
+
+    private static final class InputLevel {
+        final double rmsDbfs;
+        final double peakDbfs;
+
+        InputLevel(double rmsDbfs, double peakDbfs) {
+            this.rmsDbfs = rmsDbfs;
+            this.peakDbfs = peakDbfs;
+        }
     }
 
     private synchronized void cleanupRecorder() {

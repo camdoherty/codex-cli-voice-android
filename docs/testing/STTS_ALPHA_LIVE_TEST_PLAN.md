@@ -5,7 +5,8 @@ not a build test and it does not use the OpenAI Realtime API.
 
 ## Setup
 
-- Keep the phone unlocked.
+- Start with the phone unlocked unless the batch explicitly tests screen-off
+  behavior.
 - Keep the shim app open/running.
 - Keep Bluetooth disconnected unless explicitly testing routing.
 - Start the monitor from the host before each batch:
@@ -94,7 +95,26 @@ Say wake phrase, then the test prompt:
 
 Expected: wake phrase triggers listening and produces one spoken reply.
 
-## Batch 4: Multi-Turn Talk Mode
+## Batch 4: Wake Word Screen-Off Baseline
+
+Run:
+
+```sh
+ssh -F ~/.ssh/config pixel6a-lan 'stts wake'
+```
+
+1. Leave the phone screen off for more than 60 seconds.
+2. Confirm there is no periodic wake cue or minute rollover.
+3. Say: `Hey Jarvis. What can you do?`
+4. Wait for the spoken reply.
+5. Leave the phone screen off for more than 60 seconds again.
+
+Expected: one wake listener remains armed past 60 seconds, the cue plays only
+after wake detection, the turn completes, and wake mode re-arms. This was
+validated on Pixel6a for 0.135; do not generalize it to all Android devices
+without separate validation.
+
+## Batch 5: Multi-Turn Talk Mode
 
 Run before each spoken turn:
 
@@ -111,7 +131,7 @@ Speak these in sequence, waiting for each reply:
 
 Expected: context carries across turns and stop exits cleanly.
 
-## Batch 5: Edge Cases
+## Batch 6: Edge Cases
 
 Run a fresh `stts talk` for each:
 

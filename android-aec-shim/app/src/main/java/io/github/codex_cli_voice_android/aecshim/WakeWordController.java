@@ -119,10 +119,15 @@ final class WakeWordController {
         WakeWordStatus.wakeStartedAtMs = now;
         WakeWordStatus.wakeDeadlineAtMs = now + maxListenMs;
         WakeWordStatus.wakeMaxListenMs = maxListenMs;
+        WakeWordStatus.wakeInputGainDb = activeProfile.inputGainDb;
         WakeWordStatus.lastWakeScore = 0.0;
         WakeWordStatus.lastWakeFrame = 0;
         WakeWordStatus.lastWakeLatencyMs = 0L;
         WakeWordStatus.lastWakeComputeMs = 0L;
+        WakeWordStatus.lastWakeInputRmsDbfs = -120.0;
+        WakeWordStatus.lastWakeInputPeakDbfs = -120.0;
+        WakeWordStatus.maxWakeScore = 0.0;
+        WakeWordStatus.maxWakeFrame = 0;
         WakeWordStatus.lastWakeEvent = "wake_started";
         WakeWordStatus.lastWakeError = "";
         WakeWordStatus.lastWakeStopReason = "";
@@ -473,6 +478,11 @@ final class WakeWordController {
         } else if (profile.threshold < 0.995) {
             warnings.put("threshold below 0.995 may false-accept near phrases in current hey_jarvis host testing");
         }
+        if (profile.inputGainDb < -24.0 || profile.inputGainDb > 24.0) {
+            errors.put("inputGainDb must be between -24 and 24");
+        } else if (profile.inputGainDb > 12.0) {
+            warnings.put("inputGainDb above 12 dB may clip loud wake phrases");
+        }
         if (profile.cooldownMs < 0L || profile.cooldownMs > 60000L) {
             errors.put("cooldownMs must be between 0 and 60000");
         }
@@ -524,9 +534,17 @@ final class WakeWordController {
         }
 
         @Override
-        public void onScore(double score, int frames, long elapsedMs, long computeMs) {
+        public void onScore(
+                double score,
+                int frames,
+                long elapsedMs,
+                long computeMs,
+                double inputRmsDbfs,
+                double inputPeakDbfs) {
             WebSocket conn;
             WakeProfile profile;
+            double maxScore;
+            int maxFrame;
             synchronized (WakeWordController.this) {
                 if (!isCurrentGenerationLocked(generation)) {
                     return;
@@ -535,6 +553,14 @@ final class WakeWordController {
                 WakeWordStatus.lastWakeFrame = frames;
                 WakeWordStatus.lastWakeLatencyMs = elapsedMs;
                 WakeWordStatus.lastWakeComputeMs = computeMs;
+                WakeWordStatus.lastWakeInputRmsDbfs = inputRmsDbfs;
+                WakeWordStatus.lastWakeInputPeakDbfs = inputPeakDbfs;
+                if (score > WakeWordStatus.maxWakeScore) {
+                    WakeWordStatus.maxWakeScore = score;
+                    WakeWordStatus.maxWakeFrame = frames;
+                }
+                maxScore = WakeWordStatus.maxWakeScore;
+                maxFrame = WakeWordStatus.maxWakeFrame;
                 WakeWordStatus.lastWakeEvent = "wake_score";
                 if (!liveDebugScores) {
                     return;
@@ -546,19 +572,32 @@ final class WakeWordController {
             try {
                 out.put("score", score);
                 out.put("threshold", profile.threshold);
+                out.put("inputGainDb", profile.inputGainDb);
                 out.put("frame", frames);
                 out.put("elapsedMs", elapsedMs);
                 out.put("computeMs", computeMs);
+                out.put("inputRmsDbfs", inputRmsDbfs);
+                out.put("inputPeakDbfs", inputPeakDbfs);
+                out.put("maxScore", maxScore);
+                out.put("maxFrame", maxFrame);
             } catch (JSONException ignored) {
             }
             sender.send(conn, out);
         }
 
         @Override
-        public void onDetected(double score, int frames, long elapsedMs, long computeMs) {
+        public void onDetected(
+                double score,
+                int frames,
+                long elapsedMs,
+                long computeMs,
+                double inputRmsDbfs,
+                double inputPeakDbfs) {
             WebSocket conn;
             WakeProfile profile;
             WakeOnnxLiveEngine engineToStop;
+            double maxScore;
+            int maxFrame;
             synchronized (WakeWordController.this) {
                 if (!isCurrentGenerationLocked(generation)) {
                     return;
@@ -567,6 +606,14 @@ final class WakeWordController {
                 WakeWordStatus.lastWakeFrame = frames;
                 WakeWordStatus.lastWakeLatencyMs = elapsedMs;
                 WakeWordStatus.lastWakeComputeMs = computeMs;
+                WakeWordStatus.lastWakeInputRmsDbfs = inputRmsDbfs;
+                WakeWordStatus.lastWakeInputPeakDbfs = inputPeakDbfs;
+                if (score > WakeWordStatus.maxWakeScore) {
+                    WakeWordStatus.maxWakeScore = score;
+                    WakeWordStatus.maxWakeFrame = frames;
+                }
+                maxScore = WakeWordStatus.maxWakeScore;
+                maxFrame = WakeWordStatus.maxWakeFrame;
                 engineToStop = beginStopLocked("wake_detected");
                 conn = sender.currentClient();
                 profile = activeProfile;
@@ -576,9 +623,14 @@ final class WakeWordController {
             try {
                 out.put("score", score);
                 out.put("threshold", profile.threshold);
+                out.put("inputGainDb", profile.inputGainDb);
                 out.put("frame", frames);
                 out.put("elapsedMs", elapsedMs);
                 out.put("computeMs", computeMs);
+                out.put("inputRmsDbfs", inputRmsDbfs);
+                out.put("inputPeakDbfs", inputPeakDbfs);
+                out.put("maxScore", maxScore);
+                out.put("maxFrame", maxFrame);
             } catch (JSONException ignored) {
             }
             sender.send(conn, out);
