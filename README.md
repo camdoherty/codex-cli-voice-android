@@ -65,8 +65,8 @@ Android `TextToSpeech` for spoken output and Android `SpeechRecognizer` for
 one-shot speech input. Termux:API speech commands remain fallback paths. STTS
 pins Codex turns to `gpt-5.4-mini` with low reasoning by default, with
 environment overrides available for testing. `STTS: Wake Word` arms a bounded
-Hey Jarvis wake listener and plays its subtle cue after wake detection,
-immediately before request STT starts.
+Hey Jarvis wake listener with Pixel6a-tested `6 dB` wake input gain, then plays
+its subtle cue after wake detection, immediately before request STT starts.
 
 OpenAI Codex Realtime Voice uses the shim `/v1/audio` endpoint for Android
 native microphone/speaker routing and streams audio through the OpenAI Realtime

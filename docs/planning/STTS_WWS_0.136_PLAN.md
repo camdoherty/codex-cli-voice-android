@@ -1,7 +1,8 @@
 # STTS WWS 0.136 Planning Notes
 
 These notes track candidate wake-word hardening work after the 0.135 alpha
-stabilization pass. They are not 0.135 release blockers.
+stabilization pass. Items already locked for 0.135 are recorded here only as
+baseline context for the next tuning pass.
 
 ## Current Direction
 
@@ -9,28 +10,43 @@ stabilization pass. They are not 0.135 release blockers.
   - long bounded wake-listen window
   - cue only after wake detection
   - socket reconnect hardening
+  - live wake diagnostics: score, threshold, input gain, RMS/peak dBFS, and
+    max score/frame
+  - `6 dB` software input gain before ONNX wake inference
   - Pixel6a screen-off/locked validation documented as device-specific
 - Treat 0.136 as the tuning and optimization pass for wake reliability,
-  diagnostics, and idle efficiency.
+  diagnostics polish, and idle efficiency.
+
+## 0.135 Locked Baseline
+
+- Default wake threshold remains `0.997`.
+- Default wake input gain is `6 dB`.
+- Pixel6a validation:
+  - repeated `Hey Jarvis` detection felt usable with `6 dB` gain
+  - office fan noise did not false-trigger during a short idle sanity run
+  - near phrase `hey harvest` reached about `0.79`, below the `0.997`
+    trigger threshold
+  - one possible missed detection happened after the office fan turned on, so
+    reliability should remain an alpha claim
+- Keep `--wake-threshold` and `--wake-input-gain-db` as alpha tuning knobs.
 
 ## Candidate 0.136 Work
 
 - Add live WWS diagnostics:
-  - input RMS/peak
-  - max wake score
+  - improve presentation of input RMS/peak
+  - improve presentation of max wake score
   - detection latency
   - threshold used
   - screen/lock state when practical
-  - 0.135 follow-up starts with passive Bridge diagnostics only; no gain,
-    threshold, or energy-gate behavior changes.
 - Evaluate wake threshold tuning:
   - current default is conservative
   - test lower values such as `0.995` before changing the default
   - keep `--wake-threshold` as an alpha override
-- Evaluate optional software input gain before wake inference:
-  - expose as a configurable dB value
-  - test for clipping and false accepts
-  - do not apply to Android SpeechRecognizer unless separately supported
+- Continue evaluating software input gain:
+  - keep `6 dB` as the 0.135 alpha default
+  - compare `0`, `3`, `6`, and possibly `9 dB` only with clipping and false
+    accept evidence
+  - do not apply gain to Android SpeechRecognizer unless separately supported
 - Evaluate optional energy/VAD pre-gate:
   - skip ONNX wake-model inference during quiet/silent frames
   - keep the microphone open and continue reading audio

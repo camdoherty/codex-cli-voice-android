@@ -67,6 +67,7 @@ if find "$REPO_DIR" \
     -path "$REPO_DIR/android-aec-shim/build" -prune -o \
     -path "$REPO_DIR/android-aec-shim/app/build" -prune -o \
     -path "$REPO_DIR/dist" -prune -o \
+    -path "$REPO_DIR/tmp" -prune -o \
     \( -name '*.pyc' -o -name __pycache__ \) -print | grep .; then
     echo "Generated Python files found" >&2
     exit 1
@@ -79,7 +80,8 @@ if rg -n '(/home/[c]ad|100\.[6]4\.|100\.[9]7\.|192\.[1]68\.|[m]intpad|sk-[A-Za-z
     --glob '!android-aec-shim/app/build/**' \
     --glob '!android-aec-shim/.gradle/**' \
     --glob '!codex-build-*/**' \
-    --glob '!codex-cargo-cache/**'; then
+    --glob '!codex-cargo-cache/**' \
+    --glob '!tmp/**'; then
     echo "Private path, host, IP, or secret-looking token found" >&2
     exit 1
 fi

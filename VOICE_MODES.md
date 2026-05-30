@@ -84,6 +84,9 @@ Wake word notes:
 
 - `stts wake` uses a bounded long wake-listen window instead of restarting
   every minute.
+- The default wake input gain is `6 dB`, validated on Pixel6a as the current
+  alpha balance for wake reliability without observed false triggers in a
+  short fan/noise sanity run.
 - The subtle cue means "wake detected; speak now." It is not played just
   because wake listening is armed.
 - Pixel6a validation included a screen-off run through wake detection, STT,
