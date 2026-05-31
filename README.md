@@ -115,7 +115,15 @@ When shared storage is available, this points to:
 STTS/Codex can create, read, append, open, and share Markdown notes there when
 asked.
 
-Future Android share-target support belongs in Codex Bridge.
+Codex Bridge also appears in the Android share sheet. Shared text, links, and
+small files are staged under:
+
+```text
+~/codex_notes/inbox/
+```
+
+Bridge then opens the STTS/Codex tmux surface with a conservative review prompt:
+summarize what was shared, then ask what to do next.
 
 ## Why Android?
 

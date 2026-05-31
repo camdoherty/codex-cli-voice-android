@@ -159,6 +159,21 @@ final class TermuxCommandLauncher {
         }
     }
 
+    static boolean runSharedIntake(Context context, String shellCommand) {
+        if (!ensureUsable(context)) {
+            return false;
+        }
+        sendRunCommand(
+                context,
+                "ingest",
+                shellCommand,
+                false,
+                "Codex Bridge: Shared Item",
+                "Stages shared Android content and opens a Codex review prompt.",
+                false);
+        return true;
+    }
+
     static void handleResult(Context context, Intent intent) {
         String kind = intent == null ? "" : intent.getStringExtra(EXTRA_KIND);
         Bundle result = intent == null ? null : intent.getBundleExtra(RESULT_BUNDLE);
