@@ -113,8 +113,8 @@ fixed WAV fixture set across threshold and input-gain candidates:
 
 ```sh
 scripts/wws_onnx_probe_matrix.py \
-  --adb-serial 100.64.148.26:46187 \
-  --clip-root /home/cad/dev/pixel9/tmp/ccva-wws-kokoro-gain-test/clips \
+  --adb-serial <adb-serial> \
+  --clip-root tmp/ccva-wws-kokoro-gain-test/clips \
   --thresholds 0.997,0.995 \
   --gains 0,6,9,12
 ```

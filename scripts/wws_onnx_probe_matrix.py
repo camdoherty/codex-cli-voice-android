@@ -22,7 +22,7 @@ from smoke_text_voice_ws import _connect, _recv_frame, _send_frame
 
 
 DEFAULT_URL = "ws://127.0.0.1:18765/v1/text-voice"
-DEFAULT_CLIP_ROOT = "/home/cad/dev/pixel9/tmp/ccva-wws-kokoro-gain-test/clips"
+DEFAULT_CLIP_ROOT = "tmp/ccva-wws-kokoro-gain-test/clips"
 WAKE_PROFILE_ID = "hey_jarvis_dev"
 WAKE_MODEL_APP_DIR = (
     "/data/user/0/io.github.codex_cli_voice_android.aecshim/files/"
