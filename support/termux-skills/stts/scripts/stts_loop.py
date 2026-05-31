@@ -37,6 +37,8 @@ DEFAULT_SHIM_STT_POSSIBLY_COMPLETE_SILENCE_MS = 5000
 DEFAULT_SHIM_STT_MINIMUM_LENGTH_MS = 1000
 DEFAULT_CODEX_MODEL = os.environ.get("CODEX_STTS_CODEX_MODEL", "gpt-5.4-mini")
 DEFAULT_CODEX_REASONING_EFFORT = os.environ.get("CODEX_STTS_CODEX_REASONING_EFFORT", "low")
+DEFAULT_CODEX_SANDBOX = os.environ.get("CODEX_STTS_CODEX_SANDBOX", "workspace-write")
+DEFAULT_CODEX_ADD_DIRS = os.environ.get("CODEX_STTS_CODEX_ADD_DIRS", "")
 SHIM_TEXT_VOICE_HOST = "127.0.0.1"
 SHIM_TEXT_VOICE_PORT = 8765
 SHIM_TEXT_VOICE_PATH = "/v1/text-voice"
@@ -1081,6 +1083,34 @@ def resolve_working_dir(raw: str) -> str:
     return str(resolved)
 
 
+def existing_dir_variants(path: Path) -> list[str]:
+    expanded = path.expanduser()
+    if not expanded.is_absolute():
+        expanded = Path.cwd() / expanded
+    if not expanded.is_dir():
+        return []
+    variants = [str(expanded)]
+    try:
+        resolved = str(expanded.resolve())
+    except OSError:
+        resolved = ""
+    if resolved and resolved not in variants:
+        variants.append(resolved)
+    return variants
+
+
+def codex_writable_dirs() -> list[str]:
+    dirs: list[str] = []
+    candidates = [Path.home() / "codex_notes"]
+    if DEFAULT_CODEX_ADD_DIRS:
+        candidates.extend(Path(item) for item in DEFAULT_CODEX_ADD_DIRS.split(os.pathsep) if item)
+    for candidate in candidates:
+        for item in existing_dir_variants(candidate):
+            if item not in dirs:
+                dirs.append(item)
+    return dirs
+
+
 def clip_spoken_text(text: str, limit: int = 240) -> str:
     one_line = " ".join(text.split())
     if len(one_line) <= limit:
@@ -1279,6 +1309,10 @@ def codex_exec_command(cwd: str) -> list[str]:
         "--ephemeral",
         "--json",
     ]
+    if DEFAULT_CODEX_SANDBOX:
+        command.extend(["--sandbox", DEFAULT_CODEX_SANDBOX])
+    for writable_dir in codex_writable_dirs():
+        command.extend(["--add-dir", writable_dir])
     if DEFAULT_CODEX_MODEL:
         command.extend(["-m", DEFAULT_CODEX_MODEL])
     if DEFAULT_CODEX_REASONING_EFFORT:

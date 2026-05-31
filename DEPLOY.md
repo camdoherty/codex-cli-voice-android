@@ -201,6 +201,11 @@ STTS treats `~/codex_notes` as the default location for ordinary Markdown note
 requests. Android note apps such as Obsidian or Marker can open
 `Documents/codex_notes` after Termux shared storage is granted.
 
+STTS launches `codex exec` with `--sandbox workspace-write` and adds
+`~/codex_notes` as a writable directory. This keeps the voice session inside the
+normal Codex sandbox while allowing note creation. For diagnostics only, adjust
+`CODEX_STTS_CODEX_SANDBOX` or `CODEX_STTS_CODEX_ADD_DIRS`.
+
 After a fresh install, tap the `Codex` shortcut once and complete Codex sign-in
 before validating `$stts`. STTS uses normal Codex authentication; a voice
 session can launch successfully but fail to generate replies until Codex is

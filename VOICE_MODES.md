@@ -33,10 +33,13 @@ codex-voice --allow-realtime
 `$stts` is a walkie-talkie-like voice mode that uses normal Codex
 authentication. No Realtime API billing is required for the voice path.
 
-STTS runs Codex turns through `codex exec` with `gpt-5.4-mini` and
-`model_reasoning_effort="low"` by default to keep voice turns faster and
-lower cost. Advanced users can override this with `CODEX_STTS_CODEX_MODEL` and
-`CODEX_STTS_CODEX_REASONING_EFFORT`.
+STTS runs Codex turns through `codex exec` with `gpt-5.4-mini`,
+`model_reasoning_effort="low"`, and `--sandbox workspace-write` by default to
+keep voice turns faster and allow ordinary note writes in the configured
+workspace. It also adds `~/codex_notes` as a writable directory. Advanced users
+can override this with `CODEX_STTS_CODEX_MODEL`,
+`CODEX_STTS_CODEX_REASONING_EFFORT`, `CODEX_STTS_CODEX_SANDBOX`, and
+`CODEX_STTS_CODEX_ADD_DIRS`.
 
 Default path:
 

@@ -50,6 +50,10 @@ Prefer this path over the full session when the user only wants speech output.
 - Use `sh scripts/stts-session.sh loop` only when the user explicitly wants the experimental continuous auto-listen loop.
 - For project-specific work, start the session with `--cwd /path/to/repo` so `codex exec` has the right workspace context.
 - STTS uses `gpt-5.4-mini` with `model_reasoning_effort="low"` by default for lower-cost voice turns. Override with `CODEX_STTS_CODEX_MODEL` and `CODEX_STTS_CODEX_REASONING_EFFORT` when testing.
+- STTS runs Codex turns with `--sandbox workspace-write` by default and adds
+  `~/codex_notes` as a writable directory so voice note requests can write
+  there. Override with `CODEX_STTS_CODEX_SANDBOX` and
+  `CODEX_STTS_CODEX_ADD_DIRS` when testing.
 - Do not change Android volume unless the user explicitly asks for it.
 - The controller uses `--tts-backend auto` by default: Android shim TTS first, Termux API TTS fallback.
 - Use `--tts-backend shim` and `--stt-backend shim` for reliability tests.
