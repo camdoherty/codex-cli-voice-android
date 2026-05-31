@@ -100,6 +100,25 @@ disable it.
 Use `Realtime API Voice Stop` to stop the billable Realtime tmux session and
 terminate any remaining Realtime process.
 
+For Termux:Widget shortcuts to open visible terminal sessions from the Android
+home screen on Android 10+, grant:
+
+```text
+Android Settings -> Apps -> Termux -> Display over other apps -> Allow
+```
+
+This is part of the standard widget setup. Without it, Termux may block
+background-launched terminal sessions with a `Display over other apps`
+permission message.
+
+The user-facing widget is the Termux:Widget home-screen widget, which displays
+the installed shortcut list.
+
+After a fresh install, tap the `Codex` shortcut once and complete Codex sign-in
+before validating `$stts`. STTS uses normal Codex authentication; a voice
+session can launch successfully but fail to generate replies until Codex is
+signed in.
+
 ## Clean Staging Device
 
 Use the Pixel6a or another staging phone to validate clean installs before
@@ -143,6 +162,110 @@ clean device may still require:
 ```text
 Android Settings -> Apps -> Codex Bridge -> Uninstall
 ```
+
+## ADB-Assisted Fresh Install
+
+This optional power-user path is for maintainers or testers who want repeatable
+validation from a true clean Termux state on a staging phone. Ordinary users do
+not need ADB: install Termux from F-Droid, open it once, then run the installer
+from [README.md](README.md#installation).
+
+Use the primary Android user/profile. Secondary users and work profiles can
+fail Termux bootstrap because Termux packages are built for the primary-user
+`$PREFIX` path.
+
+This flow removes Termux app data, so create and verify a backup first. ADB can
+do most of the reset and setup, but Android/F-Droid approval remains part of the
+user-visible install path.
+
+Backup the current primary-user Termux home before uninstalling:
+
+```sh
+stamp="$(date +%Y%m%d-%H%M%S)"
+tar -C "$HOME" --exclude './storage' -czf "$HOME/termux-primary-backup-$stamp.tar.gz" .
+sha256sum "$HOME/termux-primary-backup-$stamp.tar.gz" \
+  > "$HOME/termux-primary-backup-$stamp.tar.gz.sha256"
+```
+
+Pull the archive to the workstation and verify the checksum before continuing.
+
+From the workstation, uninstall CCVA and Termux apps:
+
+```sh
+serial="ANDROID_SERIAL_OR_HOST_PORT"
+adb -s "$serial" uninstall io.github.codex_cli_voice_android.aecshim || true
+adb -s "$serial" uninstall com.termux.widget || true
+adb -s "$serial" uninstall com.termux.api || true
+adb -s "$serial" uninstall com.termux || true
+```
+
+Install Termux add-ons with ADB if desired:
+
+```sh
+adb -s "$serial" install com.termux.api.apk
+adb -s "$serial" install com.termux.widget.apk
+```
+
+For the main Termux app, prefer F-Droid on the device. On recent Android builds,
+direct `adb install` of the F-Droid Termux APK may fail with
+`INSTALL_FAILED_VERIFICATION_FAILURE`. The working assisted path is:
+
+```sh
+adb -s "$serial" shell am start \
+  -a android.intent.action.VIEW \
+  -d 'https://f-droid.org/packages/com.termux/'
+```
+
+Choose F-Droid if Android asks which app should open the link, then install
+Termux from F-Droid. If the route opens a browser instead, open F-Droid directly
+and search for `Termux`.
+
+After Termux installs:
+
+1. Open Termux once and let bootstrap complete.
+2. Refresh the fresh base install before downloading with `curl`:
+
+   ```sh
+   pkg update
+   apt full-upgrade
+   pkg install curl openssh
+   ```
+
+   On a clean install, choose the package maintainer version for base Termux
+   config prompts such as `openssl.cnf`, `sources.list`, and `bash.bashrc`.
+3. Run the public installer from [README.md](README.md#installation).
+4. Install the staged Codex Bridge APK from Downloads.
+   For assisted staging, direct ADB install of the staged Bridge APK is also
+   acceptable and avoids Android file-manager/provider quirks:
+
+   ```sh
+   adb -s "$serial" pull /sdcard/Download/codex-aec-shim-debug.apk /tmp/codex-aec-shim-debug.apk
+   adb -s "$serial" install -r /tmp/codex-aec-shim-debug.apk
+   ```
+
+5. Grant microphone, notifications, and any optional Termux external-command
+   permission.
+6. For Termux:Widget launchers, grant Termux `Display over other apps`.
+7. Tap the `Codex` shortcut once and complete Codex sign-in.
+8. Run the smoke tests below, including `STTS: Start + Talk` and
+   `STTS: Wake Word` if wake-word validation is in scope.
+
+For staging devices with ADB, the grantable pieces can be applied with:
+
+```sh
+adb -s "$serial" shell appops set com.termux SYSTEM_ALERT_WINDOW allow
+adb -s "$serial" shell pm grant com.termux android.permission.POST_NOTIFICATIONS || true
+adb -s "$serial" shell pm grant io.github.codex_cli_voice_android.aecshim android.permission.RECORD_AUDIO || true
+adb -s "$serial" shell pm grant io.github.codex_cli_voice_android.aecshim android.permission.POST_NOTIFICATIONS || true
+adb -s "$serial" shell pm grant io.github.codex_cli_voice_android.aecshim com.termux.permission.RUN_COMMAND || true
+```
+
+Some Android builds may still require opening the app settings UI for special
+permissions. Verify effective state with `appops get` and `dumpsys package`
+instead of assuming the command succeeded.
+
+Do not disable Android package verification globally for this flow. It weakens
+device install protections and is not representative of normal user setup.
 
 ## Optional Notification Controls
 
@@ -220,6 +343,17 @@ It also verifies that an unguarded `codex-voice` launch exits before starting bi
 On a clean device, `codex exec` with a real prompt requires a configured Codex
 login or API key. Treat a `401 Unauthorized` as a credential/setup issue, not as
 an install failure, after `codex --version` and `codex exec --help` pass.
+
+For release validation, also verify the user-facing shortcut path:
+
+```text
+Termux:Widget -> Codex -> sign in if needed
+Termux:Widget -> STTS: Start + Talk
+Termux:Widget -> STTS: Wake Word
+```
+
+Expected result: `Codex` opens a stable tmux session, STTS can speak/listen, and
+wake word detection can start a local STTS turn after Bridge is running.
 
 ## Termux:API
 

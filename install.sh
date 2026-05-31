@@ -366,18 +366,24 @@ EOF
 2. Install the staged shim APK from Android Downloads:
    $CCVA_DOWNLOAD_DIR/codex-aec-shim-debug.apk
 3. Open the shim app from Android and grant microphone permission.
-4. Verify the shim from Termux:
+4. For Termux:Widget launchers, grant Termux "Display over other apps"
+   permission from Android Settings -> Apps -> Termux.
+5. Tap the Codex shortcut/widget once and complete Codex sign-in.
+6. Verify the shim from Termux:
    python -c 'import socket; s=socket.socket(); s.settimeout(2); s.connect(("127.0.0.1", 8765)); print("port-open"); s.close()'
-5. Optional wake-word setup:
+7. Optional wake-word setup:
    stts-diag --download
-6. Start local voice with:
+8. Start local voice with:
    stts talk
 EOF
     else
         cat <<'EOF'
 2. Shim APK staging was skipped. Install the shim APK manually before voice testing.
 3. Open the shim app from Android and grant microphone permission.
-4. Start local voice with:
+4. For Termux:Widget launchers, grant Termux "Display over other apps"
+   permission from Android Settings -> Apps -> Termux.
+5. Tap the Codex shortcut/widget once and complete Codex sign-in.
+6. Start local voice with:
    stts talk
 EOF
     fi

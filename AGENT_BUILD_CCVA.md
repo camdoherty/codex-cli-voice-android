@@ -89,6 +89,67 @@ Ask only what cannot be discovered safely:
 If SSH/device access is declined, provide the manual install path from
 [README.md](README.md) and keep the build local.
 
+## Agent-Assisted Install Paths
+
+Prefer the least invasive path that can prove the user's goal:
+
+1. Public release install, ordinary user path:
+   - User installs Termux, Termux:API, and Termux:Widget from F-Droid.
+   - User opens Termux once and runs the installer from [README.md](README.md).
+   - Agent reviews output, asks for Android approvals when needed, and verifies
+     smoke tests.
+2. SSH-assisted Termux install:
+   - Use when Termux and SSH are already working.
+   - Agent runs on-device commands over SSH and avoids ad hoc source copying
+     unless testing unpublished artifacts.
+3. ADB-assisted staging install:
+   - Use for maintainer/test devices that need repeatable clean validation.
+   - ADB may uninstall/reset apps, launch F-Droid, install the Bridge APK, grant
+     grantable runtime permissions, start Bridge, and capture screenshots/logs.
+   - ADB does not remove the need for visible Android/F-Droid approval when
+     Android requires it.
+4. Manual fallback:
+   - If SSH/ADB access is declined or unreliable, provide exact commands and ask
+     the user to run them in Termux.
+
+Failsafes:
+
+- Back up Termux home before any uninstall/reset.
+- Use the primary Android user/profile. Secondary users and work profiles can
+  fail Termux bootstrap because Termux packages are built for the primary-user
+  `$PREFIX` path.
+- Do not disable Android package verification globally.
+- Do not assume `termux-open`, `am start`, or a share intent succeeded; verify
+  package state, Bridge service state, and loopback port availability.
+- On fresh Termux, run `pkg update`, `apt full-upgrade`, and install `curl`
+  before fetching the public installer.
+- Treat `codex exec` authentication failures as setup issues after
+  `codex --version` and `codex exec --help` pass.
+- Ask the user to tap the `Codex` shortcut and complete sign-in before judging
+  STTS reply generation.
+- Keep Realtime tests explicit and billable-opt-in only.
+- For Termux:Widget launchers on Android 10+, require Termux `Display over other
+  apps` / `Draw over other apps` permission before judging widgets broken.
+
+## Agent Handoff Checklist
+
+For a public-release fresh install, verify this sequence:
+
+1. Termux, Termux:API, and Termux:Widget are installed from F-Droid in the
+   primary Android user/profile.
+2. Fresh Termux has run `pkg update`, `apt full-upgrade`, and `pkg install curl`.
+3. The public installer from [README.md](README.md) completed with checksum
+   verification.
+4. Codex Bridge is installed, opened, permissioned, running, and listening on
+   `127.0.0.1:8765`.
+5. Termux has `Display over other apps` for widget-launched terminal sessions.
+6. The user tapped `Codex` and completed Codex sign-in.
+7. `codex --version`, `codex exec --help`, and `stts-diag` pass.
+8. `STTS: Start + Talk` works.
+9. `STTS: Wake Word` works if WWS is in scope.
+10. `codex-voice --allow-realtime` is tested only with explicit billable
+    approval.
+
 ## Build From Source
 
 On a Linux build host:

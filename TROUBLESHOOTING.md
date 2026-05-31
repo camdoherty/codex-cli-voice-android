@@ -2,6 +2,10 @@
 
 ## One-Command Installer Fails
 
+Confirm Termux is installed in the primary Android user/profile. Secondary
+users and work profiles can fail Termux bootstrap because Termux packages are
+built for the primary-user `$PREFIX` path.
+
 Run the auditable form to inspect the installer and retry with clearer local
 state:
 
@@ -21,8 +25,14 @@ If package install fails, refresh Termux package indexes and retry:
 
 ```sh
 pkg update
+apt full-upgrade
 sh install.sh
 ```
+
+If `curl` fails with a linker error such as a missing OpenSSL or ngtcp2 symbol,
+the fresh Termux base packages are out of sync. Run `apt full-upgrade`, accept
+the package maintainer versions for base Termux config prompts, then install or
+retry `curl`.
 
 ## Shared Storage Or APK Staging Fails
 
@@ -49,7 +59,66 @@ to skip APK staging.
 If Android blocks the APK install, open Downloads manually, tap
 `codex-aec-shim-debug.apk`, and allow installs from the file manager or Termux
 when Android asks. After installing, open the shim app and grant microphone
-permission.
+permission. On staging devices with ADB, installing the staged Bridge APK with
+`adb install -r` is a valid assisted path if file-manager or share-sheet routes
+fail.
+
+## ADB Install Of Termux Fails
+
+On recent Android builds, direct `adb install` of the F-Droid Termux APK can
+fail with:
+
+```text
+INSTALL_FAILED_VERIFICATION_FAILURE
+```
+
+Do not disable Android package verification globally. ADB is not required for
+ordinary installs; install Termux from F-Droid instead. For maintainer or
+power-user staging-device clean installs, use the ADB-assisted F-Droid path in
+[DEPLOY.md](DEPLOY.md#adb-assisted-fresh-install): uninstall/reset with ADB,
+then launch the Termux F-Droid package page and approve the install on-device.
+
+## Widget Shortcut Does Not Open Termux
+
+On Android 10+, Termux needs `Display over other apps` / `Draw over other apps`
+permission before Termux:Widget can start visible terminal sessions from the
+home screen:
+
+```text
+Android Settings -> Apps -> Termux -> Display over other apps -> Allow
+```
+
+After granting it, retry the widget. If the widget list is stale, refresh the
+shortcuts by rerunning the installer or:
+
+```sh
+sh scripts/install_termux_launchers.sh
+```
+
+On a staging device with ADB, the overlay permission can usually be applied
+with:
+
+```sh
+adb -s "$serial" shell appops set com.termux SYSTEM_ALERT_WINDOW allow
+```
+
+If the widget opens Termux but Codex or STTS cannot generate a reply, tap the
+`Codex` shortcut and complete Codex sign-in first. STTS uses normal Codex
+authentication for its agent turns.
+
+## STTS Starts But Reply Generation Fails
+
+Check the basics in this order:
+
+```sh
+codex --version
+codex exec --help >/dev/null
+stts-diag
+```
+
+Then open the `Codex` widget/shortcut and sign in if prompted. If Bridge is
+running and `stts-diag` passes, authentication is the most likely issue on a
+fresh install.
 
 ## Checksum Mismatch
 

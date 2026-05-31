@@ -12,6 +12,9 @@ Status: `alpha`. The current upstream target is Codex `rust-v0.135.0`.
 This release was validated on Pixel 9 and 6a, Android 16, Termux 0.118.3.
 On Pixel6a, STTS Wake Word was validated with the screen off through a full
 wake -> STT -> Codex -> TTS -> re-arm turn.
+The public installer was also validated on a fresh Pixel6a primary-user Termux
+install: F-Droid Termux, base package upgrade, GitHub release install, Codex
+shortcut sign-in, Codex Bridge, `STTS: Start + Talk`, and `STTS: Wake Word`.
 
 This repository does not vendor the upstream Codex source tree.
 
@@ -104,11 +107,25 @@ expected user-facing surfaces are:
   `STTS: Start + Talk`, `STTS: Wake Word`, `STTS: Attach Session`,
   `STTS: Stop`
 
+Add the Termux:Widget widget to the Android home screen to show the shortcut
+list.
+
 The `Codex`, `Codex Resume Last`, and `Realtime API Voice` shortcuts open
 stable tmux sessions named `ccva-codex`, `ccva-resume`, and `ccva-realtime`.
 They attach to an existing session instead of starting a duplicate. Pane logs
 are captured by default under `~/.local/state/ccva-tmux/logs/`; set
 `CCVA_TMUX_LOG=0` before launching to disable them.
+
+For Termux:Widget shortcuts that open visible terminal sessions on Android 10+,
+grant Termux `Display over other apps` / `Draw over other apps` permission:
+
+```text
+Android Settings -> Apps -> Termux -> Display over other apps -> Allow
+```
+
+Without this permission, Android may show `Termux requires "Display over other
+apps" permission to start terminal sessions from background` when launching a
+home-screen widget.
 
 Use `Realtime API Voice Stop` to stop the billable Realtime tmux session and
 terminate any remaining Realtime process.
@@ -156,6 +173,23 @@ agent and have it build, deploy, and smoke-test from source.
 
 ## Installation
 
+Install Termux in the primary Android user/profile. Secondary users and work
+profiles can fail Termux bootstrap because Termux packages are built for the
+primary-user `$PREFIX` path.
+
+On a fresh Termux install, upgrade the base packages first. This avoids package
+ABI mismatches before `curl` downloads the installer:
+
+```sh
+pkg update
+apt full-upgrade
+pkg install curl
+```
+
+If `apt full-upgrade` asks about base Termux config files such as
+`openssl.cnf`, `sources.list`, or `bash.bashrc` on a clean install, choose the
+package maintainer version.
+
 One-command Termux install:
 
 ```sh
@@ -177,10 +211,21 @@ install missing Termux packages such as `python` and `termux-api`.
 
 For clean staging-device validation before reinstalling, use the dry-run-first
 cleanup process in [DEPLOY.md](DEPLOY.md#clean-staging-device).
+For repeatable staging-device validation, power users can use the optional
+[ADB-assisted fresh install](DEPLOY.md#adb-assisted-fresh-install) flow.
 
 Android approval steps remain explicit: shared-storage permission, APK install,
 microphone permission, and any Realtime billing opt-in. The installer does not
 start Realtime.
+
+Standard first-run checklist after install:
+
+1. Grant Termux `Display over other apps` before using Termux:Widget launchers.
+2. Install/open Codex Bridge, grant microphone/notification permissions, and
+   start its foreground service.
+3. Tap the `Codex` widget/shortcut once and complete Codex sign-in.
+4. Verify `codex --version` and `stts-diag`.
+5. Start local voice with `STTS: Start + Talk` or `STTS: Wake Word`.
 
 Optional Codex Bridge notification controls require Termux external commands:
 
@@ -219,11 +264,13 @@ Short version:
 1. Install Termux from F-Droid.
 2. Install Termux:API from F-Droid if you want fallback STTS and
    diagnostics.
-3. Download the latest release assets:
+3. On a fresh Termux install, run `pkg update`, `apt full-upgrade`, and
+   `pkg install curl` before downloading release assets.
+4. Download the latest release assets:
    - `codex-cli-voice-android-rust-vX.X.X.tar.gz`
    - `codex-cli-voice-android-rust-vX.X.X.tar.gz.sha256`
    - `codex-aec-shim-debug.apk`
-4. Install the CLI in Termux:
+5. Install the CLI in Termux:
 
 ```sh
 termux-setup-storage
@@ -234,9 +281,11 @@ codex-install-stts
 codex --version
 ```
 
-5. Install the shim APK from Android Downloads, open the shim app, grant
+6. Grant Termux `Display over other apps` before using home-screen widgets.
+7. Install the shim APK from Android Downloads, open the shim app, grant
    microphone permission, and verify the local service before voice testing.
-6. Optional wake-word setup:
+8. Tap the `Codex` widget/shortcut once and complete Codex sign-in.
+9. Optional wake-word setup:
 
 ```sh
 stts-diag --download
