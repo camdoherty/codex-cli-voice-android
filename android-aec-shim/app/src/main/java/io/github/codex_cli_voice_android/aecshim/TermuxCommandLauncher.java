@@ -191,7 +191,8 @@ final class TermuxCommandLauncher {
             return true;
         }
         refreshAvailability(context);
-        return false;
+        return isTermuxInstalled(context)
+                && context.checkSelfPermission(TERMUX_RUN_COMMAND_PERMISSION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private static void sendRunCommand(

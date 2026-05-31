@@ -27,6 +27,7 @@ public final class MainActivity extends Activity {
 
     private TextView statusView;
     private TextView termuxControlsView;
+    private long lastWakeAutoStartAtMs;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable refreshRunnable = new Runnable() {
         @Override
@@ -157,12 +158,25 @@ public final class MainActivity extends Activity {
         }
         String action = intent.getAction();
         if (Intent.ACTION_MAIN.equals(action)) {
-            startWakeWordMode();
+            maybeStartWakeWordFromMainLaunch();
         } else if (ACTION_START_SERVICE.equals(action)) {
             startShimService();
         } else if (ACTION_STOP_SERVICE.equals(action)) {
             stopShimService();
         }
+    }
+
+    private void maybeStartWakeWordFromMainLaunch() {
+        Intent intent = getIntent();
+        if (intent == null || !Intent.ACTION_MAIN.equals(intent.getAction())) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastWakeAutoStartAtMs < 2000L) {
+            return;
+        }
+        lastWakeAutoStartAtMs = now;
+        startWakeWordMode();
     }
 
     private void startWakeWordMode() {
@@ -199,6 +213,12 @@ public final class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         handleLifecycleAction(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        maybeStartWakeWordFromMainLaunch();
     }
 
     private boolean hasRecordAudioPermission() {

@@ -1987,20 +1987,27 @@ def run_session_host(
                                 transcript_path=transcript_path,
                             )
                         else:
-                            emit(transcript_path, "status", "wake word armed")
-                            rc = run_wake_loop(
-                                working_dir,
-                                once=bool(options["once"]),
-                                fake_wake=bool(options["fake_wake"]),
-                                debug_scores=bool(options["debug_scores"]),
-                                threshold=float(options["threshold"]),
-                                input_gain_db=float(options["input_gain_db"]),
-                                cue=bool(options["cue"]),
-                                stt_timeout_seconds=float(options["stt_timeout_seconds"]),
-                                complete_silence_ms=int(options["complete_silence_ms"]),
-                                transcript_path=transcript_path,
-                            )
-                            emit(transcript_path, "status", f"wake word stopped rc={rc}")
+                            wake_stop_at = time.monotonic() + WAKE_MAX_RUNTIME_SECONDS
+                            while time.monotonic() < wake_stop_at:
+                                emit(transcript_path, "status", "wake word armed")
+                                rc = run_wake_loop(
+                                    working_dir,
+                                    once=bool(options["once"]),
+                                    fake_wake=bool(options["fake_wake"]),
+                                    debug_scores=bool(options["debug_scores"]),
+                                    threshold=float(options["threshold"]),
+                                    input_gain_db=float(options["input_gain_db"]),
+                                    cue=bool(options["cue"]),
+                                    stt_timeout_seconds=float(options["stt_timeout_seconds"]),
+                                    complete_silence_ms=int(options["complete_silence_ms"]),
+                                    transcript_path=transcript_path,
+                                    stop_at=wake_stop_at,
+                                )
+                                emit(transcript_path, "status", f"wake word stopped rc={rc}")
+                                if bool(options["once"]) or rc != 0:
+                                    break
+                                if time.monotonic() < wake_stop_at:
+                                    emit(transcript_path, "status", "wake word re-arming")
                     except Exception as exc:
                         label = "wake test failed" if command_name == "wake-test" else "wake word failed"
                         if command_name in {"wake", "wake-test"}:
@@ -2381,6 +2388,7 @@ def run_wake_loop(
     stt_timeout_seconds: float = DEFAULT_WAKE_STT_TIMEOUT_SECONDS,
     complete_silence_ms: int = DEFAULT_SHIM_STT_COMPLETE_SILENCE_MS,
     transcript_path: Path | None = None,
+    stop_at: float | None = None,
 ) -> int:
     ok, message = validate_wake_models(threshold)
     if not ok and not fake_wake:
@@ -2393,7 +2401,7 @@ def run_wake_loop(
     client = ReconnectableTextClient(15.0)
     history: list[tuple[str, str]] = []
     source_notes: list[str] = []
-    stop_at = time.monotonic() + WAKE_MAX_RUNTIME_SECONDS
+    stop_at = stop_at if stop_at is not None else time.monotonic() + WAKE_MAX_RUNTIME_SECONDS
     try:
         while time.monotonic() < stop_at:
             max_listen_ms = wake_listen_window_ms(stop_at)
