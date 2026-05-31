@@ -11,8 +11,9 @@ For agent-driven device work, prefer this flow:
 
 1. Commit or otherwise stage source changes on the workstation.
 2. Pull/sync the repo on the Android device when possible.
-3. Run on-device install scripts from the synced repo or release assets.
-4. Use SSH for commands and verification; avoid ad hoc file copying except for
+3. With user approval, establish SSH into Termux early during setup.
+4. Run on-device install scripts from the synced repo or release assets.
+5. Use SSH for commands and verification; avoid ad hoc file copying except for
    pre-release build artifacts that do not exist on GitHub yet.
 
 Do not treat `termux-open` or `am start` as proof that Android displayed an
@@ -67,6 +68,48 @@ SSH_CONFIG=/dev/null
 ```
 
 Despite the `PIXEL_*` variable names, the target can be any Android device running Termux with SSH enabled.
+
+## Establish SSH For Agent-Assisted Setup
+
+SSH is not required for ordinary users, but it is the preferred control path for
+agent-assisted installs and release validation. Ask the user before enabling it.
+Password SSH is acceptable for the first supervised connection. Do not ask for
+the password in chat; have the user type it into their terminal or a shared
+handoff terminal.
+
+On the Android device in Termux:
+
+```sh
+pkg install openssh
+passwd
+sshd
+whoami
+```
+
+Verify the first connection from the workstation:
+
+```sh
+ssh -p 8022 termux-user@android-host 'echo ssh-ok; whoami; cat ~/.termux/termux.properties 2>/dev/null || true'
+```
+
+For repeatable agent automation, add an approved workstation public key:
+
+```sh
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+printf '%s\n' 'PASTE_APPROVED_WORKSTATION_PUBLIC_KEY_HERE' >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+Then verify non-interactive key auth from the workstation:
+
+```sh
+ssh -p 8022 termux-user@android-host 'echo ssh-ok; whoami; cat ~/.termux/termux.properties 2>/dev/null || true'
+```
+
+If Termux was reinstalled, its SSH host key may change. Remove only the stale
+entry for the exact device/port, confirm the new fingerprint with the user, and
+then reconnect. Do not disable host-key checking globally.
 
 ## Deploy Package
 

@@ -59,7 +59,7 @@ Before changing the user's machine or phone, ask for approval for:
 
 - Installing packages or toolchains.
 - Downloading upstream source or Android toolchain components.
-- Connecting to an Android device over SSH.
+- Establishing or connecting to Android Termux over SSH.
 - Copying artifacts to a device.
 - Installing or opening the shim APK.
 - Running `codex-voice --allow-realtime`.
@@ -99,9 +99,14 @@ Prefer the least invasive path that can prove the user's goal:
    - Agent reviews output, asks for Android approvals when needed, and verifies
      smoke tests.
 2. SSH-assisted Termux install:
-   - Use when Termux and SSH are already working.
+   - Use when Termux SSH is already working, or when the user approves setting
+     it up during install.
    - Agent runs on-device commands over SSH and avoids ad hoc source copying
      unless testing unpublished artifacts.
+   - On fresh/staging installs, SSH should be established early after Termux
+     bootstrap so the agent can verify `~/.termux/termux.properties`, staged
+     files, checksums, and smoke tests without relying on brittle ADB text
+     input.
 3. ADB-assisted staging install:
    - Use for maintainer/test devices that need repeatable clean validation.
    - ADB may uninstall/reset apps, launch F-Droid, install the Bridge APK, grant
@@ -123,6 +128,10 @@ Failsafes:
   package state, Bridge service state, and loopback port availability.
 - On fresh Termux, run `pkg update`, `apt full-upgrade`, and install `curl`
   before fetching the public installer.
+- If SSH is approved, password SSH is acceptable for the first supervised
+  connection. Do not ask for the password in chat. Prefer adding the user's
+  approved public key to `~/.ssh/authorized_keys` before automation so the
+  agent can run non-interactive verification commands.
 - Treat `codex exec` authentication failures as setup issues after
   `codex --version` and `codex exec --help` pass.
 - Ask the user to tap the `Codex` shortcut and complete sign-in before judging
@@ -223,6 +232,44 @@ scripts/release_doctor.sh v0.136.0-ccva.1
 ```
 
 ## Deploy With SSH
+
+Only set up SSH with explicit user approval. SSH is strongly recommended for
+agent-assisted installs because it lets the agent verify Termux private files,
+checksums, and smoke tests without depending on fragile ADB text entry.
+
+On the Android device, after Termux bootstrap and package updates:
+
+```sh
+pkg install openssh
+passwd
+sshd
+whoami
+```
+
+Password SSH is enough for a supervised first connection:
+
+```sh
+ssh -p 8022 termux-user@android-host 'echo ssh-ok; whoami; uname -m'
+```
+
+For repeatable agent work, add an approved workstation public key:
+
+```sh
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+printf '%s\n' 'PASTE_APPROVED_WORKSTATION_PUBLIC_KEY_HERE' >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+Then verify non-interactive SSH before using it for deployment:
+
+```sh
+ssh -p 8022 termux-user@android-host 'echo ssh-ok; whoami; uname -m'
+```
+
+If this fails after a fresh Termux reinstall, remove only the stale host entry
+for that device/port from `known_hosts`, confirm the new fingerprint with the
+user, and retry. Do not disable host-key checking globally.
 
 Configure `.env`:
 
