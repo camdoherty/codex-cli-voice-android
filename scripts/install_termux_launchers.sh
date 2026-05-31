@@ -6,6 +6,18 @@ SCRIPTS_DIR="$HOME/scripts"
 SHORTCUTS_DIR="$HOME/.shortcuts"
 
 mkdir -p "$SCRIPTS_DIR" "$SHORTCUTS_DIR"
+mkdir -p "$HOME/.termux"
+TERMUX_PROPERTIES="$HOME/.termux/termux.properties"
+if [ -f "$TERMUX_PROPERTIES" ] && grep -q '^allow-external-apps=' "$TERMUX_PROPERTIES"; then
+    tmp="$TERMUX_PROPERTIES.tmp.$$"
+    sed 's/^allow-external-apps=.*/allow-external-apps=true/' "$TERMUX_PROPERTIES" > "$tmp"
+    mv "$tmp" "$TERMUX_PROPERTIES"
+else
+    printf '%s\n' 'allow-external-apps=true' >> "$TERMUX_PROPERTIES"
+fi
+if command -v termux-reload-settings >/dev/null 2>&1; then
+    termux-reload-settings >/dev/null 2>&1 || true
+fi
 
 install -m 700 "$REPO_DIR/scripts/termux-codex-api" "$SCRIPTS_DIR/codex-api"
 install -m 700 "$REPO_DIR/scripts/termux-codex-voice" "$SCRIPTS_DIR/codex-voice"
@@ -119,3 +131,4 @@ printf 'Installed codex-api/codex-voice launchers and Termux:Widget shortcuts.\n
 printf 'Installed core shortcuts: Codex, Codex Resume Last.\n'
 printf 'Installed voice shortcuts: STTS: Start + Talk, STTS: Wake Word, Realtime API Voice, Realtime API Voice Stop.\n'
 printf 'Installed STTS control shortcuts: STTS: Attach Session, STTS: Stop.\n'
+printf 'Enabled Termux allow-external-apps=true for Codex Bridge notification controls.\n'

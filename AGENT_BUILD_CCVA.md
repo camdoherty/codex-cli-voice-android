@@ -130,6 +130,10 @@ Failsafes:
 - Keep Realtime tests explicit and billable-opt-in only.
 - For Termux:Widget launchers on Android 10+, require Termux `Display over other
   apps` / `Draw over other apps` permission before judging widgets broken.
+- For Codex Bridge notification buttons, verify Termux
+  `allow-external-apps=true` and the Codex Bridge Android permission
+  `Run commands in Termux environment`. The installer, SSH deploy helper, and
+  launcher refresh script set the Termux property automatically.
 
 ## Agent Handoff Checklist
 
@@ -143,11 +147,13 @@ For a public-release fresh install, verify this sequence:
 4. Codex Bridge is installed, opened, permissioned, running, and listening on
    `127.0.0.1:8765`.
 5. Termux has `Display over other apps` for widget-launched terminal sessions.
-6. The user tapped `Codex` and completed Codex sign-in.
-7. `codex --version`, `codex exec --help`, and `stts-diag` pass.
-8. `STTS: Start + Talk` works.
-9. `STTS: Wake Word` works if WWS is in scope.
-10. `codex-voice --allow-realtime` is tested only with explicit billable
+6. Bridge notification controls do not report a RunCommandService
+   `allow-external-apps` setup error.
+7. The user tapped `Codex` and completed Codex sign-in.
+8. `codex --version`, `codex exec --help`, and `stts-diag` pass.
+9. `STTS: Start + Talk` works.
+10. `STTS: Wake Word` works if WWS is in scope.
+11. `codex-voice --allow-realtime` is tested only with explicit billable
     approval.
 
 ## Build From Source

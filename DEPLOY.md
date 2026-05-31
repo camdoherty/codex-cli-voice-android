@@ -269,7 +269,9 @@ After Termux installs:
    ```
 
 5. Grant microphone, notifications, and any optional Termux external-command
-   permission.
+   permission. The installer sets Termux `allow-external-apps=true`
+   automatically for Bridge notification controls; Android may still require
+   the Codex Bridge `Run commands in Termux environment` permission.
 6. For Termux:Widget launchers, grant Termux `Display over other apps`.
 7. Tap the `Codex` shortcut once and complete Codex sign-in.
 8. Run the smoke tests below, including `STTS: Start + Talk` and
@@ -297,6 +299,8 @@ device install protections and is not representative of normal user setup.
 Codex Bridge can show STTS notification buttons only when Termux allows
 external command execution. The bridge hides those buttons until setup is
 available, so widgets and shell commands remain the default reliable controls.
+The public installer, SSH deploy helper, and launcher refresh script set the
+Termux property automatically.
 
 Enable the Termux side:
 

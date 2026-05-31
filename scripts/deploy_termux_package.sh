@@ -148,6 +148,18 @@ for name in codex-api codex-voice codex-install-stts ccva-tmux-run ccva-realtime
 done
 
 mkdir -p "$HOME/.shortcuts"
+mkdir -p "$HOME/.termux"
+termux_properties="$HOME/.termux/termux.properties"
+if [ -f "$termux_properties" ] && grep -q '^allow-external-apps=' "$termux_properties"; then
+    tmp="$termux_properties.tmp.$$"
+    sed 's/^allow-external-apps=.*/allow-external-apps=true/' "$termux_properties" > "$tmp"
+    mv "$tmp" "$termux_properties"
+else
+    printf '%s\n' 'allow-external-apps=true' >> "$termux_properties"
+fi
+if command -v termux-reload-settings >/dev/null 2>&1; then
+    termux-reload-settings >/dev/null 2>&1 || true
+fi
 cat > "$HOME/.shortcuts/Codex" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 exec "$HOME/scripts/ccva-tmux-run" codex -- codex

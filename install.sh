@@ -205,6 +205,7 @@ install_widgets() {
     scripts_dir="$HOME/scripts"
     shortcuts_dir="$CCVA_WIDGET_DIR"
     mkdir -p "$scripts_dir" "$shortcuts_dir"
+    enable_termux_external_apps
 
     for name in codex-api codex-voice codex-install-stts ccva-tmux-run ccva-realtime-stop; do
         ln -sfn "$CCVA_PREFIX/bin/$name" "$scripts_dir/$name"
@@ -276,6 +277,22 @@ EOF
         "$shortcuts_dir/${old_slug}-stop" \
         "$shortcuts_dir/${old_slug}-status" \
         "$shortcuts_dir/${old_slug}-diag"
+}
+
+enable_termux_external_apps() {
+    termux_dir="$HOME/.termux"
+    termux_properties="$termux_dir/termux.properties"
+    mkdir -p "$termux_dir"
+    if [ -f "$termux_properties" ] && grep -q '^allow-external-apps=' "$termux_properties"; then
+        tmp="$termux_properties.tmp.$$"
+        sed 's/^allow-external-apps=.*/allow-external-apps=true/' "$termux_properties" > "$tmp"
+        mv "$tmp" "$termux_properties"
+    else
+        printf '%s\n' 'allow-external-apps=true' >> "$termux_properties"
+    fi
+    if command -v termux-reload-settings >/dev/null 2>&1; then
+        termux-reload-settings >/dev/null 2>&1 || true
+    fi
 }
 
 remove_existing_install() {
@@ -368,12 +385,16 @@ EOF
 3. Open the shim app from Android and grant microphone permission.
 4. For Termux:Widget launchers, grant Termux "Display over other apps"
    permission from Android Settings -> Apps -> Termux.
-5. Tap the Codex shortcut/widget once and complete Codex sign-in.
-6. Verify the shim from Termux:
+5. For Codex Bridge notification buttons, grant Codex Bridge
+   "Run commands in Termux environment" if Android shows that permission.
+   This installer has already set allow-external-apps=true in
+   ~/.termux/termux.properties.
+6. Tap the Codex shortcut/widget once and complete Codex sign-in.
+7. Verify the shim from Termux:
    python -c 'import socket; s=socket.socket(); s.settimeout(2); s.connect(("127.0.0.1", 8765)); print("port-open"); s.close()'
-7. Optional wake-word setup:
+8. Optional wake-word setup:
    stts-diag --download
-8. Start local voice with:
+9. Start local voice with:
    stts talk
 EOF
     else
@@ -382,8 +403,12 @@ EOF
 3. Open the shim app from Android and grant microphone permission.
 4. For Termux:Widget launchers, grant Termux "Display over other apps"
    permission from Android Settings -> Apps -> Termux.
-5. Tap the Codex shortcut/widget once and complete Codex sign-in.
-6. Start local voice with:
+5. For Codex Bridge notification buttons, grant Codex Bridge
+   "Run commands in Termux environment" if Android shows that permission.
+   This installer has already set allow-external-apps=true in
+   ~/.termux/termux.properties.
+6. Tap the Codex shortcut/widget once and complete Codex sign-in.
+7. Start local voice with:
    stts talk
 EOF
     fi
