@@ -92,7 +92,9 @@ Verify the first connection from the workstation:
 ssh -p 8022 termux-user@android-host 'echo ssh-ok; whoami; cat ~/.termux/termux.properties 2>/dev/null || true'
 ```
 
-For repeatable agent automation, add an approved workstation public key:
+For repeatable agent automation, prefer a dedicated CCVA device key generated
+and owned by the user/workstation, for example
+`~/.ssh/id_ed25519_ccva_pixel6a`. Add only its public key to Termux:
 
 ```sh
 mkdir -p ~/.ssh
@@ -101,10 +103,10 @@ printf '%s\n' 'PASTE_APPROVED_WORKSTATION_PUBLIC_KEY_HERE' >> ~/.ssh/authorized_
 chmod 600 ~/.ssh/authorized_keys
 ```
 
-Then verify non-interactive key auth from the workstation:
+Then verify non-interactive key auth from the workstation. Example:
 
 ```sh
-ssh -p 8022 termux-user@android-host 'echo ssh-ok; whoami; cat ~/.termux/termux.properties 2>/dev/null || true'
+ssh pixel6a-ccva 'echo ssh-ok; whoami; hostname'
 ```
 
 If Termux was reinstalled, its SSH host key may change. Remove only the stale

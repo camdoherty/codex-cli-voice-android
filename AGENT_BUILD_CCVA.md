@@ -252,7 +252,9 @@ Password SSH is enough for a supervised first connection:
 ssh -p 8022 termux-user@android-host 'echo ssh-ok; whoami; uname -m'
 ```
 
-For repeatable agent work, add an approved workstation public key:
+For repeatable agent work, prefer a dedicated CCVA device key generated and
+owned by the user/workstation, for example `~/.ssh/id_ed25519_ccva_pixel6a`.
+Add only its public key to Termux:
 
 ```sh
 mkdir -p ~/.ssh
@@ -261,10 +263,10 @@ printf '%s\n' 'PASTE_APPROVED_WORKSTATION_PUBLIC_KEY_HERE' >> ~/.ssh/authorized_
 chmod 600 ~/.ssh/authorized_keys
 ```
 
-Then verify non-interactive SSH before using it for deployment:
+Then verify non-interactive SSH before using it for deployment. Example:
 
 ```sh
-ssh -p 8022 termux-user@android-host 'echo ssh-ok; whoami; uname -m'
+ssh pixel6a-ccva 'echo ssh-ok; whoami; hostname'
 ```
 
 If this fails after a fresh Termux reinstall, remove only the stale host entry
