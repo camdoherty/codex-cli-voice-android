@@ -161,13 +161,31 @@ rustup target add aarch64-linux-android
 scripts/setup_android_toolchain.sh
 ```
 
-Build the Android shim APK:
+For a publishable release candidate, use the release pipeline:
+
+```bash
+scripts/release_prepare.sh rust-v0.136.0 --iteration 1
+scripts/release_build.sh v0.136.0-ccva.1
+```
+
+Expected release outputs are under `dist/<release-tag>/`:
+
+```text
+dist/v0.136.0-ccva.1/codex-cli-voice-android-rust-v0.136.0-ccva.1.tar.gz
+dist/v0.136.0-ccva.1/codex-cli-voice-android-rust-v0.136.0-ccva.1.tar.gz.sha256
+dist/v0.136.0-ccva.1/codex-cli-voice-android-rust-v0.136.0-ccva.1.tar.gz.metadata
+dist/v0.136.0-ccva.1/codex-aec-shim-v0.136.0-ccva.1-debug.apk
+dist/v0.136.0-ccva.1/codex-aec-shim-v0.136.0-ccva.1-debug.apk.sha256
+dist/v0.136.0-ccva.1/v0.136.0-ccva.1.json
+```
+
+For lower-level local iteration, build the Android shim APK directly:
 
 ```bash
 scripts/build_aec_shim_apk.sh
 ```
 
-Build the Codex CLI Termux package:
+Build an un-suffixed local Codex CLI Termux package:
 
 ```bash
 # Install Android NDK r29 separately, then point the build at it.
@@ -175,12 +193,12 @@ export ANDROID_NDK_HOME=/path/to/android-ndk-r29
 ./build.sh
 ```
 
-Expected outputs:
+Expected local outputs:
 
 ```text
-codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz
-codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.sha256
-codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.metadata
+codex-cli-voice-android-rust-v0.135.0.tar.gz
+codex-cli-voice-android-rust-v0.135.0.tar.gz.sha256
+codex-cli-voice-android-rust-v0.135.0.tar.gz.metadata
 android-aec-shim/app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -188,8 +206,14 @@ Quick local checks:
 
 ```bash
 bash -n build.sh scripts/*.sh
-tar -tzf codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz >/dev/null
-sha256sum -c codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.sha256
+tar -tzf codex-cli-voice-android-rust-v0.135.0.tar.gz >/dev/null
+sha256sum -c codex-cli-voice-android-rust-v0.135.0.tar.gz.sha256
+```
+
+For a release candidate, prefer:
+
+```bash
+scripts/release_doctor.sh v0.136.0-ccva.1
 ```
 
 ## Deploy With SSH
@@ -214,8 +238,14 @@ Deploy the CLI package:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz \
-  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.sha256
+  dist/v0.136.0-ccva.1/codex-cli-voice-android-rust-v0.136.0-ccva.1.tar.gz \
+  dist/v0.136.0-ccva.1/codex-cli-voice-android-rust-v0.136.0-ccva.1.tar.gz.sha256
+```
+
+Or use the release validation wrapper:
+
+```bash
+scripts/release_validate_device.sh v0.136.0-ccva.1 --fresh --target Pixel6a
 ```
 
 Stage the shim APK to Android Downloads from inside Termux. If the APK was

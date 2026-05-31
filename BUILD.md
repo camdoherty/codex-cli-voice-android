@@ -20,7 +20,40 @@ scripts/setup_android_toolchain.sh
 
 That downloads a local JDK, Gradle, and Android SDK into `android-toolchain/`.
 
-## Codex CLI Package
+## Release Pipeline
+
+For publishable releases, use the release scripts as the canonical path:
+
+```bash
+scripts/release_prepare.sh rust-v0.136.0 --iteration 1
+scripts/release_build.sh v0.136.0-ccva.1
+scripts/release_validate_device.sh v0.136.0-ccva.1 --target Pixel6a
+scripts/release_publish.sh v0.136.0-ccva.1 --stable
+```
+
+`release_publish.sh` is dry-run/check-only by default. Add `--execute` only
+after device validation and release notes are ready.
+
+The pipeline stages are:
+
+- `release_prepare.sh`: creates/switches a release branch, verifies upstream
+  patch applicability, regenerates the Cargo.lock patch, and updates local
+  version references. It does not build or publish.
+- `release_build.sh`: builds the Android/Termux CLI tarball and Codex Bridge
+  APK into `dist/<release-tag>/`, then runs `release_doctor.sh`.
+- `release_validate_device.sh`: wraps release doctor and the SSH deploy helper,
+  writes a validation report under `tmp/release-validation/`, and optionally
+  captures ADB diagnostics.
+- `release_publish.sh`: stages the release manifest and, with `--execute`,
+  commits, tags, pushes, and uploads GitHub release assets.
+- `release_status.sh`: summarizes branch, stable manifest, release manifests,
+  and local dist artifacts.
+
+Android UI approvals, Codex sign-in, Bridge microphone permission, widget
+overlay permission, Wake Word human testing, and billable Realtime checks remain
+explicit validation steps.
+
+## Lower-Level Build Commands
 
 Patch-only preflight:
 

@@ -19,6 +19,31 @@ Do not treat `termux-open` or `am start` as proof that Android displayed an
 installer or started the shim. Verify observable state: package installed,
 Termux:API service responsive, shim loopback port open, and smoke tests passed.
 
+## Release Validation Wrapper
+
+For release candidates built with `scripts/release_build.sh`, prefer the
+validation wrapper before publishing:
+
+```bash
+scripts/release_validate_device.sh v0.136.0-ccva.1 --target Pixel6a
+```
+
+For a first install on a clean Termux target:
+
+```bash
+scripts/release_validate_device.sh v0.136.0-ccva.1 --fresh --target Pixel6a
+```
+
+The wrapper runs `release_doctor`, deploys the CLI package through
+`deploy_termux_package.sh`, and writes a report under
+`tmp/release-validation/`. If ADB is connected, add `--adb-serial SERIAL` to
+capture development-only permission/runtime snapshots after deploy.
+
+The wrapper does not replace human-visible Android checks. Bridge APK install,
+microphone permission, widget overlay permission, Codex sign-in, `STTS: Start +
+Talk`, `STTS: Wake Word`, and billable Realtime remain explicit validation
+steps.
+
 ## Configure Target
 
 ```bash
