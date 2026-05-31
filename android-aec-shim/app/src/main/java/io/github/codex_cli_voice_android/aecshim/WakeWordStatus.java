@@ -16,6 +16,9 @@ final class WakeWordStatus {
     static volatile long lastWakeComputeMs;
     static volatile double lastWakeInputRmsDbfs = -120.0;
     static volatile double lastWakeInputPeakDbfs = -120.0;
+    static volatile double lastWakeGainedInputRmsDbfs = -120.0;
+    static volatile double lastWakeGainedInputPeakDbfs = -120.0;
+    static volatile int lastWakeClippedSamples;
     static volatile double maxWakeScore;
     static volatile int maxWakeFrame;
     static volatile String lastWakeEvent = "";
@@ -46,6 +49,9 @@ final class WakeWordStatus {
         out.put("lastWakeComputeMs", lastWakeComputeMs);
         out.put("lastWakeInputRmsDbfs", lastWakeInputRmsDbfs);
         out.put("lastWakeInputPeakDbfs", lastWakeInputPeakDbfs);
+        out.put("lastWakeGainedInputRmsDbfs", lastWakeGainedInputRmsDbfs);
+        out.put("lastWakeGainedInputPeakDbfs", lastWakeGainedInputPeakDbfs);
+        out.put("lastWakeClippedSamples", lastWakeClippedSamples);
         out.put("maxWakeScore", maxWakeScore);
         out.put("maxWakeFrame", maxWakeFrame);
         out.put("lastWakeEvent", lastWakeEvent);
@@ -63,6 +69,7 @@ final class WakeWordStatus {
                 + "Wake input gain dB: " + wakeInputGainDb + "\n"
                 + "Last wake score/frame/compute ms: " + lastWakeScore + "/" + lastWakeFrame + "/" + lastWakeComputeMs + "\n"
                 + "Last wake input RMS/peak dBFS: " + lastWakeInputRmsDbfs + "/" + lastWakeInputPeakDbfs + "\n"
+                + "Last wake gained input RMS/peak dBFS/clipped: " + lastWakeGainedInputRmsDbfs + "/" + lastWakeGainedInputPeakDbfs + "/" + lastWakeClippedSamples + "\n"
                 + "Max wake score/frame: " + maxWakeScore + "/" + maxWakeFrame + "\n"
                 + "Last wake latency/event: " + lastWakeLatencyMs + "/" + (lastWakeEvent.isEmpty() ? "none" : lastWakeEvent) + "\n"
                 + "Last wake stop reason/start/done: " + lastWakeStopReason + "/" + lastWakeStopStartedAtMs + "/" + lastWakeStopCompletedAtMs + "\n"

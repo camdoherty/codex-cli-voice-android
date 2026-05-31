@@ -126,6 +126,9 @@ final class WakeWordController {
         WakeWordStatus.lastWakeComputeMs = 0L;
         WakeWordStatus.lastWakeInputRmsDbfs = -120.0;
         WakeWordStatus.lastWakeInputPeakDbfs = -120.0;
+        WakeWordStatus.lastWakeGainedInputRmsDbfs = -120.0;
+        WakeWordStatus.lastWakeGainedInputPeakDbfs = -120.0;
+        WakeWordStatus.lastWakeClippedSamples = 0;
         WakeWordStatus.maxWakeScore = 0.0;
         WakeWordStatus.maxWakeFrame = 0;
         WakeWordStatus.lastWakeEvent = "wake_started";
@@ -540,7 +543,10 @@ final class WakeWordController {
                 long elapsedMs,
                 long computeMs,
                 double inputRmsDbfs,
-                double inputPeakDbfs) {
+                double inputPeakDbfs,
+                double gainedInputRmsDbfs,
+                double gainedInputPeakDbfs,
+                int clippedSamples) {
             WebSocket conn;
             WakeProfile profile;
             double maxScore;
@@ -555,6 +561,9 @@ final class WakeWordController {
                 WakeWordStatus.lastWakeComputeMs = computeMs;
                 WakeWordStatus.lastWakeInputRmsDbfs = inputRmsDbfs;
                 WakeWordStatus.lastWakeInputPeakDbfs = inputPeakDbfs;
+                WakeWordStatus.lastWakeGainedInputRmsDbfs = gainedInputRmsDbfs;
+                WakeWordStatus.lastWakeGainedInputPeakDbfs = gainedInputPeakDbfs;
+                WakeWordStatus.lastWakeClippedSamples = clippedSamples;
                 if (score > WakeWordStatus.maxWakeScore) {
                     WakeWordStatus.maxWakeScore = score;
                     WakeWordStatus.maxWakeFrame = frames;
@@ -578,6 +587,9 @@ final class WakeWordController {
                 out.put("computeMs", computeMs);
                 out.put("inputRmsDbfs", inputRmsDbfs);
                 out.put("inputPeakDbfs", inputPeakDbfs);
+                out.put("gainedInputRmsDbfs", gainedInputRmsDbfs);
+                out.put("gainedInputPeakDbfs", gainedInputPeakDbfs);
+                out.put("clippedSamples", clippedSamples);
                 out.put("maxScore", maxScore);
                 out.put("maxFrame", maxFrame);
             } catch (JSONException ignored) {
@@ -592,7 +604,10 @@ final class WakeWordController {
                 long elapsedMs,
                 long computeMs,
                 double inputRmsDbfs,
-                double inputPeakDbfs) {
+                double inputPeakDbfs,
+                double gainedInputRmsDbfs,
+                double gainedInputPeakDbfs,
+                int clippedSamples) {
             WebSocket conn;
             WakeProfile profile;
             WakeOnnxLiveEngine engineToStop;
@@ -608,6 +623,9 @@ final class WakeWordController {
                 WakeWordStatus.lastWakeComputeMs = computeMs;
                 WakeWordStatus.lastWakeInputRmsDbfs = inputRmsDbfs;
                 WakeWordStatus.lastWakeInputPeakDbfs = inputPeakDbfs;
+                WakeWordStatus.lastWakeGainedInputRmsDbfs = gainedInputRmsDbfs;
+                WakeWordStatus.lastWakeGainedInputPeakDbfs = gainedInputPeakDbfs;
+                WakeWordStatus.lastWakeClippedSamples = clippedSamples;
                 if (score > WakeWordStatus.maxWakeScore) {
                     WakeWordStatus.maxWakeScore = score;
                     WakeWordStatus.maxWakeFrame = frames;
@@ -629,6 +647,9 @@ final class WakeWordController {
                 out.put("computeMs", computeMs);
                 out.put("inputRmsDbfs", inputRmsDbfs);
                 out.put("inputPeakDbfs", inputPeakDbfs);
+                out.put("gainedInputRmsDbfs", gainedInputRmsDbfs);
+                out.put("gainedInputPeakDbfs", gainedInputPeakDbfs);
+                out.put("clippedSamples", clippedSamples);
                 out.put("maxScore", maxScore);
                 out.put("maxFrame", maxFrame);
             } catch (JSONException ignored) {

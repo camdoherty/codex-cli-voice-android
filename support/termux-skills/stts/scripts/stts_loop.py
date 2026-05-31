@@ -2334,6 +2334,9 @@ def summarize_wake_event(event: dict[str, object]) -> str:
     elapsed = event.get("elapsedMs", event.get("lastWakeLatencyMs", ""))
     input_rms = event.get("inputRmsDbfs", event.get("lastWakeInputRmsDbfs", ""))
     input_peak = event.get("inputPeakDbfs", event.get("lastWakeInputPeakDbfs", ""))
+    gained_input_rms = event.get("gainedInputRmsDbfs", event.get("lastWakeGainedInputRmsDbfs", ""))
+    gained_input_peak = event.get("gainedInputPeakDbfs", event.get("lastWakeGainedInputPeakDbfs", ""))
+    clipped_samples = event.get("clippedSamples", event.get("lastWakeClippedSamples", ""))
     max_score = event.get("maxScore", event.get("maxWakeScore", ""))
     max_frame = event.get("maxFrame", event.get("maxWakeFrame", ""))
     message = event.get("message", "")
@@ -2352,6 +2355,12 @@ def summarize_wake_event(event: dict[str, object]) -> str:
         parts.append(f"inputRmsDbfs={input_rms}")
     if input_peak != "":
         parts.append(f"inputPeakDbfs={input_peak}")
+    if gained_input_rms != "":
+        parts.append(f"gainedInputRmsDbfs={gained_input_rms}")
+    if gained_input_peak != "":
+        parts.append(f"gainedInputPeakDbfs={gained_input_peak}")
+    if clipped_samples != "":
+        parts.append(f"clippedSamples={clipped_samples}")
     if max_score != "":
         parts.append(f"maxScore={max_score}")
     if max_frame != "":

@@ -21,7 +21,10 @@ final class WakeOnnxLiveEngine {
                 long elapsedMs,
                 long computeMs,
                 double inputRmsDbfs,
-                double inputPeakDbfs);
+                double inputPeakDbfs,
+                double gainedInputRmsDbfs,
+                double gainedInputPeakDbfs,
+                int clippedSamples);
 
         void onDetected(
                 double score,
@@ -29,7 +32,10 @@ final class WakeOnnxLiveEngine {
                 long elapsedMs,
                 long computeMs,
                 double inputRmsDbfs,
-                double inputPeakDbfs);
+                double inputPeakDbfs,
+                double gainedInputRmsDbfs,
+                double gainedInputPeakDbfs,
+                int clippedSamples);
 
         void onError(String code, String message);
     }
@@ -125,9 +131,9 @@ final class WakeOnnxLiveEngine {
                         break;
                     }
                     InputLevel inputLevel = inputLevel(chunk);
-                    short[] inferenceChunk = applyGain(chunk, profile.inputGainDb);
+                    GainResult gainResult = applyGain(chunk, profile.inputGainDb);
                     long computeStart = System.currentTimeMillis();
-                    state.accept(inferenceChunk);
+                    state.accept(gainResult.samples);
                     double score = WakeOnnxClipProbe.runWakeClassifier(
                             env,
                             wakeSession,
@@ -146,7 +152,10 @@ final class WakeOnnxLiveEngine {
                                 elapsedMs,
                                 computeMs,
                                 inputLevel.rmsDbfs,
-                                inputLevel.peakDbfs);
+                                inputLevel.peakDbfs,
+                                gainResult.inputLevel.rmsDbfs,
+                                gainResult.inputLevel.peakDbfs,
+                                gainResult.clippedSamples);
                         running = false;
                         break;
                     }
@@ -156,7 +165,10 @@ final class WakeOnnxLiveEngine {
                             elapsedMs,
                             computeMs,
                             inputLevel.rmsDbfs,
-                            inputLevel.peakDbfs);
+                            inputLevel.peakDbfs,
+                            gainResult.inputLevel.rmsDbfs,
+                            gainResult.inputLevel.peakDbfs,
+                            gainResult.clippedSamples);
                 }
             }
         } catch (SecurityException e) {
@@ -216,22 +228,25 @@ final class WakeOnnxLiveEngine {
         return new InputLevel(dbfs(rms), dbfs(peak));
     }
 
-    private static short[] applyGain(short[] samples, double gainDb) {
+    private static GainResult applyGain(short[] samples, double gainDb) {
         if (Math.abs(gainDb) < 0.001) {
-            return samples;
+            return new GainResult(samples, inputLevel(samples), 0);
         }
         double multiplier = Math.pow(10.0, gainDb / 20.0);
         short[] out = new short[samples.length];
+        int clippedSamples = 0;
         for (int i = 0; i < samples.length; i++) {
             int value = (int) Math.round(samples[i] * multiplier);
             if (value > Short.MAX_VALUE) {
                 value = Short.MAX_VALUE;
+                clippedSamples++;
             } else if (value < Short.MIN_VALUE) {
                 value = Short.MIN_VALUE;
+                clippedSamples++;
             }
             out[i] = (short) value;
         }
-        return out;
+        return new GainResult(out, inputLevel(out), clippedSamples);
     }
 
     private static double dbfs(double value) {
@@ -248,6 +263,18 @@ final class WakeOnnxLiveEngine {
         InputLevel(double rmsDbfs, double peakDbfs) {
             this.rmsDbfs = rmsDbfs;
             this.peakDbfs = peakDbfs;
+        }
+    }
+
+    private static final class GainResult {
+        final short[] samples;
+        final InputLevel inputLevel;
+        final int clippedSamples;
+
+        GainResult(short[] samples, InputLevel inputLevel, int clippedSamples) {
+            this.samples = samples;
+            this.inputLevel = inputLevel;
+            this.clippedSamples = clippedSamples;
         }
     }
 
