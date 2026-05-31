@@ -28,7 +28,9 @@ final class WakeOnnxClipProbe {
     static Result run(WakeProfile profile, byte[] wavBytes) throws Exception {
         long started = System.currentTimeMillis();
         WavData wav = parseWavPcm16Mono16k(wavBytes);
-        short[] padded = pad(wav.samples, SAMPLE_RATE);
+        InputLevel rawInputLevel = inputLevel(wav.samples);
+        GainResult gainResult = applyGain(wav.samples, profile.inputGainDb);
+        short[] padded = pad(gainResult.samples, SAMPLE_RATE);
 
         OrtEnvironment env = OrtEnvironment.getEnvironment();
         try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
@@ -65,6 +67,12 @@ final class WakeOnnxClipProbe {
                 result.frames = frames;
                 result.sampleRate = wav.sampleRate;
                 result.samples = wav.samples.length;
+                result.inputGainDb = profile.inputGainDb;
+                result.inputRmsDbfs = round(rawInputLevel.rmsDbfs);
+                result.inputPeakDbfs = round(rawInputLevel.peakDbfs);
+                result.gainedInputRmsDbfs = round(gainResult.inputLevel.rmsDbfs);
+                result.gainedInputPeakDbfs = round(gainResult.inputLevel.peakDbfs);
+                result.clippedSamples = gainResult.clippedSamples;
                 result.ortVersion = env.getVersion();
                 JSONArray providers = new JSONArray();
                 for (Object provider : OrtEnvironment.getAvailableProviders()) {
@@ -260,6 +268,12 @@ final class WakeOnnxClipProbe {
         String ortVersion;
         JSONArray providers;
         long elapsedMs;
+        double inputGainDb;
+        double inputRmsDbfs;
+        double inputPeakDbfs;
+        double gainedInputRmsDbfs;
+        double gainedInputPeakDbfs;
+        int clippedSamples;
     }
 
     private static OnnxTensor tensor(OrtEnvironment env, float[] values, long[] shape) throws Exception {
@@ -282,6 +296,70 @@ final class WakeOnnxClipProbe {
         short[] out = new short[samples.length + (paddingSamples * 2)];
         System.arraycopy(samples, 0, out, paddingSamples, samples.length);
         return out;
+    }
+
+    private static GainResult applyGain(short[] samples, double gainDb) {
+        if (Math.abs(gainDb) < 0.001) {
+            return new GainResult(samples, inputLevel(samples), 0);
+        }
+        double multiplier = Math.pow(10.0, gainDb / 20.0);
+        short[] out = new short[samples.length];
+        int clippedSamples = 0;
+        for (int i = 0; i < samples.length; i++) {
+            int value = (int) Math.round(samples[i] * multiplier);
+            if (value > Short.MAX_VALUE) {
+                value = Short.MAX_VALUE;
+                clippedSamples++;
+            } else if (value < Short.MIN_VALUE) {
+                value = Short.MIN_VALUE;
+                clippedSamples++;
+            }
+            out[i] = (short) value;
+        }
+        return new GainResult(out, inputLevel(out), clippedSamples);
+    }
+
+    private static InputLevel inputLevel(short[] samples) {
+        long squares = 0L;
+        int peak = 0;
+        for (short sample : samples) {
+            int value = Math.min(Math.abs((int) sample), Short.MAX_VALUE);
+            if (value > peak) {
+                peak = value;
+            }
+            squares += (long) value * (long) value;
+        }
+        double rms = Math.sqrt(squares / (double) Math.max(1, samples.length));
+        return new InputLevel(dbfs(rms), dbfs(peak));
+    }
+
+    private static double dbfs(double value) {
+        if (value <= 0.0) {
+            return -120.0;
+        }
+        return round(20.0 * Math.log10(value / Short.MAX_VALUE));
+    }
+
+    private static final class InputLevel {
+        final double rmsDbfs;
+        final double peakDbfs;
+
+        InputLevel(double rmsDbfs, double peakDbfs) {
+            this.rmsDbfs = rmsDbfs;
+            this.peakDbfs = peakDbfs;
+        }
+    }
+
+    private static final class GainResult {
+        final short[] samples;
+        final InputLevel inputLevel;
+        final int clippedSamples;
+
+        GainResult(short[] samples, InputLevel inputLevel, int clippedSamples) {
+            this.samples = samples;
+            this.inputLevel = inputLevel;
+            this.clippedSamples = clippedSamples;
+        }
     }
 
     private static double round(double value) {

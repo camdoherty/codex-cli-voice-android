@@ -322,6 +322,12 @@ final class WakeWordController {
             out.put("frames", result.frames);
             out.put("sampleRate", result.sampleRate);
             out.put("samples", result.samples);
+            out.put("inputGainDb", result.inputGainDb);
+            out.put("inputRmsDbfs", result.inputRmsDbfs);
+            out.put("inputPeakDbfs", result.inputPeakDbfs);
+            out.put("gainedInputRmsDbfs", result.gainedInputRmsDbfs);
+            out.put("gainedInputPeakDbfs", result.gainedInputPeakDbfs);
+            out.put("clippedSamples", result.clippedSamples);
             out.put("ortVersion", result.ortVersion);
             out.put("providers", result.providers);
             out.put("elapsedMs", result.elapsedMs);

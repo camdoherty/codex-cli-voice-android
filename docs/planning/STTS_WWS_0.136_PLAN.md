@@ -106,6 +106,24 @@ Possible flags:
   - 30 minutes
   - re-arm after a successful turn
 
+## Automated Probe Harness
+
+Use the Bridge `wake_onnx_probe` path before live human testing to compare a
+fixed WAV fixture set across threshold and input-gain candidates:
+
+```sh
+scripts/wws_onnx_probe_matrix.py \
+  --adb-serial 100.64.148.26:46187 \
+  --clip-root /home/cad/dev/pixel9/tmp/ccva-wws-kokoro-gain-test/clips \
+  --thresholds 0.997,0.995 \
+  --gains 0,6,9,12
+```
+
+The harness writes JSONL under `tmp/` and prints a compact summary with
+positive hits, near-phrase false accepts, score margins, clipping count, and
+probe runtime. Synthetic audio is directional only; default changes still need
+Pixel6a human-speech validation.
+
 ## Release Criteria
 
 - Diagnostics are available before tuning defaults.

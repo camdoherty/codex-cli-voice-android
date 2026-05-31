@@ -218,7 +218,7 @@ final class WakeOnnxLiveEngine {
         long squares = 0L;
         int peak = 0;
         for (short sample : samples) {
-            int value = Math.abs((int) sample);
+            int value = Math.min(Math.abs((int) sample), Short.MAX_VALUE);
             if (value > peak) {
                 peak = value;
             }
