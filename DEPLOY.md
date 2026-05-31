@@ -384,7 +384,9 @@ Use the Termux:Widget list for `STTS: Attach Session`.
 The Bridge APK also installs a separate Android launcher named `Codex Wake
 Word`. Opening that launcher starts Codex Bridge and runs the same `stts wake`
 path as the notification `Wake Word` button. Validate it by tapping the launcher
-and, if available, by saying "Hey Google, open Codex Wake Word."
+and, if available, by saying "Hey Google, open Codex Wake Word." On devices
+where Assistant/Gemini resolves only the primary app entry, "Hey Google, open
+Codex Bridge" also opens Bridge and arms wake-word mode.
 
 `STTS: Idle` in the Codex Bridge notification is normal between turns. The
 persistent `ccva-stts` tmux session can be ready while no `/v1/text-voice`

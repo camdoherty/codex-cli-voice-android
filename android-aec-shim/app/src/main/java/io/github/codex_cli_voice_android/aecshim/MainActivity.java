@@ -156,11 +156,30 @@ public final class MainActivity extends Activity {
             return;
         }
         String action = intent.getAction();
-        if (ACTION_START_SERVICE.equals(action)) {
+        if (Intent.ACTION_MAIN.equals(action)) {
+            startWakeWordMode();
+        } else if (ACTION_START_SERVICE.equals(action)) {
             startShimService();
         } else if (ACTION_STOP_SERVICE.equals(action)) {
             stopShimService();
         }
+    }
+
+    private void startWakeWordMode() {
+        if (!hasRecordAudioPermission()) {
+            AecShimState.lastError = "Grant microphone permission before starting wake word";
+            requestNeededPermissions();
+            refreshStatus();
+            return;
+        }
+        Intent intent = new Intent(this, AecShimService.class);
+        intent.setAction(AecShimService.ACTION_STTS_WAKE);
+        if (Build.VERSION.SDK_INT >= 26) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+        statusView.postDelayed(this::refreshStatus, 500);
     }
 
     private void refreshStatus() {

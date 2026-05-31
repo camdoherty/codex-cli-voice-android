@@ -251,7 +251,9 @@ When enabled, the Bridge notification exposes `Start / Talk`, `Wake Word`, and
 The Bridge APK also exposes a separate Android launcher named `Codex Wake Word`;
 opening it starts Codex Bridge and arms STTS wake-word mode. This gives Android
 Assistant/Gemini a clear command target, for example: "Hey Google, open Codex
-Wake Word."
+Wake Word." On devices where Assistant/Gemini resolves only the primary app
+entry, "Hey Google, open Codex Bridge" also opens Bridge and arms wake-word
+mode.
 
 Pin a specific version with:
 
