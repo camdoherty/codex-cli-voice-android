@@ -44,6 +44,9 @@ public final class AecShimService extends Service {
         textVoiceController = new TextVoiceController(this, audioModeCoordinator);
         wakeWordTestController = new WakeWordTestController(this, audioModeCoordinator);
         TermuxCommandLauncher.refreshAvailability(this);
+        if (!TermuxCommandLauncher.controlsAvailable()) {
+            TermuxCommandLauncher.checkControls(this);
+        }
         server = new LoopbackAudioServer(
                 new InetSocketAddress("127.0.0.1", 8765),
                 audioEngine,

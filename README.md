@@ -240,8 +240,9 @@ The installer and launcher refresh scripts set this Termux property
 automatically. Then grant `Run commands in Termux environment` to Codex Bridge
 in Android app permissions. Widgets and terminal commands work without this
 optional setup.
-Open Codex Bridge and tap `Check Termux Controls` once to enable notification
-buttons. The bridge does not run periodic Termux command probes.
+Codex Bridge auto-checks Termux controls when its foreground service starts and
+remembers a successful check. If buttons are missing or show setup required,
+open Codex Bridge and tap `Check Termux Controls` to refresh the check.
 For notification buttons that open visible Termux sessions immediately, Android
 may also require Termux's `Draw over other apps` permission.
 When enabled, the Bridge notification exposes `Start / Talk`, `Wake Word`, and

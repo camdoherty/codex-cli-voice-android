@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -35,6 +36,8 @@ final class TermuxCommandLauncher {
     private static final String TERMUX_HOME = "/data/data/com.termux/files/home";
     private static final String TERMUX_SH = "/data/data/com.termux/files/usr/bin/sh";
     private static final String STTS_SCRIPT = TERMUX_HOME + "/.codex/skills/stts/scripts/stts-session.sh";
+    private static final String PREFS = "termux_controls";
+    private static final String PREF_AVAILABLE = "available";
 
     private static final AtomicInteger REQUEST_CODES = new AtomicInteger(2000);
     private static long lastProbeStartedAtMs;
@@ -48,6 +51,11 @@ final class TermuxCommandLauncher {
     static void refreshAvailability(Context context) {
         if (isTermuxInstalled(context)
                 && context.checkSelfPermission(TERMUX_RUN_COMMAND_PERMISSION) == PackageManager.PERMISSION_GRANTED) {
+            if (prefs(context).getBoolean(PREF_AVAILABLE, false)) {
+                AecShimState.termuxControlsState = "available";
+                AecShimState.termuxControlsLastError = "";
+                return;
+            }
             if ("unknown".equals(AecShimState.termuxControlsState)) {
                 AecShimState.termuxControlsState = "not checked";
                 AecShimState.termuxControlsLastError = "tap Check Termux Controls";
@@ -55,9 +63,11 @@ final class TermuxCommandLauncher {
             return;
         }
         if (!isTermuxInstalled(context)) {
+            rememberUnavailable(context);
             setUnavailable("Termux not installed");
             return;
         }
+        rememberUnavailable(context);
         setUnavailable("grant Run commands in Termux permission");
     }
 
@@ -67,10 +77,12 @@ final class TermuxCommandLauncher {
             return;
         }
         if (!isTermuxInstalled(context)) {
+            rememberUnavailable(context);
             setUnavailable("Termux not installed");
             return;
         }
         if (context.checkSelfPermission(TERMUX_RUN_COMMAND_PERMISSION) != PackageManager.PERMISSION_GRANTED) {
+            rememberUnavailable(context);
             setUnavailable("grant Run commands in Termux permission");
             return;
         }
@@ -159,9 +171,13 @@ final class TermuxCommandLauncher {
         int exitCode = result.getInt(RESULT_EXIT_CODE, result.getInt("exit_code", 1));
         String errmsg = result.getString(RESULT_ERRMSG, "");
         if ("probe".equals(kind) && (err == Activity.RESULT_OK || err == 0) && exitCode == 0) {
+            prefs(context).edit().putBoolean(PREF_AVAILABLE, true).apply();
             AecShimState.termuxControlsState = "available";
             AecShimState.termuxControlsLastError = "";
         } else {
+            if ("probe".equals(kind)) {
+                rememberUnavailable(context);
+            }
             String detail = errmsg == null || errmsg.isEmpty()
                     ? "command failed: err=" + err + " exit=" + exitCode
                     : errmsg;
@@ -232,6 +248,14 @@ final class TermuxCommandLauncher {
     private static void setUnavailable(String reason) {
         AecShimState.termuxControlsState = "setup required";
         AecShimState.termuxControlsLastError = reason == null ? "" : reason;
+    }
+
+    private static void rememberUnavailable(Context context) {
+        prefs(context).edit().putBoolean(PREF_AVAILABLE, false).apply();
+    }
+
+    private static SharedPreferences prefs(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
     private static void refreshBridgeNotification(Context context) {

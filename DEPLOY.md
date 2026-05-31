@@ -318,8 +318,9 @@ Android Settings -> Apps -> Codex Bridge -> Permissions
 -> Additional permissions -> Run commands in Termux environment
 ```
 
-Open Codex Bridge and tap `Check Termux Controls` once. The bridge does not run
-periodic Termux command probes.
+Codex Bridge auto-checks Termux controls when its foreground service starts and
+remembers a successful check. If controls are missing or show setup required,
+open Codex Bridge and tap `Check Termux Controls` to refresh the check.
 
 On Android 10+, Termux may require `Draw over other apps` for foreground
 commands such as `Start / Talk` and `Attach` to open immediately from a
