@@ -3,7 +3,7 @@
 Codex CLI cross-compiled for aarch64 Android/Termux, with Android-native voice
 support.
 
-Tested on Pixel6a and Pixel9 running Android 16.
+Tested on Pixel 6a and Pixel 9 running Android 16.
 
 ## Included
 
