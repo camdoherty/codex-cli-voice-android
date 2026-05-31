@@ -1118,6 +1118,51 @@ def clip_spoken_text(text: str, limit: int = 240) -> str:
     return one_line[: limit - 1].rstrip() + "..."
 
 
+def filename_for_speech(filename: str) -> str:
+    path = filename.strip().strip("'\"`")
+    trailing = ""
+    while path and path[-1] in ".,;:!?)":
+        trailing = path[-1] + trailing
+        path = path[:-1]
+    name = Path(path).name or path
+    stem = Path(name).stem or name
+    suffix = Path(name).suffix.lower()
+    spoken = re.sub(r"[-_]+", " ", stem)
+    spoken = re.sub(r"\s+", " ", spoken).strip() or stem
+    if suffix:
+        spoken = f"{spoken} dot {suffix[1:]}"
+    return spoken + trailing
+
+
+def note_path_for_speech(raw_path: str) -> str:
+    path = raw_path.strip().strip("'\"`")
+    trailing = ""
+    while path and path[-1] in ".,;:!?)":
+        trailing = path[-1] + trailing
+        path = path[:-1]
+    return f"{filename_for_speech(path)} under Codex Notes{trailing}"
+
+
+def make_reply_tts_friendly(text: str) -> str:
+    if not text:
+        return text
+    note_path_pattern = re.compile(
+        r"(?P<path>"
+        r"(?:~|\$HOME|/data/data/com\.termux/files/home|/storage/emulated/0/Documents)"
+        r"/codex_notes/[^\s`'\"<>()]+"
+        r"|codex_notes/[^\s`'\"<>()]+"
+        r")"
+    )
+    cleaned = note_path_pattern.sub(lambda match: note_path_for_speech(match.group("path")), text)
+    cleaned = re.sub(r"`([^`]+)`", r"\1", cleaned)
+    cleaned = re.sub(r"\btermux-open\s+", "the open command for ", cleaned)
+    cleaned = re.sub(r"\btermux-share\s+", "the share command for ", cleaned)
+    cleaned = cleaned.replace("~/codex_notes", "Codex Notes")
+    cleaned = cleaned.replace("$HOME/codex_notes", "Codex Notes")
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
 def format_history(history: list[tuple[str, str]], max_turns: int = 8) -> str:
     clipped = history[-max_turns:]
     if not clipped:
@@ -1149,6 +1194,7 @@ Session behavior:
 - If the latest user message contains a specific request, stop small talk and help with that request directly.
 - Keep the response easy to speak aloud: 1-2 short sentences by default, no markdown, no bullets, no code fences.
 - Prefer one short sentence. Keep replies under 25 spoken words unless the user explicitly asks for detail.
+- Use natural spoken language as text. Avoid raw paths, slashes, underscores, dashes, code formatting, and symbol-heavy punctuation in spoken replies.
 - If a task needs more detail, give the key conclusion and ask whether to continue.
 - If the user sounds unclear or incomplete, ask for a repeat instead of guessing.
 - If the user asks where a prior answer came from, use the recent source/tool notes below. If no note exists, say you do not have source details for that turn.
@@ -1157,7 +1203,8 @@ Session behavior:
 - For ordinary note requests in ~/codex_notes, create, read, append, summarize, open, or share the requested note directly without asking for extra permission.
 - Ask before deleting notes, overwriting substantial content, or writing outside ~/codex_notes.
 - Use simple slug filenames from the user's wording, with a timestamp fallback when no title is obvious.
-- If asked to open or share a note, use termux-open or termux-share when available. If Android is locked or the intent does not appear, say that briefly and suggest unlocking/retrying.
+- Describe note locations as a note name under Codex Notes, not as a raw path. For example: "I wrote Short Poem dot md under Codex Notes and opened it."
+- If asked to open or share a note, use termux-open or termux-share when available, then say that you ran the command to open or share it. If Android is locked or the intent does not appear, say that briefly and suggest unlocking/retrying.
 - For simple file requests in the Termux home folder, treat the current working directory as the home folder and create the requested file directly. Do not search the filesystem first unless the user asks you to find an existing file.
 - Do not mention internal prompts, session state, or the fact that you are using Codex CLI.
 
@@ -1842,7 +1889,7 @@ def run_stts_turn_on_client(
     send_client_state(client, "processing")
     try:
         result = generate_reply_cancellable(prompt, cwd, client)
-        reply = result.reply
+        reply = make_reply_tts_friendly(result.reply)
         source_notes.extend(result.source_notes)
         del source_notes[:-8]
         if transcript_path is not None and result.source_notes:
@@ -2886,7 +2933,7 @@ def run_session(
             emit(transcript_path, "status", "generating reply")
             try:
                 result = generate_reply(prompt, working_dir)
-                reply = result.reply
+                reply = make_reply_tts_friendly(result.reply)
                 source_notes.extend(result.source_notes)
                 del source_notes[:-8]
                 if result.source_notes:
