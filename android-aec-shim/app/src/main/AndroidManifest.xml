@@ -33,6 +33,17 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".WakeWordActivity"
+            android:exported="true"
+            android:label="Codex Wake Word"
+            android:theme="@android:style/Theme.Material.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".AecShimService"
             android:exported="false"

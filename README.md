@@ -225,7 +225,8 @@ Standard first-run checklist after install:
    start its foreground service.
 3. Tap the `Codex` widget/shortcut once and complete Codex sign-in.
 4. Verify `codex --version` and `stts-diag`.
-5. Start local voice with `STTS: Start + Talk` or `STTS: Wake Word`.
+5. Start local voice with `STTS: Start + Talk`, `STTS: Wake Word`, or the
+   Android `Codex Wake Word` launcher.
 
 Optional Codex Bridge notification controls require Termux external commands:
 
@@ -247,6 +248,10 @@ For notification buttons that open visible Termux sessions immediately, Android
 may also require Termux's `Draw over other apps` permission.
 When enabled, the Bridge notification exposes `Start / Talk`, `Wake Word`, and
 `Stop`. Use the Termux:Widget list for `STTS: Attach Session`.
+The Bridge APK also exposes a separate Android launcher named `Codex Wake Word`;
+opening it starts Codex Bridge and arms STTS wake-word mode. This gives Android
+Assistant/Gemini a clear command target, for example: "Hey Google, open Codex
+Wake Word."
 
 Pin a specific version with:
 
