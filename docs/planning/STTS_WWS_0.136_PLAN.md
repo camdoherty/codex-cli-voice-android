@@ -124,6 +124,30 @@ positive hits, near-phrase false accepts, score margins, clipping count, and
 probe runtime. Synthetic audio is directional only; default changes still need
 Pixel6a human-speech validation.
 
+Latest synthetic matrix, run against Pixel6a Bridge with Kokoro fixtures:
+
+```text
+threshold gain pos_hit/pos neg_hit/neg min_pos max_neg clipped
+0.997     6    12/12       6/18        0.997622 0.999191 156
+0.997     9    12/12       6/18        0.997092 0.999120 4271
+0.997     12   10/12       6/18        0.994274 0.999146 22386
+0.995     6    12/12       6/18        0.997622 0.999191 156
+0.995     9    12/12       6/18        0.997092 0.999120 4271
+0.995     12   11/12       6/18        0.994274 0.999146 22386
+```
+
+Interpretation:
+
+- `12 dB` is too aggressive for default use: it clips heavily and causes
+  positive misses.
+- `9 dB` does not improve the synthetic positive/negative split over `6 dB`
+  and clips far more often.
+- `6 dB` remains the best default candidate from synthetic evidence.
+- The synthetic false accepts are all `okay jarvis`; `hey harvest` and
+  `hey service` stayed below threshold in this fixture set. Treat `okay jarvis`
+  as an intentional wake-like phrase or solve it with phrase policy, not gain
+  tuning alone.
+
 ## Release Criteria
 
 - Diagnostics are available before tuning defaults.
