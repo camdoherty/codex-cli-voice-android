@@ -83,10 +83,12 @@ Android note apps and file managers can see the files.
   `~/codex_notes`.
 - Use simple slug filenames from the user's request, with a timestamp fallback.
 - Describe note locations as a note name under Codex Notes, not as a raw path.
-  For example: "I wrote Short Poem dot md under Codex Notes and opened it."
-- Use `termux-open "$HOME/codex_notes/file.md"` for "open the note" requests
-  and `termux-share "$HOME/codex_notes/file.md"` for "share the note" requests
-  when those commands are available.
+  For example: "I wrote Short Poem dot md under Codex Notes."
+- Use `termux-open --chooser --content-type text/markdown "$HOME/codex_notes/file.md"`
+  for "open the note" requests and `termux-share "$HOME/codex_notes/file.md"`
+  for "share the note" requests when those commands are available.
+- After an open or share request, say that you ran the open or share command.
+  Do not claim the Android app visibly opened unless the user confirms it.
 - If Android is locked or the share/open intent does not appear, tell the user
   briefly and suggest unlocking or retrying.
 

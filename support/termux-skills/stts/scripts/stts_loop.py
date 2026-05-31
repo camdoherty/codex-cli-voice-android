@@ -1155,8 +1155,18 @@ def make_reply_tts_friendly(text: str) -> str:
     )
     cleaned = note_path_pattern.sub(lambda match: note_path_for_speech(match.group("path")), text)
     cleaned = re.sub(r"`([^`]+)`", r"\1", cleaned)
-    cleaned = re.sub(r"\btermux-open\s+", "the open command for ", cleaned)
+    cleaned = re.sub(
+        r"\btermux-open(?:\s+--chooser)?(?:\s+--content-type\s+\S+)?\s+",
+        "the open command for ",
+        cleaned,
+    )
     cleaned = re.sub(r"\btermux-share\s+", "the share command for ", cleaned)
+    cleaned = re.sub(r"\bI opened ([^.?!]+)", r"I ran the open command for \1", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bOpened it\b", "I ran the open command", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bOpened ([^.?!]+)", r"I ran the open command for \1", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bI shared ([^.?!]+)", r"I ran the share command for \1", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bShared it\b", "I ran the share command", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bShared ([^.?!]+)", r"I ran the share command for \1", cleaned, flags=re.IGNORECASE)
     cleaned = cleaned.replace("~/codex_notes", "Codex Notes")
     cleaned = cleaned.replace("$HOME/codex_notes", "Codex Notes")
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
@@ -1203,8 +1213,10 @@ Session behavior:
 - For ordinary note requests in ~/codex_notes, create, read, append, summarize, open, or share the requested note directly without asking for extra permission.
 - Ask before deleting notes, overwriting substantial content, or writing outside ~/codex_notes.
 - Use simple slug filenames from the user's wording, with a timestamp fallback when no title is obvious.
-- Describe note locations as a note name under Codex Notes, not as a raw path. For example: "I wrote Short Poem dot md under Codex Notes and opened it."
-- If asked to open or share a note, use termux-open or termux-share when available, then say that you ran the command to open or share it. If Android is locked or the intent does not appear, say that briefly and suggest unlocking/retrying.
+- Describe note locations as a note name under Codex Notes, not as a raw path. For example: "I wrote Short Poem dot md under Codex Notes."
+- If asked to open a Markdown note, prefer termux-open --chooser --content-type text/markdown "$HOME/codex_notes/file.md" when available.
+- If asked to share a note, use termux-share "$HOME/codex_notes/file.md" when available.
+- After an open or share request, say that you ran the open or share command. Do not claim the Android app visibly opened unless the user confirms it. If Android is locked or the intent does not appear, say that briefly and suggest unlocking/retrying.
 - For simple file requests in the Termux home folder, treat the current working directory as the home folder and create the requested file directly. Do not search the filesystem first unless the user asks you to find an existing file.
 - Do not mention internal prompts, session state, or the fact that you are using Codex CLI.
 
