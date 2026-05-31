@@ -74,6 +74,7 @@ cp "$shim_src" "$dist_dir/$shim_asset"
 cli_asset="codex-cli-voice-android-${package_version}.tar.gz"
 cli_sha="$(awk 'NF { print $1; exit }' "$dist_dir/$cli_asset.sha256")"
 shim_sha="$(awk 'NF { print $1; exit }' "$dist_dir/$shim_asset.sha256")"
+ccva_source_commit="$(git -C "$REPO_DIR" rev-parse HEAD)"
 validation_status="${CCVA_VALIDATION_STATUS:-candidate}"
 tested_devices_json="${CCVA_TESTED_DEVICES_JSON:-[]}"
 
@@ -83,6 +84,7 @@ cat > "$dist_dir/${release_tag}.json" <<EOF
   "upstream_codex": "$codex_tag",
   "arch": "aarch64",
   "release_tag": "$release_tag",
+  "ccva_source_commit": "$ccva_source_commit",
   "validation_status": "$validation_status",
   "cli_tarball": "$cli_asset",
   "cli_sha256": "$cli_sha",

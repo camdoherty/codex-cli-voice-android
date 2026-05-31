@@ -1,331 +1,184 @@
-# Codex CLI + Voice for Android/Termux
+# Codex CLI Android/Termux (CCAT)
 
-<img
-  src="assets/pixel9-codex-termux.png"
-  alt="Codex CLI running in Termux on a Pixel 9"
-  align="right"
-  width="300">
+Codex CLI cross-compiled for aarch64 Android/Termux, with Android-native voice
+support.
 
-Codex CLI compiled for Android/Termux with Android-native voice modes.
+Tested on Pixel6a and Pixel9 running Android 16.
 
-Status: `alpha`. The current upstream target is Codex `rust-v0.135.0`.
-This release was validated on Pixel 9 and 6a, Android 16, Termux 0.118.3.
-On Pixel6a, STTS Wake Word was validated with the screen off through a full
-wake -> STT -> Codex -> TTS -> re-arm turn.
-The public installer was also validated on a fresh Pixel6a primary-user Termux
-install: F-Droid Termux, base package upgrade, GitHub release install, Codex
-shortcut sign-in, Codex Bridge, `STTS: Start + Talk`, and `STTS: Wake Word`.
+## Included
 
-This repository does not vendor the upstream Codex source tree.
-
-Codex itself requires normal Codex authentication: a ChatGPT account with Codex
-access or an OpenAI API key. The `$stts` voice path does not require OpenAI
-Realtime API billing. OpenAI Codex Realtime Voice requires an OpenAI API key
-and uses OpenAI Realtime API billing.
-
-## Why This Exists
-
-Android is a natural intake surface for Codex: nearby, voice-capable,
-sensor-rich, and close to the user's notes, files, notifications, and share
-flows.
-
-Termux provides the Linux command-line environment for Codex, while Termux:API
-can expose Android capabilities such as dialogs, notifications, share/open
-intents, clipboard, battery, location, and sensors.
-
-This project targets native Termux rather than PRoot because Termux runs
-directly on Android's host environment, without an extra distro/proot layer.
-That gives CCVA lower overhead, fewer moving parts, direct Termux:API access,
-and cleaner integration with Android storage, intents, widgets, and the local
-audio shim. PRoot may be useful for distro compatibility and could likely
-connect to the local shim, but it is not the supported audio path for this
-release.
-
-CCVA rebuilds Codex for Android/Termux, adds Android-native audio through a
-local shim, and provides two voice paths:
-
-- `$stts`: a local STTS Codex skill for half-duplex,
-  walkie-talkie-like voice interaction.
-- `codex-voice --allow-realtime`: OpenAI Codex CLI Realtime voice mode adapted
-  for Android native audio.
-
-Useful workflows include mobile voice intake for Codex, translating spoken user
-intent into context-aware agent prompts, using a phone as an orchestrator for
-other agents, maintaining on-device markdown repos or Obsidian vaults, and
-building Termux:API flows.
-
-<br clear="right">
+- Upstream Codex CLI built for Android/Termux.
+- Codex Bridge: local Android audio bridge for native microphone/TTS integration.
+- STTS: local speech-to-text / text-to-speech mode using Android speech services.
+- OpenAI Realtime voice mode through `codex-voice --allow-realtime`.
+- Termux:Widget shortcuts and optional notification controls.
+- Wake-word entry through Codex Bridge. Pixel6a screen-off wake testing passed
+  during alpha validation, but Android-wide lock-screen reliability is not
+  guaranteed.
 
 ## Voice Modes
 
-| Mode | How to start | Cost profile | Best for |
-| --- | --- | --- | --- |
-| Local Android STTS | Use the `$stts` skill, `STTS: Start + Talk`, or `STTS: Wake Word` | Uses normal Codex authentication; no Realtime API billing | Walkie-talkie-like voice sessions |
-| OpenAI Codex Realtime Voice | `codex-voice --allow-realtime` or `Realtime API Voice` | Uses OpenAI Realtime API billing | Codex CLI realtime voice on Android native audio |
+### STTS
 
-Local Android STTS uses the Android shim `/v1/text-voice` endpoint first:
-Android `TextToSpeech` for spoken output and Android `SpeechRecognizer` for
-one-shot speech input. Termux:API speech commands remain fallback paths. STTS
-pins Codex turns to `gpt-5.4-mini` with low reasoning by default, with
-environment overrides available for testing. `STTS: Wake Word` arms a bounded
-Hey Jarvis wake listener with Pixel6a-tested `6 dB` wake input gain, then plays
-its subtle cue after wake detection, immediately before request STT starts.
+STTS is the local voice mode.
 
-OpenAI Codex Realtime Voice uses the shim `/v1/audio` endpoint for Android
-native microphone/speaker routing and streams audio through the OpenAI Realtime
-API. The launcher refuses to start unless Realtime billing is explicitly
-allowed with `--allow-realtime` or `CODEX_VOICE_ALLOW_REALTIME=1`.
+It uses Android speech recognition and text-to-speech through Codex Bridge,
+with Termux:API fallback where available.
 
-See [VOICE_MODES.md](VOICE_MODES.md) for details.
-
-## What This Builds
-
-- `codex`: upstream Codex CLI, cross-compiled for Termux/Android.
-- `codex-api`: launcher that loads an OpenAI API key from `OPENAI_API_KEY` or
-  `OPENAI_API_KEY_FILE`.
-- `codex-voice`: guarded OpenAI Codex CLI Realtime voice launcher for native
-  Android audio through the AEC shim.
-- `codex-install-stts`: installs or updates the local `$stts` skill with
-  backup.
-- `codex-aec-shim-debug.apk`: Android app/service that exposes native
-  capture/playback to Codex over a local WebSocket.
-
-The Termux package installs under
-`$PREFIX/libexec/codex-cli-voice-android/` and exposes launchers in
-`$PREFIX/bin`.
-
-## Launch Surfaces
-
-After installing the package and refreshing Termux:Widget launchers, the
-expected user-facing surfaces are:
-
-- Shell: `codex`, `codex resume --last`, `codex exec`, `codex-voice
-  --allow-realtime`
-- Codex skill: `$stts`
-- Termux:Widget shortcuts: `Codex`, `Codex Resume Last`,
-  `Realtime API Voice`, `Realtime API Voice Stop`,
-  `STTS: Start + Talk`, `STTS: Wake Word`, `STTS: Attach Session`,
-  `STTS: Stop`
-
-Add the Termux:Widget widget to the Android home screen to show the shortcut
-list.
-
-The `Codex`, `Codex Resume Last`, and `Realtime API Voice` shortcuts open
-stable tmux sessions named `ccva-codex`, `ccva-resume`, and `ccva-realtime`.
-They attach to an existing session instead of starting a duplicate. Pane logs
-are captured by default under `~/.local/state/ccva-tmux/logs/`; set
-`CCVA_TMUX_LOG=0` before launching to disable them.
-
-For Termux:Widget shortcuts that open visible terminal sessions on Android 10+,
-grant Termux `Display over other apps` / `Draw over other apps` permission:
-
-```text
-Android Settings -> Apps -> Termux -> Display over other apps -> Allow
-```
-
-Without this permission, Android may show `Termux requires "Display over other
-apps" permission to start terminal sessions from background` when launching a
-home-screen widget.
-
-Use `Realtime API Voice Stop` to stop the billable Realtime tmux session and
-terminate any remaining Realtime process.
-
-`stts` and `stts talk` start the persistent `ccva-stts` tmux session if needed
-and immediately run one voice turn. `stts session` opens the tmux workspace
-without listening. `stts loop` is an experimental shell-only continuous mode.
-
-Agents can install or refresh those shortcuts from a synced repo with:
+STTS works with normal Codex authentication and does not require Realtime API billing.
 
 ```sh
-sh scripts/install_termux_launchers.sh
+stts talk
+stts wake
+stts stop
 ```
 
-## Transparency
+### Realtime API Voice
 
-This project is intentionally explicit about cost, credentials, audio routing,
-and validation.
-
-What it does:
-
-- Builds upstream Codex CLI for Android/Termux.
-- Adds Android-native audio through a local AEC shim.
-- Provides separate local and Realtime voice paths.
-- Uses loopback-only shim endpoints on `127.0.0.1:8765`.
-- Requires explicit `--allow-realtime` opt-in before starting billable
-  Realtime.
-- Ships release checksums and documents the tested install path.
-- Documents device-specific validation separately from broader Android claims.
-
-What it does not do:
-
-- Does not bundle OpenAI credentials, `.oaienv`, `.ssh`, logs, shell history,
-  or device snapshots.
-- Does not start Realtime billing from the default `$stts` voice mode.
-- Does not expose the shim as a public network service.
-- Does not claim broad Android support beyond Pixel6a and Pixel9 for this
-  release.
-- Does not guarantee lock-screen or screen-off wake reliability across Android
-  devices, even though Pixel6a screen-off WWS was validated in this release.
-
-If you want to install the project without trusting release assets, give
-[AGENT_BUILD_CCVA.md](AGENT_BUILD_CCVA.md) to Codex or another modern coding
-agent and have it build, deploy, and smoke-test from source.
-
-## Installation
-
-Install Termux in the primary Android user/profile. Secondary users and work
-profiles can fail Termux bootstrap because Termux packages are built for the
-primary-user `$PREFIX` path.
-
-On a fresh Termux install, upgrade the base packages first. This avoids package
-ABI mismatches before `curl` downloads the installer:
-
-```sh
-pkg update
-apt full-upgrade
-pkg install curl
-```
-
-If `apt full-upgrade` asks about base Termux config files such as
-`openssl.cnf`, `sources.list`, or `bash.bashrc` on a clean install, choose the
-package maintainer version.
-
-One-command Termux install:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh | bash
-```
-
-Auditable install:
-
-```sh
-curl -fsSLO https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh
-less install.sh
-sh install.sh
-```
-
-The installer downloads the current stable release manifest, verifies release
-checksums, installs the CLI package into `$PREFIX`, installs `$stts`, creates
-Termux:Widget shortcuts, and stages the shim APK in Android Downloads. It may
-install missing Termux packages such as `python` and `termux-api`.
-
-For clean staging-device validation before reinstalling, use the dry-run-first
-cleanup process in [DEPLOY.md](DEPLOY.md#clean-staging-device).
-For repeatable staging-device validation, power users can use the optional
-[ADB-assisted fresh install](DEPLOY.md#adb-assisted-fresh-install) flow.
-
-Android approval steps remain explicit: shared-storage permission, APK install,
-microphone permission, and any Realtime billing opt-in. The installer does not
-start Realtime.
-
-Standard first-run checklist after install:
-
-1. Grant Termux `Display over other apps` before using Termux:Widget launchers.
-2. Install/open Codex Bridge, grant microphone/notification permissions, and
-   start its foreground service.
-3. Tap the `Codex` widget/shortcut once and complete Codex sign-in.
-4. Verify `codex --version` and `stts-diag`.
-5. Start local voice with `STTS: Start + Talk`, `STTS: Wake Word`, or the
-   Android `Codex Wake Word` launcher.
-
-Optional Codex Bridge notification controls require Termux external commands:
-
-```sh
-mkdir -p ~/.termux
-grep -qxF 'allow-external-apps=true' ~/.termux/termux.properties 2>/dev/null \
-  || printf '%s\n' 'allow-external-apps=true' >> ~/.termux/termux.properties
-termux-reload-settings
-```
-
-The installer and launcher refresh scripts set this Termux property
-automatically. Then grant `Run commands in Termux environment` to Codex Bridge
-in Android app permissions. Widgets and terminal commands work without this
-optional setup.
-Codex Bridge auto-checks Termux controls when its foreground service starts and
-remembers a successful check. If buttons are missing or show setup required,
-open Codex Bridge and tap `Check Termux Controls` to refresh the check.
-For notification buttons that open visible Termux sessions immediately, Android
-may also require Termux's `Draw over other apps` permission.
-When enabled, the Bridge notification exposes `Start / Talk`, `Wake Word`, and
-`Stop`. Use the Termux:Widget list for `STTS: Attach Session`.
-The Bridge APK also exposes a separate Android launcher named `Codex Wake Word`;
-opening it starts Codex Bridge and arms STTS wake-word mode. This gives Android
-Assistant/Gemini a clear command target, for example: "Hey Google, open Codex
-Wake Word." On devices where Assistant/Gemini resolves only the primary app
-entry, "Hey Google, open Codex Bridge" also opens Bridge and arms wake-word
-mode.
-
-Pin a specific version with:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh | bash -s -- --version v0.135.0-ccva.1
-```
-
-Verify release assets without installing:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh | bash -s -- --verify-only
-```
-
-## Manual Installation
-
-See [DEPLOY.md](DEPLOY.md) for the tested install path and smoke tests.
-
-Short version:
-
-1. Install Termux from F-Droid.
-2. Install Termux:API from F-Droid if you want fallback STTS and
-   diagnostics.
-3. On a fresh Termux install, run `pkg update`, `apt full-upgrade`, and
-   `pkg install curl` before downloading release assets.
-4. Download the latest release assets:
-   - `codex-cli-voice-android-rust-vX.X.X.tar.gz`
-   - `codex-cli-voice-android-rust-vX.X.X.tar.gz.sha256`
-   - `codex-aec-shim-debug.apk`
-5. Install the CLI in Termux:
-
-```sh
-termux-setup-storage
-cd "$HOME/storage/downloads"
-sha256sum -c codex-cli-voice-android-rust-v*.tar.gz.sha256
-tar -xzf codex-cli-voice-android-rust-v*.tar.gz -C "$PREFIX"
-codex-install-stts
-codex --version
-```
-
-6. Grant Termux `Display over other apps` before using home-screen widgets.
-7. Install the shim APK from Android Downloads, open the shim app, grant
-   microphone permission, and verify the local service before voice testing.
-8. Tap the `Codex` widget/shortcut once and complete Codex sign-in.
-9. Optional wake-word setup:
-
-```sh
-stts-diag --download
-```
-
-Use the `$stts` skill for local voice:
-
-```text
-$stts talk
-```
-
-Use explicit opt-in for Realtime voice:
+Realtime voice uses OpenAI's Realtime API through Codex CLI, adapted for
+Android-native audio.
 
 ```sh
 codex-voice --allow-realtime
 ```
 
-## Repository Guide
+Realtime requires API billing. It is never started by the installer.
 
-- [BUILD.md](BUILD.md): host setup and build commands.
-- [DEPLOY.md](DEPLOY.md): safe SSH deploy, rollback backup, and smoke tests.
-- [AGENT_BUILD_CCVA.md](AGENT_BUILD_CCVA.md): source-build and deploy guide
-  for user-directed coding agents.
-- [VOICE_MODES.md](VOICE_MODES.md): voice mode chooser, commands, and cost
-  boundaries.
-- [AUDIO_SHIM.md](AUDIO_SHIM.md): Android AEC shim build/install/runtime
-  notes.
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md): known issues and quick checks.
+## Install
+
+Install Termux, Termux:API, and Termux:Widget from F-Droid in the primary
+Android user/profile.
+
+In Termux:
+
+```sh
+pkg update
+apt full-upgrade
+pkg install curl
+curl -fsSLO https://raw.githubusercontent.com/camdoherty/codex-cli-voice-android/main/install.sh
+less install.sh
+sh install.sh
+```
+
+The installer verifies checksums, installs the Codex CLI Android build,
+installs STTS, creates Termux:Widget shortcuts, sets up `~/codex_notes`, and
+stages the Codex Bridge APK in Android Downloads.
+
+Android approval steps remain manual: shared storage, APK install, microphone
+permission, notifications, widget overlay permission, and Codex sign-in.
+
+Or build and deploy from source.
+
+## Launch Surfaces
+
+Installed shortcuts:
+
+```text
+Codex
+Codex Resume Last
+Realtime API Voice
+Realtime API Voice Stop
+STTS: Attach Session
+STTS: Start + Talk
+STTS: Wake Word
+STTS: Stop
+```
+
+Codex Bridge can also expose notification buttons:
+
+```text
+Start / Talk
+Wake Word
+Stop
+```
+
+On supported devices, Assistant/Gemini can launch wake-word mode with:
+
+```text
+Hey Google, open Codex Bridge
+```
+
+## Notes
+
+CCAT sets up a default notes workspace:
+
+```text
+~/codex_notes
+```
+
+When shared storage is available, this points to:
+
+```text
+~/storage/shared/Documents/codex_notes
+```
+
+STTS/Codex can create, read, append, open, and share Markdown notes there when
+asked.
+
+Future Android share-target support belongs in Codex Bridge.
+
+## Why Android?
+
+Android is a useful Codex surface because it is always nearby and has native
+speech input/output, notifications, clipboard, share intents, sensors, and
+access to mobile notes/files when granted.
+
+CCAT turns the phone into a practical intake and control surface for Codex:
+spoken notes, quick prompts, status checks, markdown edits, notifications, and
+handoff prompts for larger agents running elsewhere.
+
+## Agent-Assisted Deployment
+
+Advanced users can use Codex from a PC to build, deploy, and validate CCAT on a
+phone over SSH/ADB.
+
+This is experimental. The agent can follow the documented build and deploy
+flow, but Android approval prompts, Codex sign-in, APK installation,
+permissions, and billing-sensitive checks still require user supervision.
+
+Recommended model: `gpt-5.5` with medium reasoning or better.
+
+See [AGENT_BUILD_CCVA.md](AGENT_BUILD_CCVA.md).
+
+## Trust And Safety
+
+CCAT is designed to be inspectable.
+
+- Codex Bridge listens only on loopback: `127.0.0.1:8765`.
+- Realtime API usage requires explicit `--allow-realtime`.
+- Release assets include checksums.
+- The installer verifies downloaded assets before installing.
+- The source-build path is documented for users who prefer to build and deploy
+  without trusting prebuilt releases.
+- STTS and Realtime are separate modes with separate cost behavior.
+
+Android isolates app data by default. CCAT runs inside Termux and can access
+files available to Termux, shared storage you grant, and anything you
+explicitly pass to it.
+
+Agent-assisted deployment is non-deterministic software automation. Review
+commands, watch approval prompts, and avoid granting access to sensitive shared
+folders unless needed.
+
+## Build From Source
+
+```sh
+git clone https://github.com/camdoherty/codex-cli-voice-android.git
+cd codex-cli-voice-android
+scripts/release_build.sh v0.135.0-ccva.1
+```
+
+See [BUILD.md](BUILD.md).
+
+## Documentation
+
+- [VOICE_MODES.md](VOICE_MODES.md): STTS, Realtime, wake word, and launch
+  behavior.
+- [DEPLOY.md](DEPLOY.md): install, update, validation, and troubleshooting.
+- [BUILD.md](BUILD.md): build and release pipeline.
+- [AGENT_BUILD_CCVA.md](AGENT_BUILD_CCVA.md): agent-assisted source build and
+  deploy.
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md): common Android/Termux setup issues.
 
 ## License
 

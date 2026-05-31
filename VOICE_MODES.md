@@ -1,15 +1,15 @@
 # Voice Modes
 
-Codex CLI Voice Android ships two validated voice modes with different goals
-and cost profiles. `$stts` is the Plus-friendly local mode. `codex-voice
+Codex CLI Android/Termux (CCAT) ships two validated voice modes with different
+goals and cost profiles. `$stts` is the local Android STT/TTS mode. `codex-voice
 --allow-realtime` is OpenAI Codex CLI Realtime voice mode adapted for Android
 native audio, and uses OpenAI Realtime API billing.
 
 ## Quick Chooser
 
-Use **Local Half-Duplex Voice** for Plus-friendly mobile voice intake and normal
-agent work. `stts talk` starts the persistent `ccva-stts` tmux session if
-needed, listens once, and returns to ready.
+Use **Local Half-Duplex Voice** for mobile voice intake and normal agent work
+without Realtime API billing. `stts talk` starts the persistent `ccva-stts`
+tmux session if needed, listens once, and returns to ready.
 
 ```sh
 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
@@ -30,8 +30,8 @@ codex-voice --allow-realtime
 
 ## Local Half-Duplex Voice
 
-`$stts` is a walkie-talkie-like voice mode that can be used with Plus
-accounts. No OpenAI API key is required for the voice path.
+`$stts` is a walkie-talkie-like voice mode that uses normal Codex
+authentication. No Realtime API billing is required for the voice path.
 
 STTS runs Codex turns through `codex exec` with `gpt-5.4-mini` and
 `model_reasoning_effort="low"` by default to keep voice turns faster and

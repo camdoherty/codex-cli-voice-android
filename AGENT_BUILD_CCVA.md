@@ -1,8 +1,8 @@
 # Agent Build Guide
 
 This guide is for users who want a Codex, Claude, or similar coding agent to
-build and deploy Codex CLI Voice Android from source instead of trusting release
-assets.
+build and deploy Codex CLI Android/Termux (CCAT) from source instead of
+trusting release assets.
 
 Android with Termux is effectively a Linux machine with phone hardware,
 Android permissions, and Termux integration. The point of this project is not
@@ -25,7 +25,8 @@ Main changes:
 - Add `codex-api` and `codex-voice` launchers for Termux.
 - Add a guarded OpenAI Codex CLI Realtime voice path through Android native
   audio.
-- Add the `$stts` skill for Plus-friendly half-duplex local voice.
+- Add the `$stts` skill for half-duplex local voice with normal Codex
+  authentication and no Realtime API billing.
 - Add the Android AEC shim APK for local loopback audio endpoints:
   `127.0.0.1:8765/v1/audio` and `127.0.0.1:8765/v1/text-voice`.
 - Add deployment, smoke-test, and Termux:Widget shortcut scripts.
@@ -49,7 +50,8 @@ Android is a practical always-nearby agent intake surface:
   other agents, including todo/action delegation workflows.
 - Markdown repos, Obsidian vaults, and project notes can be maintained from the
   same device used for capture.
-- `$stts` provides cheap, walkie-talkie-like interaction with a Plus account.
+- `$stts` provides walkie-talkie-like local interaction without Realtime API
+  billing.
 - `codex-voice --allow-realtime` exposes OpenAI Codex CLI Realtime voice mode
   with Android native audio when the user explicitly accepts Realtime billing.
 
@@ -143,6 +145,9 @@ Failsafes:
   `allow-external-apps=true` and the Codex Bridge Android permission
   `Run commands in Termux environment`. The installer, SSH deploy helper, and
   launcher refresh script set the Termux property automatically.
+- Preserve `~/codex_notes`; it is the user notes workspace. On standard
+  installs it should point to `~/storage/shared/Documents/codex_notes` when
+  shared storage is available.
 
 ## Agent Handoff Checklist
 
@@ -160,9 +165,13 @@ For a public-release fresh install, verify this sequence:
    `allow-external-apps` setup error.
 7. The user tapped `Codex` and completed Codex sign-in.
 8. `codex --version`, `codex exec --help`, and `stts-diag` pass.
-9. `STTS: Start + Talk` works.
-10. `STTS: Wake Word` works if WWS is in scope.
-11. `codex-voice --allow-realtime` is tested only with explicit billable
+9. `~/codex_notes` exists and is Android-visible when shared storage is
+   available.
+10. `STTS: Start + Talk` works.
+11. A simple note request can create/read/append a Markdown note in
+    `~/codex_notes`.
+12. `STTS: Wake Word` works if WWS is in scope.
+13. `codex-voice --allow-realtime` is tested only with explicit billable
     approval.
 
 ## Build From Source
@@ -357,7 +366,7 @@ From a cloned repo on the phone:
 python3 scripts/smoke_text_voice_ws.py --url ws://127.0.0.1:8765/v1/text-voice
 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" \
   --tts-backend shim \
-  say "Codex CLI Voice Android smoke test."
+  say "Codex CLI Android Termux smoke test."
 ```
 
 Ask the user to confirm they heard the final TTS smoke.

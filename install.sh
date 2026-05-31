@@ -340,6 +340,43 @@ ensure_storage_downloads() {
     die "shared Downloads directory not available: $CCVA_DOWNLOAD_DIR"
 }
 
+setup_codex_notes_workspace() {
+    notes_link="$HOME/codex_notes"
+    notes_shared="$HOME/storage/shared/Documents/codex_notes"
+    notes_dir=""
+
+    if [ -d "$HOME/storage/shared" ]; then
+        mkdir -p "$notes_shared" || die "failed to create notes workspace: $notes_shared"
+        if [ -L "$notes_link" ] || [ ! -e "$notes_link" ]; then
+            ln -sfn "$notes_shared" "$notes_link"
+            notes_dir="$notes_shared"
+            log "notes workspace: $notes_link -> $notes_shared"
+        elif [ -d "$notes_link" ]; then
+            notes_dir="$notes_link"
+            log "preserving existing notes workspace: $notes_link"
+            log "shared notes directory is available at: $notes_shared"
+        else
+            notes_dir="$notes_shared"
+            log "warning: $notes_link exists and is not a directory or symlink; using $notes_shared"
+        fi
+    else
+        notes_dir="$notes_link"
+        mkdir -p "$notes_dir" || die "failed to create notes workspace: $notes_dir"
+        log "notes workspace: $notes_dir"
+        log "warning: shared storage is not available; Android note apps may not see this until termux-setup-storage succeeds"
+    fi
+
+    if [ -d "$notes_dir" ] && [ ! -e "$notes_dir/README.md" ]; then
+        if [ -z "$(find "$notes_dir" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+            cat > "$notes_dir/README.md" <<'EOF'
+# Codex Notes
+
+Default CCAT/STTS notes workspace for Markdown notes created, read, opened, or shared from Android.
+EOF
+        fi
+    fi
+}
+
 stage_shim_apk() {
     apk=$1
     ensure_storage_downloads
@@ -394,7 +431,9 @@ EOF
    python -c 'import socket; s=socket.socket(); s.settimeout(2); s.connect(("127.0.0.1", 8765)); print("port-open"); s.close()'
 8. Optional wake-word setup:
    stts-diag --download
-9. Start local voice with:
+9. Notes workspace:
+   ~/codex_notes
+10. Start local voice with:
    stts talk
 EOF
     else
@@ -408,7 +447,9 @@ EOF
    This installer has already set allow-external-apps=true in
    ~/.termux/termux.properties.
 6. Tap the Codex shortcut/widget once and complete Codex sign-in.
-7. Start local voice with:
+7. Notes workspace:
+   ~/codex_notes
+8. Start local voice with:
    stts talk
 EOF
     fi
@@ -480,6 +521,8 @@ fi
 if [ "$CCVA_INSTALL_SHIM" = "1" ]; then
     stage_shim_apk "$apk_path"
 fi
+
+setup_codex_notes_workspace
 
 if [ "$CCVA_RUN_SMOKE" = "1" ]; then
     run_smoke

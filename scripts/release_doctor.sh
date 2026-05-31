@@ -29,6 +29,7 @@ package_version="${codex_tag}-ccva.${ccva_iteration}"
 cli_asset="codex-cli-voice-android-${package_version}.tar.gz"
 shim_asset="codex-aec-shim-${release_tag}-debug.apk"
 manifest="$dist_dir/${release_tag}.json"
+metadata="$dist_dir/$cli_asset.metadata"
 
 required=(
     "$cli_asset"
@@ -53,6 +54,31 @@ grep -q "\"version\": \"$release_tag\"" "$manifest" || { echo "Manifest version 
 grep -q "\"upstream_codex\": \"$codex_tag\"" "$manifest" || { echo "Manifest upstream mismatch" >&2; exit 1; }
 grep -q "\"cli_tarball\": \"$cli_asset\"" "$manifest" || { echo "Manifest CLI asset mismatch" >&2; exit 1; }
 grep -q "\"shim_apk\": \"$shim_asset\"" "$manifest" || { echo "Manifest shim asset mismatch" >&2; exit 1; }
+
+metadata_value() {
+    sed -n "s/^$1=//p" "$metadata" | sed -n '1p'
+}
+
+current_head="$(git -C "$REPO_DIR" rev-parse HEAD)"
+ccva_source_commit="$(metadata_value ccva_source_commit)"
+[ -n "$ccva_source_commit" ] || {
+    echo "Missing ccva_source_commit in metadata; rebuild artifacts with current scripts" >&2
+    exit 1
+}
+git -C "$REPO_DIR" merge-base --is-ancestor "$ccva_source_commit" "$current_head" || {
+    echo "Artifact source commit is not an ancestor of current HEAD: $ccva_source_commit" >&2
+    exit 1
+}
+if ! git -C "$REPO_DIR" diff --quiet "$ccva_source_commit"..HEAD -- . ':(exclude)releases/*.json'; then
+    echo "Stale release artifact: repo changed after ccva_source_commit=$ccva_source_commit" >&2
+    echo "Rebuild after committing these changes:" >&2
+    git -C "$REPO_DIR" diff --name-only "$ccva_source_commit"..HEAD -- . ':(exclude)releases/*.json' >&2
+    exit 1
+fi
+grep -q "\"ccva_source_commit\": \"$ccva_source_commit\"" "$manifest" || {
+    echo "Manifest ccva_source_commit mismatch or missing" >&2
+    exit 1
+}
 
 if git -C "$REPO_DIR" ls-files | grep -E '\.(apk|aab|tar\.gz|metadata|sha256)$' >/dev/null; then
     echo "Built artifacts are tracked by git" >&2

@@ -19,6 +19,35 @@ if command -v termux-reload-settings >/dev/null 2>&1; then
     termux-reload-settings >/dev/null 2>&1 || true
 fi
 
+NOTES_LINK="$HOME/codex_notes"
+NOTES_SHARED="$HOME/storage/shared/Documents/codex_notes"
+NOTES_DIR=""
+if [ -d "$HOME/storage/shared" ]; then
+    mkdir -p "$NOTES_SHARED"
+    if [ -L "$NOTES_LINK" ] || [ ! -e "$NOTES_LINK" ]; then
+        ln -sfn "$NOTES_SHARED" "$NOTES_LINK"
+        NOTES_DIR="$NOTES_SHARED"
+    elif [ -d "$NOTES_LINK" ]; then
+        NOTES_DIR="$NOTES_LINK"
+    else
+        NOTES_DIR="$NOTES_SHARED"
+        printf 'warning: %s exists and is not a directory or symlink; using %s\n' "$NOTES_LINK" "$NOTES_SHARED"
+    fi
+else
+    NOTES_DIR="$NOTES_LINK"
+    mkdir -p "$NOTES_DIR"
+    printf 'warning: shared storage is not available; Android note apps may not see %s\n' "$NOTES_DIR"
+fi
+if [ -d "$NOTES_DIR" ] && [ ! -e "$NOTES_DIR/README.md" ]; then
+    if [ -z "$(find "$NOTES_DIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+        cat > "$NOTES_DIR/README.md" <<'EOF'
+# Codex Notes
+
+Default CCAT/STTS notes workspace for Markdown notes created, read, opened, or shared from Android.
+EOF
+    fi
+fi
+
 install -m 700 "$REPO_DIR/scripts/termux-codex-api" "$SCRIPTS_DIR/codex-api"
 install -m 700 "$REPO_DIR/scripts/termux-codex-voice" "$SCRIPTS_DIR/codex-voice"
 install -m 700 "$REPO_DIR/scripts/ccva-realtime-stop" "$SCRIPTS_DIR/ccva-realtime-stop"
@@ -132,3 +161,4 @@ printf 'Installed core shortcuts: Codex, Codex Resume Last.\n'
 printf 'Installed voice shortcuts: STTS: Start + Talk, STTS: Wake Word, Realtime API Voice, Realtime API Voice Stop.\n'
 printf 'Installed STTS control shortcuts: STTS: Attach Session, STTS: Stop.\n'
 printf 'Enabled Termux allow-external-apps=true for Codex Bridge notification controls.\n'
+printf 'Prepared notes workspace: %s\n' "$NOTES_DIR"

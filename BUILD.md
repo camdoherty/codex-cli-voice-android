@@ -49,6 +49,12 @@ The pipeline stages are:
 - `release_status.sh`: summarizes branch, stable manifest, release manifests,
   and local dist artifacts.
 
+Release artifacts record both the upstream Codex commit and the local
+CCAT/CCVA source commit. `release_doctor.sh` rejects artifacts when source,
+script, or docs changes exist after the recorded `ccva_source_commit`; commit
+local changes before the final rebuild/publish path. Release manifest-only
+commits under `releases/` are allowed after the artifact build.
+
 Android UI approvals, Codex sign-in, Bridge microphone permission, widget
 overlay permission, Wake Word human testing, and billable Realtime checks remain
 explicit validation steps.

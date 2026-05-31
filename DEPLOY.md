@@ -184,6 +184,23 @@ permission message.
 The user-facing widget is the Termux:Widget home-screen widget, which displays
 the installed shortcut list.
 
+## Notes Workspace
+
+The installer and deploy helper prepare a default Android-visible notes
+workspace when shared storage is available:
+
+```text
+~/codex_notes -> ~/storage/shared/Documents/codex_notes
+```
+
+If shared storage is not available, setup falls back to a private Termux
+directory at `~/codex_notes` and prints a warning. Do not overwrite or remove an
+existing real `~/codex_notes` directory during upgrades; it is user data.
+
+STTS treats `~/codex_notes` as the default location for ordinary Markdown note
+requests. Android note apps such as Obsidian or Marker can open
+`Documents/codex_notes` after Termux shared storage is granted.
+
 After a fresh install, tap the `Codex` shortcut once and complete Codex sign-in
 before validating `$stts`. STTS uses normal Codex authentication; a voice
 session can launch successfully but fail to generate replies until Codex is
@@ -220,6 +237,7 @@ Termux or Termux:API
 $HOME/.codex/config*
 $HOME/.oaienv
 $HOME/.ssh
+$HOME/codex_notes
 shell config or history
 repo clones
 user notes or project files

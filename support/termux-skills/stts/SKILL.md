@@ -63,6 +63,25 @@ Prefer this path over the full session when the user only wants speech output.
 - Keep spoken replies short; long replies increase the chance that the next STT turn starts while Android audio is still recovering.
 - If the user says `stop`, end the conversation and leave the session idle.
 
+## Notes Workspace
+
+Use `~/codex_notes` as the default workspace for spoken note requests. On a
+standard CCAT install this is a symlink to
+`~/storage/shared/Documents/codex_notes` when shared storage is available, so
+Android note apps and file managers can see the files.
+
+- Prefer Markdown notes.
+- Create, read, append, summarize, open, and share ordinary notes there without
+  asking for extra permission.
+- Ask before deleting notes, overwriting substantial content, or writing outside
+  `~/codex_notes`.
+- Use simple slug filenames from the user's request, with a timestamp fallback.
+- Use `termux-open "$HOME/codex_notes/file.md"` for "open the note" requests
+  and `termux-share "$HOME/codex_notes/file.md"` for "share the note" requests
+  when those commands are available.
+- If Android is locked or the share/open intent does not appear, tell the user
+  briefly and suggest unlocking or retrying.
+
 ## References
 
 - See [audibility-findings.md](references/audibility-findings.md) for playback-routing evidence.

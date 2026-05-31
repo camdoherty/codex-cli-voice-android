@@ -160,6 +160,37 @@ fi
 if command -v termux-reload-settings >/dev/null 2>&1; then
     termux-reload-settings >/dev/null 2>&1 || true
 fi
+
+notes_link="$HOME/codex_notes"
+notes_shared="$HOME/storage/shared/Documents/codex_notes"
+notes_dir=""
+if [ -d "$HOME/storage/shared" ]; then
+    mkdir -p "$notes_shared"
+    if [ -L "$notes_link" ] || [ ! -e "$notes_link" ]; then
+        ln -sfn "$notes_shared" "$notes_link"
+        notes_dir="$notes_shared"
+    elif [ -d "$notes_link" ]; then
+        notes_dir="$notes_link"
+    else
+        notes_dir="$notes_shared"
+        echo "warning: $notes_link exists and is not a directory or symlink; using $notes_shared"
+    fi
+else
+    notes_dir="$notes_link"
+    mkdir -p "$notes_dir"
+    echo "warning: shared storage is not available; Android note apps may not see $notes_dir"
+fi
+if [ -d "$notes_dir" ] && [ ! -e "$notes_dir/README.md" ]; then
+    if [ -z "$(find "$notes_dir" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+        cat > "$notes_dir/README.md" <<'EOF'
+# Codex Notes
+
+Default CCAT/STTS notes workspace for Markdown notes created, read, opened, or shared from Android.
+EOF
+    fi
+fi
+echo "notes_workspace=$notes_dir"
+
 cat > "$HOME/.shortcuts/Codex" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 exec "$HOME/scripts/ccva-tmux-run" codex -- codex

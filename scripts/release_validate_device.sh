@@ -126,7 +126,9 @@ cat <<'EOF' | tee -a "$report"
 - Install or update Codex Bridge APK and verify service/listening state.
 - Grant microphone, notifications, Termux Run Command, and widget overlay permissions as needed.
 - Tap Codex once and complete sign-in on fresh installs.
+- Verify ~/codex_notes exists and points to shared Documents when shared storage is available.
 - Verify STTS: Start + Talk.
+- Verify a simple STTS/Codex note request writes under ~/codex_notes.
 - Verify STTS: Wake Word if WWS is in scope.
 - Verify Realtime only with explicit billable approval.
 EOF
