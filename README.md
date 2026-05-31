@@ -244,6 +244,8 @@ Open Codex Bridge and tap `Check Termux Controls` once to enable notification
 buttons. The bridge does not run periodic Termux command probes.
 For notification buttons that open visible Termux sessions immediately, Android
 may also require Termux's `Draw over other apps` permission.
+When enabled, the Bridge notification exposes `Start / Talk`, `Wake Word`, and
+`Stop`. Use the Termux:Widget list for `STTS: Attach Session`.
 
 Pin a specific version with:
 

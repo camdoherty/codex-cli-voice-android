@@ -330,9 +330,11 @@ When available, the notification buttons map to:
 
 ```text
 Start / Talk -> stts talk
-Attach       -> stts session
+Wake Word    -> stts wake
 Stop         -> stts stop, plus immediate shim-side audio cancel
 ```
+
+Use the Termux:Widget list for `STTS: Attach Session`.
 
 `STTS: Idle` in the Codex Bridge notification is normal between turns. The
 persistent `ccva-stts` tmux session can be ready while no `/v1/text-voice`

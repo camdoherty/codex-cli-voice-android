@@ -25,7 +25,7 @@ public final class AecShimService extends Service {
     static final String ACTION_WAKE_TEST_FAIL = "io.github.codex_cli_voice_android.aecshim.WAKE_TEST_FAIL";
     static final String ACTION_REFRESH_NOTIFICATION = "io.github.codex_cli_voice_android.aecshim.REFRESH_NOTIFICATION";
     static final String ACTION_STTS_START_TALK = "io.github.codex_cli_voice_android.aecshim.STTS_START_TALK";
-    static final String ACTION_STTS_ATTACH = "io.github.codex_cli_voice_android.aecshim.STTS_ATTACH";
+    static final String ACTION_STTS_WAKE = "io.github.codex_cli_voice_android.aecshim.STTS_WAKE";
     static final String ACTION_STTS_STOP = "io.github.codex_cli_voice_android.aecshim.STTS_STOP";
 
     private AudioEngine audioEngine;
@@ -127,9 +127,9 @@ public final class AecShimService extends Service {
                     "Start / Talk",
                     serviceIntent(ACTION_STTS_START_TALK, 10));
             builder.addAction(
-                    android.R.drawable.ic_menu_view,
-                    "Attach",
-                    serviceIntent(ACTION_STTS_ATTACH, 11));
+                    android.R.drawable.ic_media_play,
+                    "Wake Word",
+                    serviceIntent(ACTION_STTS_WAKE, 11));
             builder.addAction(
                     android.R.drawable.ic_menu_close_clear_cancel,
                     "Stop",
@@ -198,8 +198,8 @@ public final class AecShimService extends Service {
             // Notification refresh only.
         } else if (ACTION_STTS_START_TALK.equals(action)) {
             TermuxCommandLauncher.runStartTalk(this);
-        } else if (ACTION_STTS_ATTACH.equals(action)) {
-            TermuxCommandLauncher.runAttach(this);
+        } else if (ACTION_STTS_WAKE.equals(action)) {
+            TermuxCommandLauncher.runWake(this);
         } else if (ACTION_STTS_STOP.equals(action)) {
             textVoiceController.onStopButtonPressed();
             TermuxCommandLauncher.runStop(this);

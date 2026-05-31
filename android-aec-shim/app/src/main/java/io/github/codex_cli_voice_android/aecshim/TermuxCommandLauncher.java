@@ -117,6 +117,21 @@ final class TermuxCommandLauncher {
         }
     }
 
+    static void runWake(Context context) {
+        if (ensureUsable(context)) {
+            sendRunCommand(
+                    context,
+                    "wake",
+                    "if command -v stts >/dev/null 2>&1; then exec stts wake; else exec sh "
+                            + shellQuote(STTS_SCRIPT)
+                            + " wake; fi",
+                    false,
+                    "STTS: Wake Word",
+                    "Starts or attaches the STTS tmux session and arms wake-word mode.",
+                    false);
+        }
+    }
+
     static void runStop(Context context) {
         if (ensureUsable(context)) {
             sendRunCommand(
