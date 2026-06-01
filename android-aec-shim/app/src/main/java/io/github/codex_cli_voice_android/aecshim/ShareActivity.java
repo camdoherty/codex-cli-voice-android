@@ -192,9 +192,14 @@ public class ShareActivity extends Activity {
         command.append("printf '%s\\n' \"$item\" > \"$state/latest-share-dir.txt\"\n");
         command.append("printf 'saved %s\\n' \"$item/manifest.json\"\n");
         if (review) {
-            command.append("if command -v stts >/dev/null 2>&1; then stts stop >/dev/null 2>&1 || true; exec stts ingest --speak \"$item/manifest.json\"; ");
+            command.append("resume_wake=0\n");
+            command.append("pid=$(cat \"$state/session.pid\" 2>/dev/null || true)\n");
+            command.append("mode=$(cat \"$state/session-mode.txt\" 2>/dev/null || true)\n");
+            command.append("if [ \"$mode\" = wake ] && [ -n \"$pid\" ] && kill -0 \"$pid\" 2>/dev/null; then resume_wake=1; fi\n");
+            command.append("if [ \"$resume_wake\" = 1 ]; then wake_arg=--then-wake; else wake_arg=; fi\n");
+            command.append("if command -v stts >/dev/null 2>&1; then stts stop >/dev/null 2>&1 || true; exec stts ingest --speak $wake_arg \"$item/manifest.json\"; ");
             command.append("else sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" stop >/dev/null 2>&1 || true; ");
-            command.append("exec sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" ingest --speak \"$item/manifest.json\"; fi\n");
+            command.append("exec sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" ingest --speak $wake_arg \"$item/manifest.json\"; fi\n");
         }
         return command.toString();
     }

@@ -210,9 +210,15 @@ final class TermuxCommandLauncher {
             String command = "manifest=\"$HOME/.local/state/codex-stts/latest-share-manifest.txt\"; "
                     + "if [ ! -s \"$manifest\" ]; then echo 'No Codex inbox item is ready to review.'; exit 1; fi; "
                     + "path=$(cat \"$manifest\"); "
-                    + "if command -v stts >/dev/null 2>&1; then stts stop >/dev/null 2>&1 || true; exec stts ingest --speak \"$path\"; "
+                    + "state=\"$HOME/.local/state/codex-stts\"; "
+                    + "resume_wake=0; "
+                    + "pid=$(cat \"$state/session.pid\" 2>/dev/null || true); "
+                    + "mode=$(cat \"$state/session-mode.txt\" 2>/dev/null || true); "
+                    + "if [ \"$mode\" = wake ] && [ -n \"$pid\" ] && kill -0 \"$pid\" 2>/dev/null; then resume_wake=1; fi; "
+                    + "if [ \"$resume_wake\" = 1 ]; then wake_arg=--then-wake; else wake_arg=; fi; "
+                    + "if command -v stts >/dev/null 2>&1; then stts stop >/dev/null 2>&1 || true; exec stts ingest --speak $wake_arg \"$path\"; "
                     + "else sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" stop >/dev/null 2>&1 || true; "
-                    + "exec sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" ingest --speak \"$path\"; fi";
+                    + "exec sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" ingest --speak $wake_arg \"$path\"; fi";
             boolean started = sendRunCommand(
                     context,
                     "share-review",

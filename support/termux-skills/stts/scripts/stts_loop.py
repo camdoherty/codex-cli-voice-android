@@ -114,6 +114,7 @@ RUNTIME_DIR = Path(
     )
 )
 PID_PATH = RUNTIME_DIR / "session.pid"
+MODE_PATH = RUNTIME_DIR / "session-mode.txt"
 COMMAND_FIFO_PATH = RUNTIME_DIR / "session.fifo"
 ACTIVITY_PANE_PATH = RUNTIME_DIR / "activity-pane.txt"
 TURN_DIR = RUNTIME_DIR / "turns"
@@ -934,6 +935,15 @@ def clear_session_pid() -> None:
             PID_PATH.unlink()
         except FileNotFoundError:
             pass
+        try:
+            MODE_PATH.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def write_session_mode(mode: str) -> None:
+    RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+    MODE_PATH.write_text(f"{mode}\n", encoding="utf-8")
 
 
 def prepare_command_fifo() -> None:
@@ -2138,6 +2148,7 @@ def run_session_host(
     source_notes: list[str] = []
     emit(transcript_path, "status", "STTS ready")
     emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
+    write_session_mode("ready")
 
     fifo_fd = os.open(COMMAND_FIFO_PATH, os.O_RDONLY | os.O_NONBLOCK)
     keepalive_fd = os.open(COMMAND_FIFO_PATH, os.O_WRONLY | os.O_NONBLOCK)
@@ -2160,10 +2171,11 @@ def run_session_host(
                     emit(transcript_path, "status", "ready")
                     continue
                 if command_name == "talk":
+                    write_session_mode("talk")
                     try:
                         turn_client, _status = shim_connect(15.0)
                         try:
-                            stopped = run_stts_turn_on_client(
+                            stopped = run_stts_turn_with_socket_recovery(
                                 turn_client,
                                 working_dir,
                                 history,
@@ -2178,17 +2190,20 @@ def run_session_host(
                     if stopped:
                         return 0
                     emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
+                    write_session_mode("ready")
                     continue
                 if command_name == "ingest":
                     ingest_args = tokens[1:]
                     speak = "--speak" in ingest_args
-                    manifest_args = [token for token in ingest_args if token != "--speak"]
+                    then_wake = "--then-wake" in ingest_args
+                    manifest_args = [token for token in ingest_args if token not in {"--speak", "--then-wake"}]
                     if not manifest_args:
                         emit(transcript_path, "status", "ingest failed: missing manifest path")
                         continue
                     manifest_path = Path(manifest_args[0]).expanduser()
                     if not manifest_path.is_absolute():
                         manifest_path = Path(working_dir) / manifest_path
+                    write_session_mode("ingest")
                     try:
                         run_ingest_on_client(
                             None,
@@ -2204,6 +2219,26 @@ def run_session_host(
                         )
                     except Exception as exc:
                         emit(transcript_path, "status", f"ingest failed: {exc}")
+                    if then_wake:
+                        try:
+                            write_session_mode("wake")
+                            emit(transcript_path, "status", "returning to wake word")
+                            wake_stop_at = time.monotonic() + WAKE_MAX_RUNTIME_SECONDS
+                            while time.monotonic() < wake_stop_at:
+                                emit(transcript_path, "status", "wake word armed")
+                                rc = run_wake_loop(
+                                    working_dir,
+                                    transcript_path=transcript_path,
+                                    stop_at=wake_stop_at,
+                                )
+                                emit(transcript_path, "status", f"wake word stopped rc={rc}")
+                                if rc != 0:
+                                    break
+                                if time.monotonic() < wake_stop_at:
+                                    emit(transcript_path, "status", "wake word re-arming")
+                        except Exception as exc:
+                            emit(transcript_path, "status", f"wake word failed: {classify_wake_exception(exc)} ({exc})")
+                    write_session_mode("ready")
                     emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
                     continue
                 if command_name in {"wake", "wake-test"}:
@@ -2222,6 +2257,7 @@ def run_session_host(
                                 transcript_path=transcript_path,
                             )
                         else:
+                            write_session_mode("wake")
                             wake_stop_at = time.monotonic() + WAKE_MAX_RUNTIME_SECONDS
                             while time.monotonic() < wake_stop_at:
                                 emit(transcript_path, "status", "wake word armed")
@@ -2249,6 +2285,7 @@ def run_session_host(
                             emit(transcript_path, "status", f"{label}: {classify_wake_exception(exc)} ({exc})")
                         else:
                             emit(transcript_path, "status", f"{label}: {exc}")
+                    write_session_mode("ready")
                     emit(transcript_path, "status", "ready; run stts talk, stts wake, or stts stop")
                     continue
                 emit(transcript_path, "status", f"unknown command: {command}")
@@ -2466,7 +2503,8 @@ def run_ingest_tmux(
 ) -> int:
     ingest_args = args_after_command(raw_args, "ingest")
     speak = "--speak" in ingest_args
-    manifest_args = [token for token in ingest_args if token != "--speak"]
+    then_wake = "--then-wake" in ingest_args
+    manifest_args = [token for token in ingest_args if token not in {"--speak", "--then-wake"}]
     if not manifest_args:
         raise RuntimeError("ingest requires a manifest path")
     ensure_tmux_session(
@@ -2482,6 +2520,8 @@ def run_ingest_tmux(
     command_tokens = ["ingest"]
     if speak:
         command_tokens.append("--speak")
+    if then_wake:
+        command_tokens.append("--then-wake")
     command_tokens.append(manifest_args[0])
     command = shlex.join(command_tokens)
     if not send_session_command(command):
@@ -2959,7 +2999,10 @@ def format_status() -> str:
     last_status = "last session unknown"
     if last_session.exists():
         last_status = f"last session {last_session.read_text(encoding='utf-8').strip()}"
-    return f"{pid_status}; {tmux_status}; {fifo_status}; {volume_status}; {last_status}"
+    mode = "mode unknown"
+    if MODE_PATH.exists():
+        mode = f"mode {MODE_PATH.read_text(encoding='utf-8').strip()}"
+    return f"{pid_status}; {tmux_status}; {fifo_status}; {mode}; {volume_status}; {last_status}"
 
 
 def run_diag() -> int:
@@ -3202,6 +3245,7 @@ def main() -> int:
     parser.add_argument("--wake-input-gain-db", type=float, default=WAKE_INPUT_GAIN_DB, help="For wake mode: software input gain before ONNX inference.")
     parser.add_argument("--no-wake-cue", action="store_true", help="For wake mode: do not play the subtle cue after wake detection.")
     parser.add_argument("--speak", action="store_true", help="For ingest mode: speak the review result after generating it.")
+    parser.add_argument("--then-wake", action="store_true", help="For ingest mode: return to wake word after speaking the review.")
     args = parser.parse_args()
 
     try:
