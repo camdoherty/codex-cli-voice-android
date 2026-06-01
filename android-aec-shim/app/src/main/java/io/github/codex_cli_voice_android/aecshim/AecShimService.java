@@ -27,6 +27,7 @@ public final class AecShimService extends Service {
     static final String ACTION_STTS_START_TALK = "io.github.codex_cli_voice_android.aecshim.STTS_START_TALK";
     static final String ACTION_STTS_WAKE = "io.github.codex_cli_voice_android.aecshim.STTS_WAKE";
     static final String ACTION_STTS_STOP = "io.github.codex_cli_voice_android.aecshim.STTS_STOP";
+    static final String ACTION_REVIEW_LATEST_SHARE = "io.github.codex_cli_voice_android.aecshim.REVIEW_LATEST_SHARE";
 
     private AudioEngine audioEngine;
     private AudioModeCoordinator audioModeCoordinator;
@@ -206,6 +207,8 @@ public final class AecShimService extends Service {
         } else if (ACTION_STTS_STOP.equals(action)) {
             textVoiceController.onStopButtonPressed();
             TermuxCommandLauncher.runStop(this);
+        } else if (ACTION_REVIEW_LATEST_SHARE.equals(action)) {
+            TermuxCommandLauncher.runSharedReviewLatest(this);
         }
         updateNotification();
     }

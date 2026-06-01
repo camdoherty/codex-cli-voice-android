@@ -408,12 +408,28 @@ The Bridge APK also installs a separate Android launcher named `Codex Wake
 Word`. Opening that launcher starts Codex Bridge and runs the same `stts wake`
 path as the notification `Wake Word` button. Validate it by tapping the launcher
 and, if available, by saying "Hey Google, open Codex Wake Word." On devices
-where Assistant/Gemini resolves only the primary app entry, "Hey Google, open
-Codex Bridge" also opens Bridge and arms wake-word mode.
+where Assistant/Gemini does not resolve that launcher name, use the launcher,
+notification, widget, or shell wake-word surfaces instead. Opening the primary
+`Codex Bridge` launcher opens the Bridge UI only; it does not arm wake word.
 
 `STTS: Idle` in the Codex Bridge notification is normal between turns. The
 persistent `ccva-stts` tmux session can be ready while no `/v1/text-voice`
 client is connected.
+
+## Android Share Intake
+
+Codex Bridge appears in the Android share sheet. Sharing text, links, or small
+files to Bridge stages them under:
+
+```text
+~/codex_notes/inbox/
+```
+
+The share path is save-first: Bridge shows a `Shared item saved` notification
+with a `Review` action. It does not auto-run a Codex review just because an
+item was shared. Tapping `Review` opens the STTS/tmux review and speaks the
+review result aloud. You can also ask STTS "what did I share?" / "review the
+last thing I shared."
 
 ## Rollback
 

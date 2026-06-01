@@ -59,8 +59,8 @@ public final class ShareActivity extends Activity {
             }
             String itemId = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date())
                     + "-android-share";
-            if (TermuxCommandLauncher.runSharedIntake(this, buildTermuxCommand(itemId))) {
-                toast("Saved to Codex Inbox.");
+            if (TermuxCommandLauncher.runSharedIntake(this, buildTermuxCommand(itemId), itemId)) {
+                toast("Saving to Codex Inbox...");
             } else {
                 toast("Codex Bridge needs Termux controls setup.");
             }
@@ -176,8 +176,11 @@ public final class ShareActivity extends Activity {
                 writeEncodedFile(command, "$item/attachments/" + shellSingleQuote(file.name), file.encodedContent);
             }
         }
-        command.append("if command -v stts >/dev/null 2>&1; then exec stts ingest \"$item/manifest.json\"; ");
-        command.append("else exec sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" ingest \"$item/manifest.json\"; fi\n");
+        command.append("state=\"$HOME/.local/state/codex-stts\"\n");
+        command.append("mkdir -p \"$state\"\n");
+        command.append("printf '%s\\n' \"$item/manifest.json\" > \"$state/latest-share-manifest.txt\"\n");
+        command.append("printf '%s\\n' \"$item\" > \"$state/latest-share-dir.txt\"\n");
+        command.append("printf 'saved %s\\n' \"$item/manifest.json\"\n");
         return command.toString();
     }
 

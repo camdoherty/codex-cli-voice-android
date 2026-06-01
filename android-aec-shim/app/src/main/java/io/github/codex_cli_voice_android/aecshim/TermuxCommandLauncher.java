@@ -1,6 +1,9 @@
 package io.github.codex_cli_voice_android.aecshim;
 
 import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -14,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 final class TermuxCommandLauncher {
     static final String ACTION_RESULT = "io.github.codex_cli_voice_android.aecshim.TERMUX_RUN_COMMAND_RESULT";
     static final String EXTRA_KIND = "kind";
+    static final String EXTRA_ITEM_ID = "item_id";
 
     private static final String TERMUX_PACKAGE = "com.termux";
     private static final String TERMUX_RUN_COMMAND_SERVICE = "com.termux.app.RunCommandService";
@@ -159,26 +163,57 @@ final class TermuxCommandLauncher {
         }
     }
 
-    static boolean runSharedIntake(Context context, String shellCommand) {
+    static boolean runSharedIntake(Context context, String shellCommand, String itemId) {
         if (!ensureUsable(context)) {
             return false;
         }
+        Bundle callbackExtras = new Bundle();
+        callbackExtras.putString(EXTRA_ITEM_ID, itemId);
         sendRunCommand(
                 context,
-                "ingest",
+                "share-stage",
                 shellCommand,
-                false,
+                true,
                 "Codex Bridge: Shared Item",
-                "Stages shared Android content and opens a Codex review prompt.",
-                false);
+                "Stages shared Android content in the Codex inbox.",
+                true,
+                callbackExtras);
         return true;
+    }
+
+    static void runSharedReviewLatest(Context context) {
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager != null) {
+            manager.cancel(NotificationIds.SHARE_ID);
+        }
+        if (ensureUsable(context)) {
+            String command = "manifest=\"$HOME/.local/state/codex-stts/latest-share-manifest.txt\"; "
+                    + "if [ ! -s \"$manifest\" ]; then echo 'No Codex inbox item is ready to review.'; exit 1; fi; "
+                    + "path=$(cat \"$manifest\"); "
+                    + "if command -v stts >/dev/null 2>&1; then stts stop >/dev/null 2>&1 || true; exec stts ingest --speak \"$path\"; "
+                    + "else sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" stop >/dev/null 2>&1 || true; "
+                    + "exec sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" ingest --speak \"$path\"; fi";
+            sendRunCommand(
+                    context,
+                    "share-review",
+                    command,
+                    false,
+                    "Codex Bridge: Review Shared Item",
+                    "Reviews the latest saved Codex inbox item.",
+                    false);
+        }
     }
 
     static void handleResult(Context context, Intent intent) {
         String kind = intent == null ? "" : intent.getStringExtra(EXTRA_KIND);
+        String itemId = intent == null ? "" : intent.getStringExtra(EXTRA_ITEM_ID);
         Bundle result = intent == null ? null : intent.getBundleExtra(RESULT_BUNDLE);
         if (result == null) {
-            setUnavailable("Termux did not return a result");
+            if ("share-stage".equals(kind)) {
+                showShareFailureNotification(context, "Termux did not return a result");
+            } else {
+                setUnavailable("Termux did not return a result");
+            }
             refreshBridgeNotification(context);
             return;
         }
@@ -189,14 +224,23 @@ final class TermuxCommandLauncher {
             prefs(context).edit().putBoolean(PREF_AVAILABLE, true).apply();
             AecShimState.termuxControlsState = "available";
             AecShimState.termuxControlsLastError = "";
+        } else if ("share-stage".equals(kind)) {
+            if ((err == Activity.RESULT_OK || err == 0) && exitCode == 0) {
+                showShareSavedNotification(context, itemId == null ? "" : itemId);
+            } else {
+                String detail = errmsg == null || errmsg.isEmpty()
+                        ? "share save failed: err=" + err + " exit=" + exitCode
+                        : errmsg;
+                showShareFailureNotification(context, detail);
+            }
         } else {
             if ("probe".equals(kind)) {
                 rememberUnavailable(context);
+                String detail = errmsg == null || errmsg.isEmpty()
+                        ? "command failed: err=" + err + " exit=" + exitCode
+                        : errmsg;
+                setUnavailable(detail);
             }
-            String detail = errmsg == null || errmsg.isEmpty()
-                    ? "command failed: err=" + err + " exit=" + exitCode
-                    : errmsg;
-            setUnavailable(detail);
         }
         refreshBridgeNotification(context);
     }
@@ -218,6 +262,18 @@ final class TermuxCommandLauncher {
             String label,
             String description,
             boolean wantResult) {
+        sendRunCommand(context, kind, shellCommand, background, label, description, wantResult, null);
+    }
+
+    private static void sendRunCommand(
+            Context context,
+            String kind,
+            String shellCommand,
+            boolean background,
+            String label,
+            String description,
+            boolean wantResult,
+            Bundle callbackExtras) {
         Intent intent = new Intent();
         intent.setClassName(TERMUX_PACKAGE, TERMUX_RUN_COMMAND_SERVICE);
         intent.setAction(ACTION_RUN_COMMAND);
@@ -232,6 +288,9 @@ final class TermuxCommandLauncher {
             Intent callback = new Intent(context, TermuxRunCommandResultReceiver.class);
             callback.setAction(ACTION_RESULT);
             callback.putExtra(EXTRA_KIND, kind);
+            if (callbackExtras != null) {
+                callback.putExtras(callbackExtras);
+            }
             int flags = PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_UPDATE_CURRENT;
             if (Build.VERSION.SDK_INT >= 31) {
                 flags |= PendingIntent.FLAG_MUTABLE;
@@ -249,6 +308,67 @@ final class TermuxCommandLauncher {
             setUnavailable("grant Run commands in Termux permission");
         } catch (Exception e) {
             setUnavailable(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+        }
+    }
+
+    private static void showShareSavedNotification(Context context, String itemId) {
+        createNotificationChannel(context);
+        String text = itemId == null || itemId.isEmpty()
+                ? "Saved to Codex Inbox."
+                : "Saved to Codex Inbox: " + itemId;
+        PendingIntent review = reviewPendingIntent(context);
+        Notification.Builder builder = new Notification.Builder(context, NotificationIds.CHANNEL_ID)
+                .setContentTitle("Shared item saved")
+                .setContentText(text)
+                .setSmallIcon(android.R.drawable.ic_menu_upload)
+                .setContentIntent(review)
+                .setAutoCancel(true)
+                .addAction(android.R.drawable.ic_menu_view, "Review", review);
+        notifyShare(context, builder.build());
+    }
+
+    private static void showShareFailureNotification(Context context, String detail) {
+        createNotificationChannel(context);
+        Notification.Builder builder = new Notification.Builder(context, NotificationIds.CHANNEL_ID)
+                .setContentTitle("Shared item not saved")
+                .setContentText(detail == null || detail.isEmpty() ? "Codex Bridge could not save the shared item." : detail)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setAutoCancel(true);
+        notifyShare(context, builder.build());
+    }
+
+    private static PendingIntent reviewPendingIntent(Context context) {
+        Intent intent = new Intent(context, AecShimService.class);
+        intent.setAction(AecShimService.ACTION_REVIEW_LATEST_SHARE);
+        int flags = Build.VERSION.SDK_INT >= 23
+                ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                : PendingIntent.FLAG_UPDATE_CURRENT;
+        return PendingIntent.getService(context, 30, intent, flags);
+    }
+
+    private static void notifyShare(Context context, Notification notification) {
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager == null) {
+            return;
+        }
+        try {
+            manager.notify(NotificationIds.SHARE_ID, notification);
+        } catch (SecurityException e) {
+            AecShimState.lastError = "Grant notification permission for Codex Bridge share alerts";
+        }
+    }
+
+    private static void createNotificationChannel(Context context) {
+        if (Build.VERSION.SDK_INT < 26) {
+            return;
+        }
+        NotificationChannel channel = new NotificationChannel(
+                NotificationIds.CHANNEL_ID,
+                "Codex Bridge",
+                NotificationManager.IMPORTANCE_LOW);
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager != null) {
+            manager.createNotificationChannel(channel);
         }
     }
 

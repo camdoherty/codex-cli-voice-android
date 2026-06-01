@@ -27,7 +27,6 @@ public final class MainActivity extends Activity {
 
     private TextView statusView;
     private TextView termuxControlsView;
-    private long lastWakeAutoStartAtMs;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable refreshRunnable = new Runnable() {
         @Override
@@ -157,43 +156,11 @@ public final class MainActivity extends Activity {
             return;
         }
         String action = intent.getAction();
-        if (Intent.ACTION_MAIN.equals(action)) {
-            maybeStartWakeWordFromMainLaunch();
-        } else if (ACTION_START_SERVICE.equals(action)) {
+        if (ACTION_START_SERVICE.equals(action)) {
             startShimService();
         } else if (ACTION_STOP_SERVICE.equals(action)) {
             stopShimService();
         }
-    }
-
-    private void maybeStartWakeWordFromMainLaunch() {
-        Intent intent = getIntent();
-        if (intent == null || !Intent.ACTION_MAIN.equals(intent.getAction())) {
-            return;
-        }
-        long now = System.currentTimeMillis();
-        if (now - lastWakeAutoStartAtMs < 2000L) {
-            return;
-        }
-        lastWakeAutoStartAtMs = now;
-        startWakeWordMode();
-    }
-
-    private void startWakeWordMode() {
-        if (!hasRecordAudioPermission()) {
-            AecShimState.lastError = "Grant microphone permission before starting wake word";
-            requestNeededPermissions();
-            refreshStatus();
-            return;
-        }
-        Intent intent = new Intent(this, AecShimService.class);
-        intent.setAction(AecShimService.ACTION_STTS_WAKE);
-        if (Build.VERSION.SDK_INT >= 26) {
-            startForegroundService(intent);
-        } else {
-            startService(intent);
-        }
-        statusView.postDelayed(this::refreshStatus, 500);
     }
 
     private void refreshStatus() {
@@ -218,7 +185,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        maybeStartWakeWordFromMainLaunch();
+        refreshStatus();
     }
 
     private boolean hasRecordAudioPermission() {

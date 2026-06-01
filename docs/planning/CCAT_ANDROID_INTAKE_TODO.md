@@ -5,7 +5,7 @@ This document tracks Android-native intake paths for CCAT.
 ## Android Share Target For Codex Bridge
 
 Goal: let users share text, links, or small files from Android directly to
-Codex Bridge, then have Codex prompt for the next action.
+Codex Bridge, then review them explicitly from a notification or STTS prompt.
 
 Implemented v1 flow:
 
@@ -19,9 +19,11 @@ Implemented v1 flow:
 ~/codex_notes/inbox/
 ```
 
-5. Bridge triggers Termux through the existing approved RunCommand path.
-6. Codex opens in the existing CCAT tmux/STTS surface with a conservative
-   review prompt.
+5. Bridge records the latest staged manifest under STTS local state.
+6. Bridge shows a `Shared item saved` notification with an explicit `Review`
+   action.
+7. The `Review` action triggers Termux through the existing approved RunCommand
+   path and opens Codex in the existing CCAT tmux/STTS surface.
 
 Command shape:
 
@@ -31,7 +33,7 @@ stts ingest ~/codex_notes/inbox/<item>/manifest.json
 
 Safety constraints:
 
-- Stage and prompt first; do not auto-execute shared content.
+- Stage first; do not auto-execute shared content or auto-run Codex review.
 - Do not treat shared files as commands.
 - Keep staged content in the notes inbox unless the user asks for another
   location.

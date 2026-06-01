@@ -95,8 +95,11 @@ Stop
 On supported devices, Assistant/Gemini can launch wake-word mode with:
 
 ```text
-Hey Google, open Codex Bridge
+Hey Google, open Codex Wake Word
 ```
+
+Assistant/Gemini app-name resolution varies by device. `Codex Bridge` itself
+opens the Bridge UI only; it does not auto-arm wake word.
 
 ## Notes
 
@@ -122,8 +125,10 @@ small files are staged under:
 ~/codex_notes/inbox/
 ```
 
-Bridge then opens the STTS/Codex tmux surface with a conservative review prompt:
-summarize what was shared, then ask what to do next.
+Bridge saves the item, shows a `Shared item saved` notification, and offers a
+`Review` action. Tapping `Review` opens the STTS/tmux review and speaks the
+review result aloud. STTS also knows how to inspect the latest inbox item when
+asked things like "what did I share?" or "review the last thing I shared."
 
 ## Why Android?
 
