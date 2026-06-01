@@ -425,6 +425,17 @@ def say_text_termux(text: str, *, stream_name: str = DEFAULT_TTS_STREAM) -> str:
     return f"tts dispatched on {stream_label} stream"
 
 
+def say_text_termux_with_retry(text: str, *, stream_name: str = DEFAULT_TTS_STREAM) -> str:
+    try:
+        return say_text_termux(text, stream_name=stream_name)
+    except RuntimeError as exc:
+        if "terminated" not in str(exc).lower():
+            raise
+        cleanup_voice_helpers()
+        time.sleep(0.5)
+        return say_text_termux(text, stream_name=stream_name)
+
+
 def say_text(
     text: str,
     *,
@@ -444,7 +455,7 @@ def say_text(
             if backend == "shim":
                 raise
 
-    return say_text_termux(spoken, stream_name=stream_name)
+    return say_text_termux_with_retry(spoken, stream_name=stream_name)
 
 
 def protected_process_pids() -> set[int]:
