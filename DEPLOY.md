@@ -418,18 +418,25 @@ client is connected.
 
 ## Android Share Intake
 
-Codex Bridge appears in the Android share sheet. Sharing text, links, or small
-files to Bridge stages them under:
+Codex Bridge appears in the Android share sheet with two targets:
+
+```text
+Codex Bridge: Save to Inbox
+Codex Bridge: Review Now
+```
+
+Both targets stage shared text, links, or small files under:
 
 ```text
 ~/codex_notes/inbox/
 ```
 
-The share path is save-first: Bridge shows a `Shared item saved` notification
-with a `Review` action. It does not auto-run a Codex review just because an
-item was shared. Tapping `Review` opens the STTS/tmux review and speaks the
-review result aloud. You can also ask STTS "what did I share?" / "review the
-last thing I shared."
+`Save to Inbox` records the latest shared item and shows an `Inbox received
+shared item` notification with a `Review` action. `Review Now` stages the item,
+queues `stts ingest --speak`, and speaks a short review. If Termux controls are
+not available, Bridge should show a durable setup/error notification instead of
+failing silently. You can also ask STTS "what did I share?" / "review the last
+thing I shared."
 
 ## Rollback
 

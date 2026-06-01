@@ -20,7 +20,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public final class ShareActivity extends Activity {
+public class ShareActivity extends Activity {
     private static final int MAX_ATTACHMENT_BYTES = 384 * 1024;
     private static final int MAX_TOTAL_ENCODED_BYTES = 700 * 1024;
     private static final int MAX_TEXT_CHARS = 64 * 1024;
@@ -45,8 +45,13 @@ public final class ShareActivity extends Activity {
         finish();
     }
 
+    protected boolean reviewNow() {
+        return false;
+    }
+
     private void handleShare(Intent intent) {
         if (intent == null) {
+            TermuxCommandLauncher.showShareFailureNotification(this, "Nothing was shared to Codex Bridge.");
             toast("Nothing shared to Codex Bridge.");
             return;
         }
@@ -54,17 +59,22 @@ public final class ShareActivity extends Activity {
             collectSharedText(intent);
             collectSharedUris(intent);
             if (textParts.isEmpty() && files.isEmpty()) {
+                TermuxCommandLauncher.showShareFailureNotification(this, "Codex Bridge could not read the shared item.");
                 toast("Codex Bridge could not read the shared item.");
                 return;
             }
             String itemId = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date())
                     + "-android-share";
-            if (TermuxCommandLauncher.runSharedIntake(this, buildTermuxCommand(itemId), itemId)) {
-                toast("Saving to Codex Inbox...");
+            boolean review = reviewNow();
+            TermuxCommandLauncher.showSharePendingNotification(this, review);
+            if (TermuxCommandLauncher.runSharedIntake(this, buildTermuxCommand(itemId, review), itemId, review)) {
+                toast(review ? "Reviewing shared item..." : "Saving to Codex Inbox...");
             } else {
+                TermuxCommandLauncher.showShareFailureNotification(this, "Codex Bridge needs Termux controls setup.");
                 toast("Codex Bridge needs Termux controls setup.");
             }
         } catch (Exception e) {
+            TermuxCommandLauncher.showShareFailureNotification(this, "Codex Bridge share failed: " + safeMessage(e));
             toast("Codex Bridge share failed: " + safeMessage(e));
         }
     }
@@ -158,7 +168,7 @@ public final class ShareActivity extends Activity {
         return new SharedFile(name, mimeType, uri.toString(), encoded, data.length, "");
     }
 
-    private String buildTermuxCommand(String itemId) {
+    private String buildTermuxCommand(String itemId, boolean review) {
         String inboxExpr = "\"$HOME/storage/shared/Documents/codex_notes/inbox\"";
         String fallbackExpr = "\"$HOME/codex_notes/inbox\"";
         String itemDirExpr = "\"$inbox/" + itemId + "\"";
@@ -181,6 +191,11 @@ public final class ShareActivity extends Activity {
         command.append("printf '%s\\n' \"$item/manifest.json\" > \"$state/latest-share-manifest.txt\"\n");
         command.append("printf '%s\\n' \"$item\" > \"$state/latest-share-dir.txt\"\n");
         command.append("printf 'saved %s\\n' \"$item/manifest.json\"\n");
+        if (review) {
+            command.append("if command -v stts >/dev/null 2>&1; then stts stop >/dev/null 2>&1 || true; exec stts ingest --speak \"$item/manifest.json\"; ");
+            command.append("else sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" stop >/dev/null 2>&1 || true; ");
+            command.append("exec sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" ingest --speak \"$item/manifest.json\"; fi\n");
+        }
         return command.toString();
     }
 

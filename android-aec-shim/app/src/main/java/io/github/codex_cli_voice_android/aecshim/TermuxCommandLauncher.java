@@ -18,6 +18,7 @@ final class TermuxCommandLauncher {
     static final String ACTION_RESULT = "io.github.codex_cli_voice_android.aecshim.TERMUX_RUN_COMMAND_RESULT";
     static final String EXTRA_KIND = "kind";
     static final String EXTRA_ITEM_ID = "item_id";
+    static final String EXTRA_REVIEW_NOW = "review_now";
 
     private static final String TERMUX_PACKAGE = "com.termux";
     private static final String TERMUX_RUN_COMMAND_SERVICE = "com.termux.app.RunCommandService";
@@ -104,17 +105,23 @@ final class TermuxCommandLauncher {
     }
 
     static void runStartTalk(Context context) {
-        if (ensureUsable(context)) {
-            sendRunCommand(
-                    context,
-                    "talk",
-                    "if command -v stts >/dev/null 2>&1; then exec stts talk; else exec sh "
-                            + shellQuote(STTS_SCRIPT)
-                            + " talk; fi",
-                    false,
-                    "STTS: Start / Talk",
-                    "Starts or attaches the STTS tmux session and runs one voice turn.",
-                    false);
+        showControlNotification(context, "Starting STTS talk...", "The voice turn is being queued in Termux.");
+        if (!ensureUsable(context)) {
+            showControlErrorNotification(context, AecShimState.termuxControlsSummary());
+            return;
+        }
+        boolean started = sendRunCommand(
+                context,
+                "talk",
+                "if command -v stts >/dev/null 2>&1; then exec stts talk; else exec sh "
+                        + shellQuote(STTS_SCRIPT)
+                        + " talk; fi",
+                true,
+                "STTS: Start / Talk",
+                "Starts the STTS tmux session and runs one voice turn.",
+                true);
+        if (!started) {
+            showControlErrorNotification(context, AecShimState.termuxControlsSummary());
         }
     }
 
@@ -134,42 +141,55 @@ final class TermuxCommandLauncher {
     }
 
     static void runWake(Context context) {
-        if (ensureUsable(context)) {
-            sendRunCommand(
-                    context,
-                    "wake",
-                    "if command -v stts >/dev/null 2>&1; then exec stts wake; else exec sh "
-                            + shellQuote(STTS_SCRIPT)
-                            + " wake; fi",
-                    false,
-                    "STTS: Wake Word",
-                    "Starts or attaches the STTS tmux session and arms wake-word mode.",
-                    false);
+        showControlNotification(context, "Starting wake word...", "Wake word is being armed in Termux.");
+        if (!ensureUsable(context)) {
+            showControlErrorNotification(context, AecShimState.termuxControlsSummary());
+            return;
+        }
+        boolean started = sendRunCommand(
+                context,
+                "wake",
+                "if command -v stts >/dev/null 2>&1; then exec stts wake; else exec sh "
+                        + shellQuote(STTS_SCRIPT)
+                        + " wake; fi",
+                true,
+                "STTS: Wake Word",
+                "Starts the STTS tmux session and arms wake-word mode.",
+                true);
+        if (!started) {
+            showControlErrorNotification(context, AecShimState.termuxControlsSummary());
         }
     }
 
     static void runStop(Context context) {
-        if (ensureUsable(context)) {
-            sendRunCommand(
-                    context,
-                    "stop",
-                    "if command -v stts >/dev/null 2>&1; then exec stts stop; else exec sh "
-                            + shellQuote(STTS_SCRIPT)
-                            + " stop; fi",
-                    true,
-                    "STTS: Stop",
-                    "Stops the STTS tmux session and voice helpers.",
-                    false);
+        showControlNotification(context, "Stopping STTS...", "Audio is cancelled; Termux stop is being queued.");
+        if (!ensureUsable(context)) {
+            showControlErrorNotification(context, AecShimState.termuxControlsSummary());
+            return;
+        }
+        boolean started = sendRunCommand(
+                context,
+                "stop",
+                "if command -v stts >/dev/null 2>&1; then exec stts stop; else exec sh "
+                        + shellQuote(STTS_SCRIPT)
+                        + " stop; fi",
+                true,
+                "STTS: Stop",
+                "Stops the STTS tmux session and voice helpers.",
+                true);
+        if (!started) {
+            showControlErrorNotification(context, AecShimState.termuxControlsSummary());
         }
     }
 
-    static boolean runSharedIntake(Context context, String shellCommand, String itemId) {
+    static boolean runSharedIntake(Context context, String shellCommand, String itemId, boolean reviewNow) {
         if (!ensureUsable(context)) {
             return false;
         }
         Bundle callbackExtras = new Bundle();
         callbackExtras.putString(EXTRA_ITEM_ID, itemId);
-        sendRunCommand(
+        callbackExtras.putBoolean(EXTRA_REVIEW_NOW, reviewNow);
+        return sendRunCommand(
                 context,
                 "share-stage",
                 shellCommand,
@@ -178,7 +198,6 @@ final class TermuxCommandLauncher {
                 "Stages shared Android content in the Codex inbox.",
                 true,
                 callbackExtras);
-        return true;
     }
 
     static void runSharedReviewLatest(Context context) {
@@ -186,6 +205,7 @@ final class TermuxCommandLauncher {
         if (manager != null) {
             manager.cancel(NotificationIds.SHARE_ID);
         }
+        showShareReviewingNotification(context);
         if (ensureUsable(context)) {
             String command = "manifest=\"$HOME/.local/state/codex-stts/latest-share-manifest.txt\"; "
                     + "if [ ! -s \"$manifest\" ]; then echo 'No Codex inbox item is ready to review.'; exit 1; fi; "
@@ -193,24 +213,32 @@ final class TermuxCommandLauncher {
                     + "if command -v stts >/dev/null 2>&1; then stts stop >/dev/null 2>&1 || true; exec stts ingest --speak \"$path\"; "
                     + "else sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" stop >/dev/null 2>&1 || true; "
                     + "exec sh \"$HOME/.codex/skills/stts/scripts/stts-session.sh\" ingest --speak \"$path\"; fi";
-            sendRunCommand(
+            boolean started = sendRunCommand(
                     context,
                     "share-review",
                     command,
-                    false,
+                    true,
                     "Codex Bridge: Review Shared Item",
                     "Reviews the latest saved Codex inbox item.",
-                    false);
+                    true);
+            if (!started) {
+                showShareFailureNotification(context, AecShimState.termuxControlsSummary());
+            }
+        } else {
+            showShareFailureNotification(context, AecShimState.termuxControlsSummary());
         }
     }
 
     static void handleResult(Context context, Intent intent) {
         String kind = intent == null ? "" : intent.getStringExtra(EXTRA_KIND);
         String itemId = intent == null ? "" : intent.getStringExtra(EXTRA_ITEM_ID);
+        boolean reviewNow = intent != null && intent.getBooleanExtra(EXTRA_REVIEW_NOW, false);
         Bundle result = intent == null ? null : intent.getBundleExtra(RESULT_BUNDLE);
         if (result == null) {
-            if ("share-stage".equals(kind)) {
+            if (isShareKind(kind)) {
                 showShareFailureNotification(context, "Termux did not return a result");
+            } else if (isControlKind(kind)) {
+                showControlErrorNotification(context, "Termux did not return a result");
             } else {
                 setUnavailable("Termux did not return a result");
             }
@@ -226,12 +254,34 @@ final class TermuxCommandLauncher {
             AecShimState.termuxControlsLastError = "";
         } else if ("share-stage".equals(kind)) {
             if ((err == Activity.RESULT_OK || err == 0) && exitCode == 0) {
-                showShareSavedNotification(context, itemId == null ? "" : itemId);
+                if (reviewNow) {
+                    showShareReviewStartedNotification(context);
+                } else {
+                    showShareSavedNotification(context, itemId == null ? "" : itemId);
+                }
             } else {
                 String detail = errmsg == null || errmsg.isEmpty()
                         ? "share save failed: err=" + err + " exit=" + exitCode
                         : errmsg;
                 showShareFailureNotification(context, detail);
+            }
+        } else if ("share-review".equals(kind)) {
+            if ((err == Activity.RESULT_OK || err == 0) && exitCode == 0) {
+                showShareReviewStartedNotification(context);
+            } else {
+                String detail = errmsg == null || errmsg.isEmpty()
+                        ? "review failed: err=" + err + " exit=" + exitCode
+                        : errmsg;
+                showShareFailureNotification(context, detail);
+            }
+        } else if (isControlKind(kind)) {
+            if ((err == Activity.RESULT_OK || err == 0) && exitCode == 0) {
+                showControlSuccessNotification(context, kind);
+            } else {
+                String detail = errmsg == null || errmsg.isEmpty()
+                        ? "command failed: err=" + err + " exit=" + exitCode
+                        : errmsg;
+                showControlErrorNotification(context, detail);
             }
         } else {
             if ("probe".equals(kind)) {
@@ -254,7 +304,15 @@ final class TermuxCommandLauncher {
                 && context.checkSelfPermission(TERMUX_RUN_COMMAND_PERMISSION) == PackageManager.PERMISSION_GRANTED;
     }
 
-    private static void sendRunCommand(
+    private static boolean isShareKind(String kind) {
+        return "share-stage".equals(kind) || "share-review".equals(kind);
+    }
+
+    private static boolean isControlKind(String kind) {
+        return "talk".equals(kind) || "wake".equals(kind) || "stop".equals(kind);
+    }
+
+    private static boolean sendRunCommand(
             Context context,
             String kind,
             String shellCommand,
@@ -262,10 +320,10 @@ final class TermuxCommandLauncher {
             String label,
             String description,
             boolean wantResult) {
-        sendRunCommand(context, kind, shellCommand, background, label, description, wantResult, null);
+        return sendRunCommand(context, kind, shellCommand, background, label, description, wantResult, null);
     }
 
-    private static void sendRunCommand(
+    private static boolean sendRunCommand(
             Context context,
             String kind,
             String shellCommand,
@@ -304,21 +362,57 @@ final class TermuxCommandLauncher {
         }
         try {
             context.startService(intent);
+            return true;
         } catch (SecurityException e) {
             setUnavailable("grant Run commands in Termux permission");
         } catch (Exception e) {
             setUnavailable(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
         }
+        return false;
+    }
+
+    static void showSharePendingNotification(Context context, boolean reviewNow) {
+        if (reviewNow) {
+            showShareReviewingNotification(context);
+            return;
+        }
+        createNotificationChannel(context);
+        Notification.Builder builder = new Notification.Builder(context, NotificationIds.CHANNEL_ID)
+                .setContentTitle("Saving to Codex Inbox...")
+                .setContentText("Shared content is being staged in Termux.")
+                .setSmallIcon(android.R.drawable.stat_sys_upload)
+                .setOngoing(true);
+        notifyShare(context, builder.build());
+    }
+
+    private static void showShareReviewingNotification(Context context) {
+        createNotificationChannel(context);
+        Notification.Builder builder = new Notification.Builder(context, NotificationIds.CHANNEL_ID)
+                .setContentTitle("Reviewing shared item...")
+                .setContentText("Codex is preparing a spoken review.")
+                .setSmallIcon(android.R.drawable.ic_menu_view)
+                .setOngoing(true);
+        notifyShare(context, builder.build());
+    }
+
+    private static void showShareReviewStartedNotification(Context context) {
+        createNotificationChannel(context);
+        Notification.Builder builder = new Notification.Builder(context, NotificationIds.CHANNEL_ID)
+                .setContentTitle("Review started")
+                .setContentText("Codex will speak when the review is ready.")
+                .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+                .setAutoCancel(true);
+        notifyShare(context, builder.build());
     }
 
     private static void showShareSavedNotification(Context context, String itemId) {
         createNotificationChannel(context);
         String text = itemId == null || itemId.isEmpty()
-                ? "Saved to Codex Inbox."
-                : "Saved to Codex Inbox: " + itemId;
+                ? "Inbox received shared item."
+                : "Inbox received shared item: " + itemId;
         PendingIntent review = reviewPendingIntent(context);
         Notification.Builder builder = new Notification.Builder(context, NotificationIds.CHANNEL_ID)
-                .setContentTitle("Shared item saved")
+                .setContentTitle("Inbox received shared item")
                 .setContentText(text)
                 .setSmallIcon(android.R.drawable.ic_menu_upload)
                 .setContentIntent(review)
@@ -327,7 +421,7 @@ final class TermuxCommandLauncher {
         notifyShare(context, builder.build());
     }
 
-    private static void showShareFailureNotification(Context context, String detail) {
+    static void showShareFailureNotification(Context context, String detail) {
         createNotificationChannel(context);
         Notification.Builder builder = new Notification.Builder(context, NotificationIds.CHANNEL_ID)
                 .setContentTitle("Shared item not saved")
@@ -335,6 +429,33 @@ final class TermuxCommandLauncher {
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setAutoCancel(true);
         notifyShare(context, builder.build());
+    }
+
+    private static void showControlSuccessNotification(Context context, String kind) {
+        if ("wake".equals(kind)) {
+            showControlNotification(context, "Wake word requested", "STTS wake word is starting in Termux.");
+        } else if ("talk".equals(kind)) {
+            showControlNotification(context, "STTS talk requested", "Tap Attach Session to view the tmux workspace.");
+        } else if ("stop".equals(kind)) {
+            showControlNotification(context, "STTS stop requested", "Voice helpers are stopping.");
+        }
+    }
+
+    private static void showControlErrorNotification(Context context, String detail) {
+        showControlNotification(
+                context,
+                "Codex Bridge setup required",
+                detail == null || detail.isEmpty() ? "Termux controls are not available." : detail);
+    }
+
+    private static void showControlNotification(Context context, String title, String text) {
+        createNotificationChannel(context);
+        Notification.Builder builder = new Notification.Builder(context, NotificationIds.CHANNEL_ID)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setAutoCancel(true);
+        notifyControl(context, builder.build());
     }
 
     private static PendingIntent reviewPendingIntent(Context context) {
@@ -355,6 +476,18 @@ final class TermuxCommandLauncher {
             manager.notify(NotificationIds.SHARE_ID, notification);
         } catch (SecurityException e) {
             AecShimState.lastError = "Grant notification permission for Codex Bridge share alerts";
+        }
+    }
+
+    private static void notifyControl(Context context, Notification notification) {
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager == null) {
+            return;
+        }
+        try {
+            manager.notify(NotificationIds.CONTROL_ID, notification);
+        } catch (SecurityException e) {
+            AecShimState.lastError = "Grant notification permission for Codex Bridge controls";
         }
     }
 

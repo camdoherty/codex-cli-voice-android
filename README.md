@@ -118,17 +118,23 @@ When shared storage is available, this points to:
 STTS/Codex can create, read, append, open, and share Markdown notes there when
 asked.
 
-Codex Bridge also appears in the Android share sheet. Shared text, links, and
-small files are staged under:
+Codex Bridge exposes two Android share targets:
+
+```text
+Codex Bridge: Save to Inbox
+Codex Bridge: Review Now
+```
+
+Both stage shared text, links, and small files under:
 
 ```text
 ~/codex_notes/inbox/
 ```
 
-Bridge saves the item, shows a `Shared item saved` notification, and offers a
-`Review` action. Tapping `Review` opens the STTS/tmux review and speaks the
-review result aloud. STTS also knows how to inspect the latest inbox item when
-asked things like "what did I share?" or "review the last thing I shared."
+`Save to Inbox` records the latest shared item and shows a durable notification
+with a `Review` action. `Review Now` immediately queues an STTS/tmux review and
+speaks a short summary. STTS can also inspect the latest inbox item when asked
+things like "what did I share?" or "review the last thing I shared."
 
 ## Why Android?
 

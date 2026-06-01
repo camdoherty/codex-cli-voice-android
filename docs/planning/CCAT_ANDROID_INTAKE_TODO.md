@@ -9,7 +9,8 @@ Codex Bridge, then review them explicitly from a notification or STTS prompt.
 
 Implemented v1 flow:
 
-1. User shares text, a link, or a file to `Codex Bridge`.
+1. User shares text, a link, or a file to `Codex Bridge: Save to Inbox` or
+   `Codex Bridge: Review Now`.
 2. Bridge receives `ACTION_SEND` or `ACTION_SEND_MULTIPLE`.
 3. Bridge reads shared `content://` payloads through `ContentResolver`.
 4. Bridge stages small payloads through the approved Termux RunCommand path
@@ -20,15 +21,15 @@ Implemented v1 flow:
 ```
 
 5. Bridge records the latest staged manifest under STTS local state.
-6. Bridge shows a `Shared item saved` notification with an explicit `Review`
-   action.
-7. The `Review` action triggers Termux through the existing approved RunCommand
-   path and opens Codex in the existing CCAT tmux/STTS surface.
+6. Save to Inbox shows an `Inbox received shared item` notification with an
+   explicit `Review` action.
+7. Review Now, or the later `Review` action, triggers Termux through the
+   existing approved RunCommand path and queues a spoken STTS review.
 
 Command shape:
 
 ```sh
-stts ingest ~/codex_notes/inbox/<item>/manifest.json
+stts ingest --speak ~/codex_notes/inbox/<item>/manifest.json
 ```
 
 Safety constraints:

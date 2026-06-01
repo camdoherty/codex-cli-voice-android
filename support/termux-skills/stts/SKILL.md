@@ -95,18 +95,17 @@ Android note apps and file managers can see the files.
 ## Android Share Intake
 
 Codex Bridge can stage Android share-sheet content under
-`~/codex_notes/inbox/<item>/`. The Bridge share path is save-first: it should
-save the item and offer a `Review` notification action, not force an immediate
-review or spoken summary.
+`~/codex_notes/inbox/<item>/`. Bridge exposes two share targets:
+`Codex Bridge: Save to Inbox` and `Codex Bridge: Review Now`.
 
-Explicit review can launch:
+Save to Inbox should save the item and offer a `Review` notification action.
+Review Now should queue:
 
 ```sh
-sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" ingest "$HOME/codex_notes/inbox/<item>/manifest.json"
+sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" ingest --speak "$HOME/codex_notes/inbox/<item>/manifest.json"
 ```
 
-For notification-driven review, use `ingest --speak <manifest>` so the review
-appears in tmux and is read aloud.
+Manual visual-only review can omit `--speak`.
 
 If the user asks what they shared or asks to review the latest shared item,
 inspect `$HOME/.local/state/codex-stts/latest-share-manifest.txt` first. For
