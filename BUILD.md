@@ -26,9 +26,9 @@ For publishable releases, use the release scripts as the canonical path:
 
 ```bash
 scripts/release_prepare.sh rust-v0.136.0 --iteration 1
-scripts/release_build.sh v0.136.0-ccva.3
-scripts/release_validate_device.sh v0.136.0-ccva.3 --target Pixel6a
-scripts/release_publish.sh v0.136.0-ccva.3 --stable
+scripts/release_build.sh v0.136.0-ccva.4
+scripts/release_validate_device.sh v0.136.0-ccva.4 --fresh --target Pixel6a
+scripts/release_publish.sh v0.136.0-ccva.4 --stable
 ```
 
 `release_publish.sh` is dry-run/check-only by default. Add `--execute` only
@@ -59,6 +59,11 @@ Android UI approvals, Codex sign-in, Bridge microphone permission, widget
 overlay permission, Wake Word human testing, and billable Realtime checks remain
 explicit validation steps.
 
+For `v0.136.0-ccva.4`, the release build also enforces the Android RMCP
+OAuth/TLS regression guard. The graph, staged binary, and packaged CLI tarball
+must not contain `rustls-platform-verifier`; Android RMCP OAuth bootstrap is
+routed through Codex's shared HTTP client instead.
+
 ## Lower-Level Build Commands
 
 Patch-only preflight:
@@ -87,14 +92,14 @@ codex-cli-voice-android-rust-v0.136.0.tar.gz.metadata
 For publishable CCVA release artifacts, use the release wrapper:
 
 ```bash
-scripts/release_build.sh v0.136.0-ccva.3
+scripts/release_build.sh v0.136.0-ccva.4
 ```
 
-That writes versioned assets under `dist/v0.136.0-ccva.3/`, for example:
+That writes versioned assets under `dist/v0.136.0-ccva.4/`, for example:
 
 ```text
-codex-cli-voice-android-rust-v0.136.0-ccva.3.tar.gz
-codex-aec-shim-v0.136.0-ccva.3-debug.apk
+codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz
+codex-aec-shim-v0.136.0-ccva.4-debug.apk
 ```
 
 Cargo output is cached outside the source clone through:

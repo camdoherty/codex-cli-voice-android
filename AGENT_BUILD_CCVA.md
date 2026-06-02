@@ -189,18 +189,18 @@ For a publishable release candidate, use the release pipeline:
 
 ```bash
 scripts/release_prepare.sh rust-v0.136.0 --iteration 1
-scripts/release_build.sh v0.136.0-ccva.3
+scripts/release_build.sh v0.136.0-ccva.4
 ```
 
 Expected release outputs are under `dist/<release-tag>/`:
 
 ```text
-dist/v0.136.0-ccva.3/codex-cli-voice-android-rust-v0.136.0-ccva.3.tar.gz
-dist/v0.136.0-ccva.3/codex-cli-voice-android-rust-v0.136.0-ccva.3.tar.gz.sha256
-dist/v0.136.0-ccva.3/codex-cli-voice-android-rust-v0.136.0-ccva.3.tar.gz.metadata
-dist/v0.136.0-ccva.3/codex-aec-shim-v0.136.0-ccva.3-debug.apk
-dist/v0.136.0-ccva.3/codex-aec-shim-v0.136.0-ccva.3-debug.apk.sha256
-dist/v0.136.0-ccva.3/v0.136.0-ccva.3.json
+dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz
+dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz.sha256
+dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz.metadata
+dist/v0.136.0-ccva.4/codex-aec-shim-v0.136.0-ccva.4-debug.apk
+dist/v0.136.0-ccva.4/codex-aec-shim-v0.136.0-ccva.4-debug.apk.sha256
+dist/v0.136.0-ccva.4/v0.136.0-ccva.4.json
 ```
 
 For lower-level local iteration, build the Android shim APK directly:
@@ -237,7 +237,7 @@ sha256sum -c codex-cli-voice-android-rust-v0.136.0.tar.gz.sha256
 For a release candidate, prefer:
 
 ```bash
-scripts/release_doctor.sh v0.136.0-ccva.3
+scripts/release_doctor.sh v0.136.0-ccva.4
 ```
 
 ## Deploy With SSH
@@ -282,6 +282,10 @@ If this fails after a fresh Termux reinstall, remove only the stale host entry
 for that device/port from `known_hosts`, confirm the new fingerprint with the
 user, and retry. Do not disable host-key checking globally.
 
+Also re-check `whoami` after a fresh Termux reinstall. The Termux app UID can
+change, so update `PIXEL_USER` or the SSH config host entry before running
+deployment scripts.
+
 Configure `.env`:
 
 ```bash
@@ -302,14 +306,14 @@ Deploy the CLI package:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  dist/v0.136.0-ccva.3/codex-cli-voice-android-rust-v0.136.0-ccva.3.tar.gz \
-  dist/v0.136.0-ccva.3/codex-cli-voice-android-rust-v0.136.0-ccva.3.tar.gz.sha256
+  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz \
+  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz.sha256
 ```
 
 Or use the release validation wrapper:
 
 ```bash
-scripts/release_validate_device.sh v0.136.0-ccva.3 --fresh --target Pixel6a
+scripts/release_validate_device.sh v0.136.0-ccva.4 --fresh --target Pixel6a
 ```
 
 Stage the shim APK to Android Downloads from inside Termux. If the APK was
@@ -318,12 +322,14 @@ repo/release asset path that exists on the phone.
 
 ```sh
 sh scripts/install_aec_shim_apk.sh \
-  /path/on/phone/to/app-debug.apk
+  /path/on/phone/to/codex-aec-shim-v0.136.0-ccva.4-debug.apk
 ```
 
-If Android's installer does not open, ask the user to open the APK from
-Downloads and install it manually. Then ask the user to open the shim app and
-grant microphone permission.
+The helper stages the APK with its versioned basename in Android Downloads.
+Treat `termux-open` as an attempted installer launch only. If Android's
+installer does not open, ask the user to open the APK from Downloads and
+install it manually. Then ask the user to open Codex Bridge and grant
+microphone permission.
 
 ## Smoke Tests
 
@@ -358,6 +364,14 @@ try:
 finally:
     s.close()
 PY
+```
+
+For `v0.136.0-ccva.4`, also verify the installed binary does not contain the
+Android RMCP platform verifier panic path:
+
+```sh
+strings "$PREFIX/libexec/codex-cli-voice-android/codex.bin" |
+  grep -F "rustls-platform-verifier" && echo "bad" || echo "tls-guard-ok"
 ```
 
 From a cloned repo on the phone:

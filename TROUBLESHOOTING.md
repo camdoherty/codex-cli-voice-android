@@ -39,7 +39,7 @@ retry `curl`.
 The installer stages the shim APK into:
 
 ```text
-$HOME/storage/downloads/codex-aec-shim-debug.apk
+$HOME/storage/downloads/<codex-aec-shim-version>-debug.apk
 ```
 
 If that path is missing, approve the Android storage prompt from:
@@ -57,11 +57,13 @@ sh install.sh --no-shim
 to skip APK staging.
 
 If Android blocks the APK install, open Downloads manually, tap
-`codex-aec-shim-debug.apk`, and allow installs from the file manager or Termux
-when Android asks. After installing, open the shim app and grant microphone
-permission. On staging devices with ADB, installing the staged Bridge APK with
-`adb install -r` is a valid assisted path if file-manager or share-sheet routes
-fail.
+the staged `codex-aec-shim-...-debug.apk`, and allow installs from the file
+manager or Termux when Android asks. `termux-open` is only an attempted launch;
+verify with `pm path io.github.codex_cli_voice_android.aecshim` or the
+loopback port, not by command exit status alone. After installing, open Codex
+Bridge and grant microphone permission. On staging devices with ADB, installing
+the staged Bridge APK with `adb install -r` is a valid assisted path if
+file-manager or share-sheet routes fail.
 
 ## ADB Install Of Termux Fails
 
@@ -218,6 +220,19 @@ Confirm `.env` contains the right Termux SSH target:
 PIXEL_HOST=android-device-host-or-ip
 PIXEL_USER=termux-ssh-user
 PIXEL_PORT=8022
+```
+
+On a fresh Termux reinstall, `whoami` can change. Verify the current user with:
+
+```sh
+ssh -p 8022 termux-user@android-host 'whoami'
+```
+
+Then update `PIXEL_USER` or your SSH config. If the host key changed, remove
+only the stale known-host entry for that exact host and port:
+
+```sh
+ssh-keygen -f ~/.ssh/known_hosts -R '[android-host]:8022'
 ```
 
 If you use a dedicated private key, set:

@@ -13,13 +13,21 @@ if [ ! -d "$HOME/storage/downloads" ]; then
     exit 1
 fi
 
-DEST="$HOME/storage/downloads/codex-aec-shim-debug.apk"
+base="$(basename "$APK")"
+case "$base" in
+    *[!A-Za-z0-9._-]*|""|.*)
+        echo "Invalid APK basename: $base" >&2
+        exit 1
+        ;;
+esac
+
+DEST="$HOME/storage/downloads/$base"
 cp "$APK" "$DEST"
 echo "staged=$DEST"
 echo "Install this APK from Android Downloads if the package installer does not open."
 
 if command -v termux-open >/dev/null 2>&1; then
-    termux-open "$DEST"
+    termux-open "$DEST" || true
 else
     echo "Open $DEST from Android Downloads to install the shim APK."
 fi

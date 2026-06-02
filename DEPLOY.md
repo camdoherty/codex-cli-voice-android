@@ -26,13 +26,13 @@ For release candidates built with `scripts/release_build.sh`, prefer the
 validation wrapper before publishing:
 
 ```bash
-scripts/release_validate_device.sh v0.136.0-ccva.3 --target Pixel6a
+scripts/release_validate_device.sh v0.136.0-ccva.4 --target Pixel6a
 ```
 
 For a first install on a clean Termux target:
 
 ```bash
-scripts/release_validate_device.sh v0.136.0-ccva.3 --fresh --target Pixel6a
+scripts/release_validate_device.sh v0.136.0-ccva.4 --fresh --target Pixel6a
 ```
 
 The wrapper runs `release_doctor`, deploys the CLI package through
@@ -44,6 +44,9 @@ The wrapper does not replace human-visible Android checks. Bridge APK install,
 microphone permission, widget overlay permission, Codex sign-in, `STTS: Start +
 Talk`, `STTS: Wake Word`, and billable Realtime remain explicit validation
 steps.
+
+The wrapper deploys and validates the CLI package only. Stage or install the
+matching Codex Bridge APK separately, then verify `127.0.0.1:8765` from Termux.
 
 ## Configure Target
 
@@ -68,6 +71,11 @@ SSH_CONFIG=/dev/null
 ```
 
 Despite the `PIXEL_*` variable names, the target can be any Android device running Termux with SSH enabled.
+
+After a fresh Termux reinstall, the Linux app UID and therefore `whoami` can
+change. Always run `whoami` over SSH and update `PIXEL_USER` before deployment.
+Do not keep using an older `u0_a...` value just because it worked for a prior
+install.
 
 ## Establish SSH For Agent-Assisted Setup
 
@@ -117,8 +125,8 @@ then reconnect. Do not disable host-key checking globally.
 
 ```bash
 scripts/deploy_termux_package.sh \
-  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz \
-  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.sha256
+  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz \
+  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz.sha256
 ```
 
 The script refuses to continue if the remote checksum differs.
@@ -127,8 +135,8 @@ For a first install on a clean Termux device:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz \
-  codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz.sha256
+  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz \
+  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz.sha256
 ```
 
 The deploy also installs or updates:
@@ -506,11 +514,14 @@ Stage locally built or pre-release shim APKs into shared Downloads, not Termux
 private storage:
 
 ```sh
-sh scripts/install_aec_shim_apk.sh ./codex-aec-shim-debug.apk
+sh scripts/install_aec_shim_apk.sh \
+  ./dist/v0.136.0-ccva.4/codex-aec-shim-v0.136.0-ccva.4-debug.apk
 ```
 
-If Android's installer does not appear, open the staged APK from the Android
-Downloads app. After install, open the shim app from Android, grant microphone
+The helper preserves the APK basename in Downloads. `termux-open` is an
+attempted installer launch only. If Android's installer does not appear, open
+the staged APK from Android Downloads or a file manager and install it
+manually. After install, open Codex Bridge from Android, grant microphone
 permission, and verify the service:
 
 ```sh
@@ -531,6 +542,16 @@ sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" \
 ```
 
 The final TTS smoke requires user audible confirmation.
+
+For release candidates, record both states separately:
+
+```text
+apk_staged=/storage/emulated/0/Download/<versioned-bridge-apk>
+bridge_port=ok
+```
+
+Do not mark the Bridge APK updated solely because `termux-open` or `am start`
+returned successfully.
 
 ## Developer Bridge APK Update
 
