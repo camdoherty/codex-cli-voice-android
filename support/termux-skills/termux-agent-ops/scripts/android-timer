@@ -1,0 +1,62 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+label="Timer"
+skip_ui="true"
+dry_run=0
+
+usage() {
+	printf 'usage: %s [--label text] [--show-ui] [--dry-run] seconds\n' "$0"
+}
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--label|--message) label="$2"; shift 2 ;;
+		--show-ui) skip_ui="false"; shift ;;
+		--dry-run) dry_run=1; shift ;;
+		-h|--help) usage; exit 0 ;;
+		--)
+			shift
+			break
+			;;
+		-*)
+			printf 'unknown option: %s\n' "$1" >&2
+			usage >&2
+			exit 2
+			;;
+		*) break ;;
+	esac
+done
+
+[ "$#" -eq 1 ] || {
+	usage >&2
+	exit 2
+}
+
+seconds="$1"
+case "$seconds" in
+	''|*[!0-9]*)
+		printf 'seconds must be a positive integer\n' >&2
+		exit 2
+		;;
+esac
+[ "$seconds" -gt 0 ] || {
+	printf 'seconds must be greater than zero\n' >&2
+	exit 2
+}
+
+command -v am >/dev/null 2>&1 || {
+	printf 'missing am command\n' >&2
+	exit 1
+}
+
+if [ "$dry_run" -eq 1 ]; then
+	printf 'am start -W -a android.intent.action.SET_TIMER --ei android.intent.extra.alarm.LENGTH %s --es android.intent.extra.alarm.MESSAGE %s --ez android.intent.extra.alarm.SKIP_UI %s\n' "$seconds" "$label" "$skip_ui"
+	exit 0
+fi
+
+am start -W \
+	-a android.intent.action.SET_TIMER \
+	--ei android.intent.extra.alarm.LENGTH "$seconds" \
+	--es android.intent.extra.alarm.MESSAGE "$label" \
+	--ez android.intent.extra.alarm.SKIP_UI "$skip_ui"

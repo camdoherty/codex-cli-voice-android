@@ -1,0 +1,46 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+mode="${1:-notification}"
+case "$mode" in
+	notification)
+		required="termux-api-start termux-notification termux-toast"
+		;;
+	speech)
+		required="termux-api-start termux-tts-speak termux-speech-to-text"
+		;;
+	clipboard)
+		required="termux-api-start termux-clipboard-get termux-clipboard-set"
+		;;
+	dialog)
+		required="termux-api-start termux-dialog"
+		;;
+	intent)
+		required="am"
+		;;
+	share)
+		required="termux-api-start termux-share termux-open termux-open-url"
+		;;
+	device)
+		required="termux-api-start termux-battery-status termux-wifi-connectioninfo termux-vibrate termux-wake-lock termux-wake-unlock"
+		;;
+	all)
+		required="termux-api-start am termux-notification termux-toast termux-dialog termux-clipboard-get termux-clipboard-set termux-tts-speak termux-speech-to-text termux-share termux-open termux-open-url termux-battery-status termux-wifi-connectioninfo termux-vibrate termux-wake-lock termux-wake-unlock"
+		;;
+	*)
+		printf 'usage: %s [notification|speech|clipboard|dialog|intent|share|device|all]\n' "$0" >&2
+		exit 2
+		;;
+esac
+
+missing=0
+for cmd in $required; do
+	if path="$(command -v "$cmd" 2>/dev/null)"; then
+		printf 'ok\t%s\t%s\n' "$cmd" "$path"
+	else
+		printf 'missing\t%s\n' "$cmd"
+		missing=1
+	fi
+done
+
+exit "$missing"

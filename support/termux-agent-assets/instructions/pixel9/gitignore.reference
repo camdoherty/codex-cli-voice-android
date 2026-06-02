@@ -1,0 +1,116 @@
+# Secrets and identity
+.ssh/
+.termux_authinfo
+.oaienv
+
+# Codex state, logs, caches, and sessions.
+# Track only custom reusable instructions/skills; keep generated/private state ignored.
+.codex/*
+!.codex/skills/
+.codex/skills/*
+!.codex/skills/codex-overview/
+!.codex/skills/codex-overview/**
+!.codex/skills/termux-agent-ops/
+!.codex/skills/termux-agent-ops/**
+!.codex/skills/stts/
+!.codex/skills/stts/**
+!.codex/wws-triage/
+.codex/wws-triage/*
+!.codex/wws-triage/AGENTS.md
+.codex/skills/.system/
+.codex/**/.git/
+.codex/**/__pycache__/
+.codex/**/*.py[cod]
+.codex/**/*.bak*
+.codex/**/runtime/
+.codex/**/*.log
+.codex/**/*.sqlite*
+.codex/auth.json*
+.codex/history.jsonl
+.codex/memories/
+.codex/sessions/
+.codex/log/
+.codex/cache/
+.codex/tmp/
+.codex/.tmp/
+.codex/plugins/
+
+# Caches and local generated state
+.cache/
+.local/
+tmp/
+downloads/
+runtime/
+**/runtime/
+*_codex_test.txt
+tmp_codex/
+tmp_codex_vault/
+archives/
+codex-script-backups*/
+codex-script-backups-latest
+
+# Termux and shell local configuration/state
+.termux/
+.zcompdump*
+.shell.pre-oh-my-zsh
+.zshrc.bck
+.config/cava/
+.config/glow/
+.config/htop/
+.config/pulse/
+
+# Shell/editor histories
+.*_history
+.bash_history
+.zsh_history
+.lesshst
+.viminfo
+.wget-hsts
+.config/micro/buffers/
+
+# External nested repositories
+.oh-my-zsh/
+oh1/
+
+# Android shared storage mount/symlinks
+storage/
+
+# Logs and runtime outputs
+*.log
+*.out
+*.pid
+*.sock
+notification_replies.txt
+skill-notification-replies.txt
+skill-reply-test.txt
+
+# Backups, archives, and downloaded packages
+*.tar
+*.tar.gz
+*.tar.gz.sha256
+*.tgz
+*.zip
+*.bak
+*.backup
+
+# Build artifacts and dependency folders
+node_modules/
+dist/
+build/
+target/
+__pycache__/
+*.py[cod]
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Local scratch/test artifacts
+image-test.jpeg
+jarvis_planning.md
+tmp.md
+voice_test_note
+weathertest.md
+dev/local-device-worktrees/

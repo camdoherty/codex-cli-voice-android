@@ -1,0 +1,86 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+hour=""
+minute=""
+label="Alarm"
+skip_ui="true"
+dry_run=0
+
+usage() {
+	printf 'usage: %s [--label text] [--show-ui] [--dry-run] HH:MM\n' "$0"
+	printf '       %s [--label text] [--show-ui] [--dry-run] --hour H --minute M\n' "$0"
+}
+
+strip_zeroes() {
+	value="$(printf '%s' "$1" | sed 's/^0*//')"
+	[ -n "$value" ] || value=0
+	printf '%s\n' "$value"
+}
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--hour) hour="$2"; shift 2 ;;
+		--minute|--minutes) minute="$2"; shift 2 ;;
+		--label|--message) label="$2"; shift 2 ;;
+		--show-ui) skip_ui="false"; shift ;;
+		--dry-run) dry_run=1; shift ;;
+		-h|--help) usage; exit 0 ;;
+		--)
+			shift
+			break
+			;;
+		-*)
+			printf 'unknown option: %s\n' "$1" >&2
+			usage >&2
+			exit 2
+			;;
+		*) break ;;
+	esac
+done
+
+if [ -z "$hour" ] && [ -z "$minute" ] && [ "$#" -eq 1 ]; then
+	time="$1"
+	case "$time" in
+		*:*)
+			hour="${time%%:*}"
+			minute="${time#*:}"
+			;;
+		*)
+			usage >&2
+			exit 2
+			;;
+	esac
+fi
+
+case "$hour" in ''|*[!0-9]*) printf 'hour must be 0-23\n' >&2; exit 2 ;; esac
+case "$minute" in ''|*[!0-9]*) printf 'minute must be 0-59\n' >&2; exit 2 ;; esac
+
+hour="$(strip_zeroes "$hour")"
+minute="$(strip_zeroes "$minute")"
+
+[ "$hour" -ge 0 ] && [ "$hour" -le 23 ] || {
+	printf 'hour must be 0-23\n' >&2
+	exit 2
+}
+[ "$minute" -ge 0 ] && [ "$minute" -le 59 ] || {
+	printf 'minute must be 0-59\n' >&2
+	exit 2
+}
+
+command -v am >/dev/null 2>&1 || {
+	printf 'missing am command\n' >&2
+	exit 1
+}
+
+if [ "$dry_run" -eq 1 ]; then
+	printf 'am start -W -a android.intent.action.SET_ALARM --ei android.intent.extra.alarm.HOUR %s --ei android.intent.extra.alarm.MINUTES %s --es android.intent.extra.alarm.MESSAGE %s --ez android.intent.extra.alarm.SKIP_UI %s\n' "$hour" "$minute" "$label" "$skip_ui"
+	exit 0
+fi
+
+am start -W \
+	-a android.intent.action.SET_ALARM \
+	--ei android.intent.extra.alarm.HOUR "$hour" \
+	--ei android.intent.extra.alarm.MINUTES "$minute" \
+	--es android.intent.extra.alarm.MESSAGE "$label" \
+	--ez android.intent.extra.alarm.SKIP_UI "$skip_ui"

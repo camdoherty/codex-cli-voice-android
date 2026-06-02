@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Overview"
+  short_description: "Find recent Pixel and Devbox Codex sessions"
+  default_prompt: "Use $codex-overview to list recent Codex work across Pixel and Devbox."

@@ -1,0 +1,67 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+prefix="/data/data/com.termux/files/usr"
+home="${HOME:-/data/data/com.termux/files/home}"
+skill_dir="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+
+title="Codex"
+content="Reply with a prompt"
+out="$home/notification_replies.txt"
+id="42430"
+button="Reply"
+ack="Reply sent to Codex"
+priority="default"
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--title) title="$2"; shift 2 ;;
+		--content) content="$2"; shift 2 ;;
+		--out|--file) out="$2"; shift 2 ;;
+		--id) id="$2"; shift 2 ;;
+		--button) button="$2"; shift 2 ;;
+		--ack) ack="$2"; shift 2 ;;
+		--priority) priority="$2"; shift 2 ;;
+		-h|--help)
+			printf 'usage: %s [--title text] [--content text] [--out file] [--id id]\n' "$0"
+			exit 0
+			;;
+		*)
+			printf 'unknown option: %s\n' "$1" >&2
+			exit 2
+			;;
+	esac
+done
+
+quote() {
+	printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+api_start="$prefix/bin/termux-api-start"
+notification="$prefix/bin/termux-notification"
+toast="$prefix/bin/termux-toast"
+save="$skill_dir/scripts/save-notification-reply"
+
+command -v "$api_start" >/dev/null 2>&1 || {
+	printf 'missing termux-api-start at %s\n' "$api_start" >&2
+	exit 1
+}
+command -v "$notification" >/dev/null 2>&1 || {
+	printf 'missing termux-notification at %s\n' "$notification" >&2
+	exit 1
+}
+
+"$api_start" >/dev/null 2>&1 || true
+
+action="$(quote "$save") $(quote "$out") \"\$REPLY\""
+if command -v "$toast" >/dev/null 2>&1; then
+	action="$action; $(quote "$toast") $(quote "$ack")"
+fi
+
+"$notification" \
+	--title "$title" \
+	--content "$content" \
+	--id "$id" \
+	--priority "$priority" \
+	--button1 "$button" \
+	--button1-action "$action"

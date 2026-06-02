@@ -1,0 +1,4 @@
+interface:
+  display_name: "Termux Agent Ops"
+  short_description: "Operate Android and Termux phone workflows"
+  default_prompt: "Use $termux-agent-ops to handle this Android or Termux on-device assistant workflow."

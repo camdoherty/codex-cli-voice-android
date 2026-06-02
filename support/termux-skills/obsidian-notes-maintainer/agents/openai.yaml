@@ -1,0 +1,6 @@
+interface:
+  display_name: "Obsidian Notes Maintainer"
+  short_description: "Safely maintain Obsidian and Codex notes"
+  default_prompt: "Use $obsidian-notes-maintainer to create, open, or troubleshoot a Markdown note safely."
+policy:
+  allow_implicit_invocation: true

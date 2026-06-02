@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-02T13:45:00+00:00",
+  "notes": [
+    "Pixel 9 is source for imported codex-overview and tmux-support skills.",
+    "Pixel 6a AGENTS.md is a device-specific staging instruction asset.",
+    "Instruction assets are references and opt-in installs.",
+    "Archived skills are intentionally excluded from default package/deploy assets."
+  ],
+  "assets": [
+    {
+      "asset": "support/termux-skills/termux-agent-ops/SKILL.md",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/SKILL.md",
+      "target_path": "~/.codex/skills/termux-agent-ops/SKILL.md",
+      "sha256": "f2787851bf2be3aa4688e5b875f39de02af911c55c31942df1f1334833fbc99c",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/agents/openai.yaml",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/agents/openai.yaml",
+      "target_path": "~/.codex/skills/termux-agent-ops/agents/openai.yaml",
+      "sha256": "8b3b2a243979eb18abf643a072df75b134b405542a68fcef7fcd112609f95156",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/obsidian-notes-maintainer/SKILL.md",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/obsidian-notes-maintainer/SKILL.md",
+      "target_path": "~/.codex/skills/obsidian-notes-maintainer/SKILL.md",
+      "sha256": "883a8881e048d8ac2c348208f78de3bd8eb7f689f2e49ef0540eabf3fb75383e",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/obsidian-notes-maintainer/agents/openai.yaml",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/obsidian-notes-maintainer/agents/openai.yaml",
+      "target_path": "~/.codex/skills/obsidian-notes-maintainer/agents/openai.yaml",
+      "sha256": "62e443a5d91063da83a3e84dd7d3aea0597b76b700d296d983d2394f72e24ded",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/codex-overview/SKILL.md",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/codex-overview/SKILL.md",
+      "target_path": "~/.codex/skills/codex-overview/SKILL.md",
+      "sha256": "dffefad75dca3a7464428ed5d85a2526b84818f3c4355247ac3fae2b80fb4eb9",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/codex-overview/agents/openai.yaml",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/codex-overview/agents/openai.yaml",
+      "target_path": "~/.codex/skills/codex-overview/agents/openai.yaml",
+      "sha256": "d755f4adefa0078cc70e53e836e3d81e522ff091aa5f21804307e0b100f74f7e",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/tmux-support/SKILL.md",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/tmux-support/SKILL.md",
+      "target_path": "~/.codex/skills/tmux-support/SKILL.md",
+      "sha256": "d4803aab44ded669d1662a8dc0122fba1ca0746e1d3032b4902b887910ec8fe2",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/tmux-support/agents/openai.yaml",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/tmux-support/agents/openai.yaml",
+      "target_path": "~/.codex/skills/tmux-support/agents/openai.yaml",
+      "sha256": "38e0f68152f949fd8c559d5da50f293fe20d6d733a3f5809b46c45cb9ce916ab",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/tmux-support/scripts/tmux_context.sh",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/tmux-support/scripts/tmux_context.sh",
+      "target_path": "~/.codex/skills/tmux-support/scripts/tmux_context.sh",
+      "sha256": "10fdbe7c3dcd703393e04d8f37ecb52717376bb4f00ce4e908ff27578d91141d",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/references/android-intents.md",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/references/android-intents.md",
+      "target_path": "~/.codex/skills/termux-agent-ops/references/android-intents.md",
+      "sha256": "025fb4551303b4b3a0102a330fa0540e845db657de8def008c552f49b42878f6",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/references/termux-api-catalog.md",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/references/termux-api-catalog.md",
+      "target_path": "~/.codex/skills/termux-agent-ops/references/termux-api-catalog.md",
+      "sha256": "b415e492c3673cd3cc51b41006feb446c1c50eee7fa034bd6f7430fe0cd569e5",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/references/workflow-recipes.md",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/references/workflow-recipes.md",
+      "target_path": "~/.codex/skills/termux-agent-ops/references/workflow-recipes.md",
+      "sha256": "45e4445df14ae64c91f1fd418ce505072f2fb19d46ceeb75db343f80afde1247",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/scripts/android-alarm",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/scripts/android-alarm",
+      "target_path": "~/.codex/skills/termux-agent-ops/scripts/android-alarm",
+      "sha256": "c5806a0979d3f0367d86a8c4c76417f412df80de192da6d2d557365a1798e561",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/scripts/android-timer",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/scripts/android-timer",
+      "target_path": "~/.codex/skills/termux-agent-ops/scripts/android-timer",
+      "sha256": "ba29ff8d812df0745ee6fa07030a01c1c8c4ae2caac71b56887642ff53affbd4",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/scripts/clipboard-clean-url",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/scripts/clipboard-clean-url",
+      "target_path": "~/.codex/skills/termux-agent-ops/scripts/clipboard-clean-url",
+      "sha256": "db9d859f7661b9cb0793f8d75ab80461c35e60232db4284a1ac75eb02dc4124c",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/scripts/notify-reply",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/scripts/notify-reply",
+      "target_path": "~/.codex/skills/termux-agent-ops/scripts/notify-reply",
+      "sha256": "1486aadade3804bca8e726ab67d611080dceed29eae85fe63033078115f68f7b",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/scripts/open-settings",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/scripts/open-settings",
+      "target_path": "~/.codex/skills/termux-agent-ops/scripts/open-settings",
+      "sha256": "ac8e3b0c6b9bce7d6faf49a0ec4d7ce63bb467018afd1d07523ba6453c9d22c4",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/scripts/run-with-wakelock",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/scripts/run-with-wakelock",
+      "target_path": "~/.codex/skills/termux-agent-ops/scripts/run-with-wakelock",
+      "sha256": "de8895f3d932f2b681663ea6917b6eb8ef0e6e20292b864e4ee57a997349876b",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/scripts/save-notification-reply",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/scripts/save-notification-reply",
+      "target_path": "~/.codex/skills/termux-agent-ops/scripts/save-notification-reply",
+      "sha256": "d0b177a2de9239ff9cbb30eaade10c5a6c41e61636e781d97ec52841c24700cc",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/scripts/termux-api-check",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/scripts/termux-api-check",
+      "target_path": "~/.codex/skills/termux-agent-ops/scripts/termux-api-check",
+      "sha256": "da3a9c0972f606bc564e1b88d6d215d25eecdf3b12dfd00e64b2daaa3d79ec64",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/termux-agent-ops/scripts/wait-notification-reply",
+      "source_device": "pixel9",
+      "source_path": ".codex/skills/termux-agent-ops/scripts/wait-notification-reply",
+      "target_path": "~/.codex/skills/termux-agent-ops/scripts/wait-notification-reply",
+      "sha256": "0560602a8de533a958c9733894abd4c19c6c5cd00ada9d9639ed112bbd1538fe",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-agent-assets/instructions/pixel9/AGENTS.md",
+      "source_device": "pixel9",
+      "source_path": "AGENTS.md",
+      "target_path": "~/AGENTS.md",
+      "sha256": "2f0694eaab7483ffd188dc313f8ac3a30a5b670a6a4cd6d1fc9bb5424f1045c9",
+      "install_policy": "reference-opt-in-no-clobber"
+    },
+    {
+      "asset": "support/termux-agent-assets/instructions/pixel6a/AGENTS.md",
+      "source_device": "devbox",
+      "source_path": "support/termux-agent-assets/instructions/pixel6a/AGENTS.md",
+      "target_path": "~/AGENTS.md",
+      "sha256": "6c53b2d30babbf9a75c4308dbac444c8188915238e4cb48a1f9d5212af38639e",
+      "install_policy": "reference-opt-in-no-clobber"
+    },
+    {
+      "asset": "support/termux-agent-assets/instructions/pixel9/dev_AGENTS.md",
+      "source_device": "pixel9",
+      "source_path": "dev/AGENTS.md",
+      "target_path": "~/dev/AGENTS.md",
+      "sha256": "cd49f4c600b93413a57c62f9c42c921747eb2b6c5bc6c8412efe5af5437d1dda",
+      "install_policy": "reference-opt-in-no-clobber"
+    },
+    {
+      "asset": "support/termux-agent-assets/instructions/pixel9/gitignore.reference",
+      "source_device": "pixel9",
+      "source_path": ".gitignore",
+      "target_path": "~/.gitignore",
+      "sha256": "a4d303a26638974e48e176a839fa230910d405592c574b3c27338c08b563c4ad",
+      "install_policy": "reference-opt-in-no-clobber"
+    },
+    {
+      "asset": "support/termux-agent-assets/instructions/common/CCAT_AGENT_CONTRACT.md",
+      "source_device": "pixel9",
+      "source_path": "dev/CCAT_AGENT_CONTRACT.md",
+      "target_path": "~/dev/CCAT_AGENT_CONTRACT.md",
+      "sha256": "97c494adcae6546bce980dd61b392096e4434adc613c1ef606042a308b38260a",
+      "install_policy": "reference-opt-in-no-clobber"
+    },
+    {
+      "asset": "support/termux-agent-assets/instructions/common/CCAT_AGENT_CONTRACT_APPLY.md",
+      "source_device": "pixel9",
+      "source_path": "dev/CCAT_AGENT_CONTRACT_APPLY.md",
+      "target_path": "~/dev/CCAT_AGENT_CONTRACT_APPLY.md",
+      "sha256": "3274a3aa31327fdf73d27032fe1727f00b4becb709fd793f9d5aaed278f9b939",
+      "install_policy": "reference-opt-in-no-clobber"
+    },
+    {
+      "asset": "support/termux-agent-assets/evidence/pixel9/CCAT_AGENT_CONTRACT_STATUS.md",
+      "source_device": "pixel9",
+      "source_path": "dev/CCAT_AGENT_CONTRACT_STATUS.md",
+      "target_path": "~/dev/CCAT_AGENT_CONTRACT_STATUS.md",
+      "sha256": "e114dd2488a2b148529fb0861b0acd5dbae4e789a8cdc3c2912a37db4b706782",
+      "install_policy": "evidence-not-installed-by-default"
+    }
+  ]
+}

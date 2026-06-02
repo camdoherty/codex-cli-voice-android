@@ -11,6 +11,9 @@ Codex CLI + Voice on Android/Termux.
 - Prefer `.env.example` placeholders over real deployment values.
 - Treat `codex-voice` as billable unless the realtime guard is active.
 - Treat `support/termux-skills/stts` as the source mirror for the local Termux `stts` skill.
+- Treat `support/termux-skills/termux-agent-ops` as the source mirror for the local Termux `termux-agent-ops` skill.
+- Treat `support/termux-skills/obsidian-notes-maintainer` as the source mirror for the local Termux `obsidian-notes-maintainer` skill.
+- Treat `support/termux-agent-assets` as opt-in/reference assets for device agent instructions and CCAT contract docs; do not auto-install them during package deploy.
 - Keep experimental activation prototypes, private logs, personal profiles, and prototype routing assumptions out of the stable release.
 - A successful Bridge APK build is not a device deploy. When Android Bridge
   behavior changes, install the rebuilt APK on the target device, restart the
@@ -23,6 +26,7 @@ Before publishing changes, run:
 
 ```bash
 bash -n build.sh scripts/*.sh
+sh -n support/termux-skills/termux-agent-ops/scripts/*
 python3 -m py_compile \
   scripts/smoke_text_voice_ws.py \
   scripts/autotest_text_voice_kokoro.py \

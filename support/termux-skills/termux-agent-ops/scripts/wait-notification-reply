@@ -1,0 +1,40 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+home="${HOME:-/data/data/com.termux/files/home}"
+file="$home/notification_replies.txt"
+since_line=0
+timeout=120
+interval=1
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--file|--out) file="$2"; shift 2 ;;
+		--since-line) since_line="$2"; shift 2 ;;
+		--timeout) timeout="$2"; shift 2 ;;
+		--interval) interval="$2"; shift 2 ;;
+		-h|--help)
+			printf 'usage: %s [--file path] [--since-line n] [--timeout seconds]\n' "$0"
+			exit 0
+			;;
+		*)
+			printf 'unknown option: %s\n' "$1" >&2
+			exit 2
+			;;
+	esac
+done
+
+elapsed=0
+while [ "$elapsed" -lt "$timeout" ]; do
+	if [ -f "$file" ]; then
+		lines="$(wc -l < "$file")"
+		if [ "$lines" -gt "$since_line" ]; then
+			sed -n "$((since_line + 1)),${lines}p" "$file"
+			exit 0
+		fi
+	fi
+	sleep "$interval"
+	elapsed="$((elapsed + interval))"
+done
+
+exit 124

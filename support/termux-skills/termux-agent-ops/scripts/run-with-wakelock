@@ -1,0 +1,66 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+title="Codex job"
+id="42431"
+notify=1
+
+usage() {
+	printf 'usage: %s [--title text] [--id id] [--no-notify] -- command [args...]\n' "$0"
+}
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--title) title="$2"; shift 2 ;;
+		--id) id="$2"; shift 2 ;;
+		--no-notify) notify=0; shift ;;
+		-h|--help) usage; exit 0 ;;
+		--)
+			shift
+			break
+			;;
+		*)
+			break
+			;;
+	esac
+done
+
+[ "$#" -gt 0 ] || {
+	usage >&2
+	exit 2
+}
+
+wake_lock="$(command -v termux-wake-lock 2>/dev/null || true)"
+wake_unlock="$(command -v termux-wake-unlock 2>/dev/null || true)"
+notification="$(command -v termux-notification 2>/dev/null || true)"
+api_start="$(command -v termux-api-start 2>/dev/null || true)"
+
+if [ -n "$api_start" ]; then
+	"$api_start" >/dev/null 2>&1 || true
+fi
+if [ -n "$wake_lock" ]; then
+	"$wake_lock" >/dev/null 2>&1 || true
+fi
+
+cleanup() {
+	if [ -n "$wake_unlock" ]; then
+		"$wake_unlock" >/dev/null 2>&1 || true
+	fi
+}
+trap cleanup EXIT HUP INT TERM
+
+set +e
+"$@"
+status="$?"
+set -e
+
+if [ "$notify" -eq 1 ] && [ -n "$notification" ]; then
+	if [ "$status" -eq 0 ]; then
+		content="completed: $*"
+	else
+		content="exit $status: $*"
+	fi
+	"$notification" --title "$title" --content "$content" --id "$id" >/dev/null 2>&1 || true
+fi
+
+exit "$status"

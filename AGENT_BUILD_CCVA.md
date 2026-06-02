@@ -179,7 +179,7 @@ For a public-release fresh install, verify this sequence:
 On a Linux build host:
 
 ```bash
-git clone https://github.com/camdoherty/codex-cli-voice-android.git
+git clone https://github.com/OWNER/codex-cli-voice-android.git
 cd codex-cli-voice-android
 rustup target add aarch64-linux-android
 scripts/setup_android_toolchain.sh
@@ -276,6 +276,13 @@ Then verify non-interactive SSH before using it for deployment. Example:
 
 ```sh
 ssh pixel6a-ccva 'echo ssh-ok; whoami; hostname'
+```
+
+For routine agent commands after SSH is established, prefer the local helper:
+
+```sh
+scripts/pixel-ssh --device pixel9 'echo ssh-ok'
+scripts/pixel-ssh --device 6a 'echo ssh-ok'
 ```
 
 If this fails after a fresh Termux reinstall, remove only the stale host entry

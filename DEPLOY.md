@@ -2,8 +2,8 @@
 
 The deployment helper is designed for safe iteration on a Termux target. It
 uploads the package, verifies the remote SHA256, creates a rollback archive,
-extracts into `$PREFIX`, installs the `$stts` skill, repairs launcher
-symlinks, and runs non-paid smoke tests.
+extracts into `$PREFIX`, installs packaged skills with no-clobber checks,
+repairs launcher symlinks, and runs non-paid smoke tests.
 
 For a no-PC, on-device install from GitHub Releases, use the manual installation section in [README.md](README.md).
 
@@ -117,6 +117,18 @@ Then verify non-interactive key auth from the workstation. Example:
 ssh pixel6a-ccva 'echo ssh-ok; whoami; hostname'
 ```
 
+For routine agent work, use the local helper and select the device explicitly:
+
+```sh
+scripts/pixel-ssh --device pixel9 'echo ssh-ok'
+scripts/pixel-ssh --device 6a 'echo ssh-ok'
+```
+
+If a sandboxed side conversation reports SSH socket/config errors but the same
+command works in the normal Devbox shell, treat it as a side-runner limitation,
+not a Pixel6a failure. Reconfirm from the normal shell before changing device
+SSH config.
+
 If Termux was reinstalled, its SSH host key may change. Remove only the stale
 entry for the exact device/port, confirm the new fingerprint with the user, and
 then reconnect. Do not disable host-key checking globally.
@@ -143,11 +155,35 @@ The deploy also installs or updates:
 
 ```text
 $HOME/.codex/skills/stts
+$HOME/.codex/skills/termux-agent-ops
+$HOME/.codex/skills/obsidian-notes-maintainer
+$HOME/.codex/skills/codex-overview
+$HOME/.codex/skills/tmux-support
 $HOME/scripts/codex-api
 $HOME/scripts/codex-voice
 $HOME/scripts/codex-install-stts
+$HOME/scripts/codex-install-agent-assets
 $HOME/scripts/ccva-tmux-run
 $HOME/scripts/ccva-realtime-stop
+```
+
+`codex-install-agent-assets` installs skills only during package deploy.
+Instruction assets under `support/termux-agent-assets` are references and
+require an explicit opt-in command:
+
+```sh
+codex-install-agent-assets --dry-run --instructions
+codex-install-agent-assets --apply --instructions
+```
+
+If an existing target differs, the installer preserves the live file, creates a
+backup, and writes the candidate as `.incoming.<timestamp>`.
+
+Package deploy no longer changes `~/.termux/termux.properties` unless explicitly
+approved through:
+
+```bash
+ALLOW_TERMUX_SETTINGS_CHANGE=1 scripts/deploy_termux_package.sh ...
 ```
 
 Refresh user-facing Termux:Widget shortcuts from a synced repo with:

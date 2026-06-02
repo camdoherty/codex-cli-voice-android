@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tmux Support"
+  short_description: "Read and assist user-selected tmux panes"
+  default_prompt: "Use $tmux-support to inspect the selected tmux pane and guide sensitive troubleshooting."

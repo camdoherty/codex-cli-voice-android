@@ -1,0 +1,17 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+out="${1:-$HOME/notification_replies.txt}"
+if [ "$#" -gt 0 ]; then
+	shift
+fi
+
+if [ "$#" -gt 0 ]; then
+	reply="$*"
+elif [ "${REPLY+x}" ]; then
+	reply="$REPLY"
+else
+	reply="$(cat)"
+fi
+
+printf '%s\n' "$reply" >> "$out"

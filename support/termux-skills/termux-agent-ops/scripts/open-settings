@@ -1,0 +1,55 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+dry_run=0
+
+usage() {
+	printf 'usage: %s [--dry-run] name\n' "$0"
+	printf 'names: settings wifi apps notifications battery location display sound bluetooth storage accessibility nfc\n'
+}
+
+if [ "$#" -gt 0 ] && [ "$1" = "--dry-run" ]; then
+	dry_run=1
+	shift
+fi
+if [ "$#" -gt 0 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+	usage
+	exit 0
+fi
+
+[ "$#" -eq 1 ] || {
+	usage >&2
+	exit 2
+}
+
+case "$1" in
+	settings|main) action="android.settings.SETTINGS" ;;
+	wifi|wi-fi) action="android.settings.WIFI_SETTINGS" ;;
+	apps|applications) action="android.settings.APPLICATION_SETTINGS" ;;
+	notifications|notification) action="android.settings.NOTIFICATION_SETTINGS" ;;
+	battery) action="android.settings.BATTERY_SAVER_SETTINGS" ;;
+	location) action="android.settings.LOCATION_SOURCE_SETTINGS" ;;
+	display) action="android.settings.DISPLAY_SETTINGS" ;;
+	sound|audio) action="android.settings.SOUND_SETTINGS" ;;
+	bluetooth) action="android.settings.BLUETOOTH_SETTINGS" ;;
+	storage) action="android.settings.INTERNAL_STORAGE_SETTINGS" ;;
+	accessibility|a11y) action="android.settings.ACCESSIBILITY_SETTINGS" ;;
+	nfc) action="android.settings.NFC_SETTINGS" ;;
+	*)
+		printf 'unknown settings name: %s\n' "$1" >&2
+		usage >&2
+		exit 2
+		;;
+esac
+
+command -v am >/dev/null 2>&1 || {
+	printf 'missing am command\n' >&2
+	exit 1
+}
+
+if [ "$dry_run" -eq 1 ]; then
+	printf 'am start -W -a %s\n' "$action"
+	exit 0
+fi
+
+am start -W -a "$action"

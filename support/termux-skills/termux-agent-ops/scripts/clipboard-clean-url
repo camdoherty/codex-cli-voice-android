@@ -1,0 +1,68 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+dry_run=0
+input=""
+
+usage() {
+	printf 'usage: %s [--dry-run] [url]\n' "$0"
+}
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--dry-run) dry_run=1; shift ;;
+		-h|--help) usage; exit 0 ;;
+		--)
+			shift
+			break
+			;;
+		-*)
+			printf 'unknown option: %s\n' "$1" >&2
+			usage >&2
+			exit 2
+			;;
+		*)
+			input="$1"
+			shift
+			;;
+	esac
+done
+
+if [ -z "$input" ]; then
+	command -v termux-clipboard-get >/dev/null 2>&1 || {
+		printf 'missing termux-clipboard-get and no URL argument supplied\n' >&2
+		exit 1
+	}
+	input="$(termux-clipboard-get)"
+fi
+
+cleaned="$(printf '%s' "$input" | python -c '
+import sys
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+tracking = {
+    "fbclid", "gclid", "gbraid", "wbraid", "mc_cid", "mc_eid", "msclkid",
+    "igshid", "ref", "spm",
+}
+prefixes = ("utm_",)
+url = sys.stdin.read().strip()
+parts = urlsplit(url)
+query = []
+for key, value in parse_qsl(parts.query, keep_blank_values=True):
+    if key in tracking or any(key.startswith(prefix) for prefix in prefixes):
+        continue
+    query.append((key, value))
+print(urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query, doseq=True), parts.fragment)))
+')"
+
+if [ "$dry_run" -eq 1 ]; then
+	printf '%s\n' "$cleaned"
+	exit 0
+fi
+
+command -v termux-clipboard-set >/dev/null 2>&1 || {
+	printf 'missing termux-clipboard-set\n' >&2
+	exit 1
+}
+printf '%s' "$cleaned" | termux-clipboard-set
+printf '%s\n' "$cleaned"

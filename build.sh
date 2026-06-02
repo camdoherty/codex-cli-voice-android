@@ -137,8 +137,18 @@ cp "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarc
 "$SCRIPT_DIR/scripts/android_tls_guard.sh" binary "$STAGE/$INSTALL_DIR/codex.bin"
 cp -R "$SCRIPT_DIR/support/termux-skills/stts" \
     "$STAGE/$INSTALL_DIR/support/termux-skills/"
-find "$STAGE/$INSTALL_DIR/support/termux-skills/stts" -type d -name __pycache__ -exec rm -rf {} +
-find "$STAGE/$INSTALL_DIR/support/termux-skills/stts" -type f -name '*.pyc' -delete
+cp -R "$SCRIPT_DIR/support/termux-skills/termux-agent-ops" \
+    "$STAGE/$INSTALL_DIR/support/termux-skills/"
+cp -R "$SCRIPT_DIR/support/termux-skills/obsidian-notes-maintainer" \
+    "$STAGE/$INSTALL_DIR/support/termux-skills/"
+cp -R "$SCRIPT_DIR/support/termux-skills/codex-overview" \
+    "$STAGE/$INSTALL_DIR/support/termux-skills/"
+cp -R "$SCRIPT_DIR/support/termux-skills/tmux-support" \
+    "$STAGE/$INSTALL_DIR/support/termux-skills/"
+cp -R "$SCRIPT_DIR/support/termux-agent-assets" \
+    "$STAGE/$INSTALL_DIR/support/"
+find "$STAGE/$INSTALL_DIR/support/termux-skills" -type d -name __pycache__ -exec rm -rf {} +
+find "$STAGE/$INSTALL_DIR/support/termux-skills" -type f -name '*.pyc' -delete
 
 # -- Wrapper script --
 cat > "$STAGE/bin/codex" <<'EOF'
@@ -162,11 +172,12 @@ chmod +x "$STAGE/bin/codex"
 cp "$SCRIPT_DIR/scripts/termux-codex-api" "$STAGE/bin/codex-api"
 cp "$SCRIPT_DIR/scripts/termux-codex-voice" "$STAGE/bin/codex-voice"
 cp "$SCRIPT_DIR/scripts/install_stts_skill.sh" "$STAGE/bin/codex-install-stts"
+cp "$SCRIPT_DIR/scripts/install_termux_agent_assets.sh" "$STAGE/bin/codex-install-agent-assets"
 cp "$SCRIPT_DIR/scripts/ccva-tmux-run" "$STAGE/bin/ccva-tmux-run"
 cp "$SCRIPT_DIR/scripts/ccva-realtime-stop" "$STAGE/bin/ccva-realtime-stop"
 chmod +x "$STAGE/bin/codex-api" "$STAGE/bin/codex-voice" \
-    "$STAGE/bin/codex-install-stts" "$STAGE/bin/ccva-tmux-run" \
-    "$STAGE/bin/ccva-realtime-stop"
+    "$STAGE/bin/codex-install-stts" "$STAGE/bin/codex-install-agent-assets" \
+    "$STAGE/bin/ccva-tmux-run" "$STAGE/bin/ccva-realtime-stop"
 
 # -- Package --
 VERSION=$(cd "$WORK_DIR" && git describe --tags --exact-match 2>/dev/null || echo "$CODEX_TAG")

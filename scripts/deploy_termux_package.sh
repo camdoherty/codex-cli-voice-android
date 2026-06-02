@@ -7,8 +7,8 @@ Usage: scripts/deploy_termux_package.sh <package.tar.gz> [package.tar.gz.sha256]
 
 Uploads a Codex CLI + Voice (Android) package to a Termux device over SSH, verifies
 the remote SHA256, creates a rollback backup, extracts into $PREFIX, repairs
-known launcher symlinks, installs the stts skill, and runs non-paid smoke
-tests.
+known launcher symlinks, installs packaged skills with no-clobber checks, and
+runs non-paid smoke tests.
 
 Environment:
   PIXEL_HOST      required unless set in .env
@@ -17,6 +17,7 @@ Environment:
   PIXEL_IDENTITY  optional SSH private key path
   SSH_CONFIG      default: /dev/null
   ALLOW_FRESH_INSTALL  set to 1 to deploy when no previous Codex install exists
+  ALLOW_TERMUX_SETTINGS_CHANGE  set to 1 to update allow-external-apps
 EOF
 }
 
@@ -62,6 +63,7 @@ SSH_CONFIG="${SSH_CONFIG:-/dev/null}"
 [ -n "$PIXEL_HOST" ] || { echo "PIXEL_HOST is required. Copy .env.example to .env or export it." >&2; exit 2; }
 [ -n "$PIXEL_USER" ] || { echo "PIXEL_USER is required. Copy .env.example to .env or export it." >&2; exit 2; }
 ALLOW_FRESH_INSTALL="${ALLOW_FRESH_INSTALL:-0}"
+ALLOW_TERMUX_SETTINGS_CHANGE="${ALLOW_TERMUX_SETTINGS_CHANGE:-0}"
 PIXEL_TARGET="${PIXEL_USER}@${PIXEL_HOST}"
 SSH_OPTS=(-F "$SSH_CONFIG" -p "$PIXEL_PORT")
 if [ -n "${PIXEL_IDENTITY:-}" ]; then
@@ -88,10 +90,11 @@ ls -lh "$HOME/$remote_name"
 REMOTE_VERIFY
 
 echo "Backing up current install and deploying"
-ssh "${SSH_OPTS[@]}" "$PIXEL_TARGET" 'sh -s' -- "$REMOTE_NAME" "$ALLOW_FRESH_INSTALL" <<'REMOTE_DEPLOY'
+ssh "${SSH_OPTS[@]}" "$PIXEL_TARGET" 'sh -s' -- "$REMOTE_NAME" "$ALLOW_FRESH_INSTALL" "$ALLOW_TERMUX_SETTINGS_CHANGE" <<'REMOTE_DEPLOY'
 set -eu
 remote_name="$1"
 allow_fresh_install="$2"
+allow_termux_settings_change="$3"
 artifact="$HOME/$remote_name"
 
 tar -tzf "$artifact" >/dev/null
@@ -103,6 +106,7 @@ set --
 [ -e bin/codex-api ] && set -- "$@" bin/codex-api
 [ -e bin/codex-voice ] && set -- "$@" bin/codex-voice
 [ -e bin/codex-install-stts ] && set -- "$@" bin/codex-install-stts
+[ -e bin/codex-install-agent-assets ] && set -- "$@" bin/codex-install-agent-assets
 [ -e bin/ccva-tmux-run ] && set -- "$@" bin/ccva-tmux-run
 [ -e bin/ccva-realtime-stop ] && set -- "$@" bin/ccva-realtime-stop
 [ -e bin/codex-install-tts-stt ] && set -- "$@" bin/codex-install-tts-stt
@@ -125,21 +129,26 @@ fi
 
 rm -rf "$PREFIX/libexec/codex-cli-voice-android" "$PREFIX/opt/codex-termux"
 rm -f "$PREFIX/bin/codex" "$PREFIX/bin/codex-api" "$PREFIX/bin/codex-voice" \
-    "$PREFIX/bin/codex-install-stts" "$PREFIX/bin/ccva-tmux-run" \
-    "$PREFIX/bin/ccva-realtime-stop" "$PREFIX/bin/codex-install-tts-stt" \
+    "$PREFIX/bin/codex-install-stts" "$PREFIX/bin/codex-install-agent-assets" \
+    "$PREFIX/bin/ccva-tmux-run" "$PREFIX/bin/ccva-realtime-stop" \
+    "$PREFIX/bin/codex-install-tts-stt" \
     "$PREFIX/bin/tts-stt-start" "$PREFIX/bin/tts-stt-stop" \
     "$PREFIX/bin/tts-stt-status" "$PREFIX/bin/tts-stt-diag" \
     "$PREFIX/bin/tts-stt-talk"
 tar -xzf "$artifact" -C "$PREFIX"
 
 codex-install-stts
+codex-install-agent-assets --apply --skills-only
 
 mkdir -p "$HOME/scripts"
-rm -f "$HOME/scripts/codex-install-tts-stt" \
+for old_script in \
+    "$HOME/scripts/codex-install-tts-stt" \
     "$HOME/scripts/tts-stt-start" "$HOME/scripts/tts-stt-stop" \
     "$HOME/scripts/tts-stt-status" "$HOME/scripts/tts-stt-diag" \
-    "$HOME/scripts/tts-stt-talk"
-for name in codex-api codex-voice codex-install-stts ccva-tmux-run ccva-realtime-stop; do
+    "$HOME/scripts/tts-stt-talk"; do
+    [ ! -e "$old_script" ] || echo "old_script_present=$old_script"
+done
+for name in codex-api codex-voice codex-install-stts codex-install-agent-assets ccva-tmux-run ccva-realtime-stop; do
     if [ -e "$HOME/scripts/$name" ] && [ ! -L "$HOME/scripts/$name" ]; then
         mkdir -p "$HOME/codex-script-backups-$ts"
         mv "$HOME/scripts/$name" "$HOME/codex-script-backups-$ts/$name"
@@ -150,15 +159,19 @@ done
 mkdir -p "$HOME/.shortcuts"
 mkdir -p "$HOME/.termux"
 termux_properties="$HOME/.termux/termux.properties"
-if [ -f "$termux_properties" ] && grep -q '^allow-external-apps=' "$termux_properties"; then
-    tmp="$termux_properties.tmp.$$"
-    sed 's/^allow-external-apps=.*/allow-external-apps=true/' "$termux_properties" > "$tmp"
-    mv "$tmp" "$termux_properties"
+if [ "$allow_termux_settings_change" = "1" ]; then
+    if [ -f "$termux_properties" ] && grep -q '^allow-external-apps=' "$termux_properties"; then
+        tmp="$termux_properties.tmp.$$"
+        sed 's/^allow-external-apps=.*/allow-external-apps=true/' "$termux_properties" > "$tmp"
+        mv "$tmp" "$termux_properties"
+    else
+        printf '%s\n' 'allow-external-apps=true' >> "$termux_properties"
+    fi
+    if command -v termux-reload-settings >/dev/null 2>&1; then
+        termux-reload-settings >/dev/null 2>&1 || true
+    fi
 else
-    printf '%s\n' 'allow-external-apps=true' >> "$termux_properties"
-fi
-if command -v termux-reload-settings >/dev/null 2>&1; then
-    termux-reload-settings >/dev/null 2>&1 || true
+    echo "termux_settings_change=skipped"
 fi
 
 notes_link="$HOME/codex_notes"
@@ -191,48 +204,65 @@ EOF
 fi
 echo "notes_workspace=$notes_dir"
 
-cat > "$HOME/.shortcuts/Codex" <<'EOF'
+write_shortcut() {
+    path=$1
+    tmp="$path.tmp.$$"
+    cat > "$tmp"
+    if [ ! -e "$path" ]; then
+        mv "$tmp" "$path"
+        chmod 700 "$path"
+        echo "shortcut_installed=$path"
+        return
+    fi
+    if cmp -s "$tmp" "$path"; then
+        rm -f "$tmp"
+        chmod 700 "$path"
+        echo "shortcut_skip_identical=$path"
+        return
+    fi
+    backup="$path.backup.$ts"
+    incoming="$path.incoming.$ts"
+    cp "$path" "$backup"
+    mv "$tmp" "$incoming"
+    chmod 700 "$incoming"
+    echo "shortcut_conflict_preserved=$path"
+    echo "shortcut_backup=$backup"
+    echo "shortcut_incoming=$incoming"
+}
+
+write_shortcut "$HOME/.shortcuts/Codex" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 exec "$HOME/scripts/ccva-tmux-run" codex -- codex
 EOF
-cat > "$HOME/.shortcuts/Codex Resume Last" <<'EOF'
+write_shortcut "$HOME/.shortcuts/Codex Resume Last" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 exec "$HOME/scripts/ccva-tmux-run" resume -- codex resume --last
 EOF
-cat > "$HOME/.shortcuts/Realtime API Voice" <<'EOF'
+write_shortcut "$HOME/.shortcuts/Realtime API Voice" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 exec "$HOME/scripts/ccva-tmux-run" realtime -- "$HOME/scripts/codex-voice" --allow-realtime
 EOF
-cat > "$HOME/.shortcuts/Realtime API Voice Stop" <<'EOF'
+write_shortcut "$HOME/.shortcuts/Realtime API Voice Stop" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 exec "$HOME/scripts/ccva-realtime-stop"
 EOF
-cat > "$HOME/.shortcuts/STTS: Start + Talk" <<'EOF'
+write_shortcut "$HOME/.shortcuts/STTS: Start + Talk" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" talk
 EOF
-cat > "$HOME/.shortcuts/STTS: Wake Word" <<'EOF'
+write_shortcut "$HOME/.shortcuts/STTS: Wake Word" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" wake
 EOF
-cat > "$HOME/.shortcuts/STTS: Attach Session" <<'EOF'
+write_shortcut "$HOME/.shortcuts/STTS: Attach Session" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" session
 EOF
-cat > "$HOME/.shortcuts/STTS: Stop" <<'EOF'
+write_shortcut "$HOME/.shortcuts/STTS: Stop" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 exec sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" stop
 EOF
-chmod 700 \
-    "$HOME/.shortcuts/Codex" \
-    "$HOME/.shortcuts/Codex Resume Last" \
-    "$HOME/.shortcuts/Realtime API Voice" \
-    "$HOME/.shortcuts/Realtime API Voice Stop" \
-    "$HOME/.shortcuts/STTS: Start + Talk" \
-    "$HOME/.shortcuts/STTS: Wake Word" \
-    "$HOME/.shortcuts/STTS: Attach Session" \
-    "$HOME/.shortcuts/STTS: Stop"
-rm -f \
+for old_shortcut in \
     "$HOME/.shortcuts/Realtime API Stop" \
     "$HOME/.shortcuts/Start API(\$) Realtime Voice Mode" \
     "$HOME/.shortcuts/Start STTS Voice Mode" \
@@ -247,7 +277,9 @@ rm -f \
     "$HOME/.shortcuts/STTS Wake Word" \
     "$HOME/.shortcuts/wake-voice-start" \
     "$HOME/.shortcuts/wake-voice-stop" \
-    "$HOME/.shortcuts/wake-voice-doctor"
+    "$HOME/.shortcuts/wake-voice-doctor"; do
+    [ ! -e "$old_shortcut" ] || echo "old_shortcut_present=$old_shortcut"
+done
 
 echo "backup=$backup"
 REMOTE_DEPLOY
@@ -269,7 +301,7 @@ set -e
     exit 1
 }
 
-for name in codex-api codex-voice codex-install-stts ccva-tmux-run ccva-realtime-stop; do
+for name in codex-api codex-voice codex-install-stts codex-install-agent-assets ccva-tmux-run ccva-realtime-stop; do
     target="$(readlink "$HOME/scripts/$name" 2>/dev/null || true)"
     [ "$target" = "$PREFIX/bin/$name" ] || {
         echo "$HOME/scripts/$name does not point to $PREFIX/bin/$name" >&2
@@ -282,6 +314,23 @@ done
     exit 1
 }
 timeout 8 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" status >/dev/null
+
+[ -f "$HOME/.codex/skills/termux-agent-ops/SKILL.md" ] || {
+    echo "termux-agent-ops skill was not installed" >&2
+    exit 1
+}
+[ -f "$HOME/.codex/skills/obsidian-notes-maintainer/SKILL.md" ] || {
+    echo "obsidian-notes-maintainer skill was not installed" >&2
+    exit 1
+}
+[ -f "$HOME/.codex/skills/codex-overview/SKILL.md" ] || {
+    echo "codex-overview skill was not installed" >&2
+    exit 1
+}
+[ -x "$HOME/.codex/skills/tmux-support/scripts/tmux_context.sh" ] || {
+    echo "tmux-support skill was not installed" >&2
+    exit 1
+}
 
 if strings "$PREFIX/libexec/codex-cli-voice-android/codex.bin" |
     grep -F "WARNING: flock unsupported" >/dev/null; then
