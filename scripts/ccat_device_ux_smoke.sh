@@ -447,7 +447,9 @@ if ! wait_for_mode wake 18; then
 else
 E_payload="CCAT UX smoke $STAMP wake review https://github.com/camdoherty/fluxfce-simplified"
 adb_share_text "ShareReviewActivity" "$E_payload" "$RUN_DIR/adb/E-share-review-wake.txt"
-sleep 35
+wait_for_log "reviewing shared item" 15 || true
+wait_for_log "returning to wake word" 60 || true
+wait_for_mode wake 30 || true
 E_pointer="$(ssh_cmd 'cat ~/.local/state/codex-stts/latest-share-manifest.txt 2>/dev/null || true' | tr -d '\r')"
 E_item="$(dirname "$E_pointer" 2>/dev/null || true)"
 [[ -n "$E_item" ]] && CREATED_ITEMS+=("$E_item")
