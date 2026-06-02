@@ -50,6 +50,8 @@ done
     tar -tzf "$cli_asset" >/dev/null
 )
 
+"$REPO_DIR/scripts/android_tls_guard.sh" package "$dist_dir/$cli_asset"
+
 grep -q "\"version\": \"$release_tag\"" "$manifest" || { echo "Manifest version mismatch" >&2; exit 1; }
 grep -q "\"upstream_codex\": \"$codex_tag\"" "$manifest" || { echo "Manifest upstream mismatch" >&2; exit 1; }
 grep -q "\"cli_tarball\": \"$cli_asset\"" "$manifest" || { echo "Manifest CLI asset mismatch" >&2; exit 1; }

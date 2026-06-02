@@ -36,6 +36,24 @@ package_version="${codex_tag}-ccva.${ccva_iteration}"
 dist_dir="$REPO_DIR/dist/$release_tag"
 work_dir="${WORK_DIR:-$REPO_DIR/../codex-build-${package_version}}"
 
+dirty="$(
+    git -C "$REPO_DIR" status --porcelain --untracked-files=all -- \
+        . ':(exclude)dist/**' ':(exclude)tmp/**'
+)"
+if [[ -n "$dirty" ]]; then
+    echo "Public release source is dirty; commit or stash these paths:" >&2
+    printf '%s\n' "$dirty" >&2
+    exit 1
+fi
+
+case "$(basename "$work_dir")" in
+    codex-build-*) ;;
+    *)
+        echo "Refusing non-dedicated WORK_DIR for release build: $work_dir" >&2
+        exit 1
+        ;;
+esac
+
 mkdir -p "$dist_dir"
 
 echo "release_tag=$release_tag"
@@ -48,6 +66,7 @@ echo "work_dir=$work_dir"
     cd "$REPO_DIR"
     CODEX_TAG="$codex_tag" \
         WORK_DIR="$work_dir" \
+        RESET_UPSTREAM_WORK_DIR=1 \
         CHECK_PATCHES_ONLY=1 \
         ./build.sh
 )
@@ -57,6 +76,7 @@ echo "work_dir=$work_dir"
     CODEX_TAG="$codex_tag" \
         CCVA_PACKAGE_VERSION="$package_version" \
         WORK_DIR="$work_dir" \
+        RESET_UPSTREAM_WORK_DIR=1 \
         OUTPUT_DIR="$dist_dir" \
         ./build.sh
 )

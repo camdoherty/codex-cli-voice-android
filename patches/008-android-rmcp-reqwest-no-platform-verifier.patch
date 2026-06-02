@@ -1,3 +1,383 @@
+diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
+index f7e7efc..bbc333d 100644
+--- a/codex-rs/Cargo.toml
++++ b/codex-rs/Cargo.toml
+@@ -526,6 +520,7 @@ tungstenite = { git = "https://github.com/openai-oss-forks/tungstenite-rs", rev
+ 
+ # Uncomment to debug local changes.
+ # rmcp = { path = "../../rust-sdk/crates/rmcp" }
++rmcp = { git = "https://github.com/camdoherty/rust-sdk", rev = "66ac959a8a25a9173ba64784c1b4573696cad691" }
+ 
+ [patch."ssh://git@github.com/openai-oss-forks/tungstenite-rs.git"]
+ tungstenite = { git = "https://github.com/openai-oss-forks/tungstenite-rs", rev = "9200079d3b54a1ff51072e24d81fd354f085156f" }
+diff --git a/codex-rs/exec-server/src/client/reqwest_http_client.rs b/codex-rs/exec-server/src/client/reqwest_http_client.rs
+index 9e22fc0..dcb57b3 100644
+--- a/codex-rs/exec-server/src/client/reqwest_http_client.rs
++++ b/codex-rs/exec-server/src/client/reqwest_http_client.rs
+@@ -24,6 +24,7 @@ use super::response_body_stream::send_body_delta;
+ use crate::HttpClient;
+ use crate::client::ExecServerError;
+ use crate::protocol::HttpHeader;
++use crate::protocol::HttpRedirectPolicy;
+ use crate::protocol::HttpRequestBodyDeltaNotification;
+ use crate::protocol::HttpRequestParams;
+ use crate::protocol::HttpRequestResponse;
+@@ -50,13 +51,19 @@ pub(crate) struct ReqwestHttpRequestRunner {
+ }
+ 
+ impl ReqwestHttpClient {
+-    fn build_client(timeout_ms: Option<u64>) -> Result<reqwest::Client, ExecServerError> {
+-        let builder = match timeout_ms {
++    fn build_client(
++        timeout_ms: Option<u64>,
++        redirect_policy: Option<HttpRedirectPolicy>,
++    ) -> Result<reqwest::Client, ExecServerError> {
++        let mut builder = match timeout_ms {
+             None => reqwest::Client::builder(),
+             Some(timeout_ms) => {
+                 reqwest::Client::builder().timeout(Duration::from_millis(timeout_ms))
+             }
+         };
++        if matches!(redirect_policy, Some(HttpRedirectPolicy::None)) {
++            builder = builder.redirect(reqwest::redirect::Policy::none());
++        }
+         build_reqwest_client_with_custom_ca(builder)
+             .map_err(|error| ExecServerError::HttpRequest(error.to_string()))
+     }
+@@ -68,7 +75,7 @@ impl HttpClient for ReqwestHttpClient {
+         params: HttpRequestParams,
+     ) -> BoxFuture<'_, Result<HttpRequestResponse, ExecServerError>> {
+         async move {
+-            let runner = ReqwestHttpRequestRunner::new(params.timeout_ms)
++            let runner = ReqwestHttpRequestRunner::new(params.timeout_ms, params.redirect_policy)
+                 .map_err(|error| ExecServerError::HttpRequest(error.message))?;
+             let (response, _) = runner
+                 .run(HttpRequestParams {
+@@ -87,7 +94,7 @@ impl HttpClient for ReqwestHttpClient {
+         params: HttpRequestParams,
+     ) -> BoxFuture<'_, Result<(HttpRequestResponse, HttpResponseBodyStream), ExecServerError>> {
+         async move {
+-            let runner = ReqwestHttpRequestRunner::new(params.timeout_ms)
++            let runner = ReqwestHttpRequestRunner::new(params.timeout_ms, params.redirect_policy)
+                 .map_err(|error| ExecServerError::HttpRequest(error.message))?;
+             let (response, pending_stream) = runner
+                 .run(HttpRequestParams {
+@@ -111,8 +118,11 @@ impl HttpClient for ReqwestHttpClient {
+ }
+ 
+ impl ReqwestHttpRequestRunner {
+-    pub(crate) fn new(timeout_ms: Option<u64>) -> Result<Self, JSONRPCErrorError> {
+-        let client = ReqwestHttpClient::build_client(timeout_ms)
++    pub(crate) fn new(
++        timeout_ms: Option<u64>,
++        redirect_policy: Option<HttpRedirectPolicy>,
++    ) -> Result<Self, JSONRPCErrorError> {
++        let client = ReqwestHttpClient::build_client(timeout_ms, redirect_policy)
+             .map_err(|error| internal_error(error.to_string()))?;
+         Ok(Self { client })
+     }
+diff --git a/codex-rs/exec-server/src/lib.rs b/codex-rs/exec-server/src/lib.rs
+index f2d16f8..026178e 100644
+--- a/codex-rs/exec-server/src/lib.rs
++++ b/codex-rs/exec-server/src/lib.rs
+@@ -78,6 +78,7 @@ pub use protocol::FsRemoveResponse;
+ pub use protocol::FsWriteFileParams;
+ pub use protocol::FsWriteFileResponse;
+ pub use protocol::HttpHeader;
++pub use protocol::HttpRedirectPolicy;
+ pub use protocol::HttpRequestBodyDeltaNotification;
+ pub use protocol::HttpRequestParams;
+ pub use protocol::HttpRequestResponse;
+diff --git a/codex-rs/exec-server/src/protocol.rs b/codex-rs/exec-server/src/protocol.rs
+index e801a7f..d809364 100644
+--- a/codex-rs/exec-server/src/protocol.rs
++++ b/codex-rs/exec-server/src/protocol.rs
+@@ -292,6 +292,10 @@ pub struct HttpRequestParams {
+     /// millisecond deadline.
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub timeout_ms: Option<u64>,
++    /// Redirect handling for this request. Omitted values retain the default
++    /// follow behavior for backwards compatibility.
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub redirect_policy: Option<HttpRedirectPolicy>,
+     /// Caller-chosen stream id for `http/request/bodyDelta` notifications.
+     ///
+     /// The id must remain unique on a connection until the terminal body delta
+@@ -304,6 +308,13 @@ pub struct HttpRequestParams {
+     pub stream_response: bool,
+ }
+ 
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
++#[serde(rename_all = "camelCase")]
++pub enum HttpRedirectPolicy {
++    Follow,
++    None,
++}
++
+ /// HTTP response envelope returned from an executor `http/request` call.
+ #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+ #[serde(rename_all = "camelCase")]
+diff --git a/codex-rs/exec-server/src/server/handler.rs b/codex-rs/exec-server/src/server/handler.rs
+index d064572..7f3ee83 100644
+--- a/codex-rs/exec-server/src/server/handler.rs
++++ b/codex-rs/exec-server/src/server/handler.rs
+@@ -178,7 +178,7 @@ impl ExecServerHandler {
+         if stream_response {
+             self.reserve_http_body_stream(&http_request_id).await?;
+         }
+-        let response = ReqwestHttpRequestRunner::new(params.timeout_ms)?
++        let response = ReqwestHttpRequestRunner::new(params.timeout_ms, params.redirect_policy)?
+             .run(params)
+             .await;
+         if response.is_err() && stream_response {
+diff --git a/codex-rs/exec-server/tests/http_client.rs b/codex-rs/exec-server/tests/http_client.rs
+index 6a087dd..397d950 100644
+--- a/codex-rs/exec-server/tests/http_client.rs
++++ b/codex-rs/exec-server/tests/http_client.rs
+@@ -63,6 +63,7 @@ async fn http_request_forces_buffered_request_params() -> Result<()> {
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "ignored-stream-id".to_string(),
+                 stream_response: false,
+             }
+@@ -91,6 +92,7 @@ async fn http_request_forces_buffered_request_params() -> Result<()> {
+             headers: Vec::new(),
+             body: None,
+             timeout_ms: None,
++            redirect_policy: None,
+             request_id: "ignored-stream-id".to_string(),
+             stream_response: true,
+         }),
+@@ -131,6 +133,7 @@ async fn http_response_body_stream_uses_generated_ids_and_receives_ordered_delta
+                 }],
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "http-1".to_string(),
+                 stream_response: true,
+             }
+@@ -186,6 +189,7 @@ async fn http_response_body_stream_uses_generated_ids_and_receives_ordered_delta
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "http-2".to_string(),
+                 stream_response: true,
+             }
+@@ -215,6 +219,7 @@ async fn http_response_body_stream_uses_generated_ids_and_receives_ordered_delta
+             }],
+             body: None,
+             timeout_ms: None,
++            redirect_policy: None,
+             request_id: "caller-stream-id".to_string(),
+             stream_response: false,
+         }),
+@@ -253,6 +258,7 @@ async fn http_response_body_stream_uses_generated_ids_and_receives_ordered_delta
+             headers: Vec::new(),
+             body: None,
+             timeout_ms: None,
++            redirect_policy: None,
+             request_id: "caller-stream-id".to_string(),
+             stream_response: false,
+         }),
+@@ -289,6 +295,7 @@ async fn http_response_body_stream_drops_queued_terminal_before_next_generated_i
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "http-1".to_string(),
+                 stream_response: true,
+             }
+@@ -322,6 +329,7 @@ async fn http_response_body_stream_drops_queued_terminal_before_next_generated_i
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "http-2".to_string(),
+                 stream_response: true,
+             }
+@@ -348,6 +356,7 @@ async fn http_response_body_stream_drops_queued_terminal_before_next_generated_i
+             headers: Vec::new(),
+             body: None,
+             timeout_ms: None,
++            redirect_policy: None,
+             request_id: "caller-stream-id".to_string(),
+             stream_response: false,
+         }),
+@@ -372,6 +381,7 @@ async fn http_response_body_stream_drops_queued_terminal_before_next_generated_i
+         headers: Vec::new(),
+         body: None,
+         timeout_ms: None,
++        redirect_policy: None,
+         request_id: "caller-stream-id".to_string(),
+         stream_response: false,
+     };
+@@ -411,6 +421,7 @@ async fn http_response_body_stream_ignores_late_deltas_after_cancelled_request()
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "http-1".to_string(),
+                 stream_response: true,
+             }
+@@ -430,6 +441,7 @@ async fn http_response_body_stream_ignores_late_deltas_after_cancelled_request()
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "http-2".to_string(),
+                 stream_response: true,
+             }
+@@ -474,6 +486,7 @@ async fn http_response_body_stream_ignores_late_deltas_after_cancelled_request()
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "caller-stream-id".to_string(),
+                 stream_response: false,
+             })
+@@ -495,6 +508,7 @@ async fn http_response_body_stream_ignores_late_deltas_after_cancelled_request()
+             headers: Vec::new(),
+             body: None,
+             timeout_ms: None,
++            redirect_policy: None,
+             request_id: "caller-stream-id".to_string(),
+             stream_response: false,
+         }),
+@@ -541,6 +555,7 @@ async fn http_response_body_stream_ignores_late_deltas_after_drop() -> Result<()
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "http-1".to_string(),
+                 stream_response: true,
+             }
+@@ -580,6 +595,7 @@ async fn http_response_body_stream_ignores_late_deltas_after_drop() -> Result<()
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "http-2".to_string(),
+                 stream_response: true,
+             }
+@@ -615,6 +631,7 @@ async fn http_response_body_stream_ignores_late_deltas_after_drop() -> Result<()
+             headers: Vec::new(),
+             body: None,
+             timeout_ms: None,
++            redirect_policy: None,
+             request_id: "caller-stream-id".to_string(),
+             stream_response: false,
+         }),
+@@ -647,6 +664,7 @@ async fn http_response_body_stream_ignores_late_deltas_after_drop() -> Result<()
+             headers: Vec::new(),
+             body: None,
+             timeout_ms: None,
++            redirect_policy: None,
+             request_id: "caller-stream-id".to_string(),
+             stream_response: false,
+         }),
+@@ -691,6 +709,7 @@ async fn http_response_body_stream_fails_when_transport_disconnects() -> Result<
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "http-1".to_string(),
+                 stream_response: true,
+             }
+@@ -717,6 +736,7 @@ async fn http_response_body_stream_fails_when_transport_disconnects() -> Result<
+             headers: Vec::new(),
+             body: None,
+             timeout_ms: None,
++            redirect_policy: None,
+             request_id: "caller-stream-id".to_string(),
+             stream_response: false,
+         }),
+@@ -759,6 +779,7 @@ async fn http_response_body_stream_reports_disconnect_when_queue_is_full() -> Re
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "http-1".to_string(),
+                 stream_response: true,
+             }
+@@ -796,6 +817,7 @@ async fn http_response_body_stream_reports_disconnect_when_queue_is_full() -> Re
+             headers: Vec::new(),
+             body: None,
+             timeout_ms: None,
++            redirect_policy: None,
+             request_id: "caller-stream-id".to_string(),
+             stream_response: false,
+         }),
+@@ -852,6 +874,7 @@ async fn http_response_body_stream_reports_backpressure_truncation() -> Result<(
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "http-1".to_string(),
+                 stream_response: true,
+             }
+@@ -894,6 +917,7 @@ async fn http_response_body_stream_reports_backpressure_truncation() -> Result<(
+             headers: Vec::new(),
+             body: None,
+             timeout_ms: None,
++            redirect_policy: None,
+             request_id: "caller-stream-id".to_string(),
+             stream_response: false,
+         }),
+diff --git a/codex-rs/exec-server/tests/http_request.rs b/codex-rs/exec-server/tests/http_request.rs
+index f45261d..319f3c5 100644
+--- a/codex-rs/exec-server/tests/http_request.rs
++++ b/codex-rs/exec-server/tests/http_request.rs
+@@ -63,6 +63,7 @@ async fn exec_server_http_request_buffers_response_body() -> anyhow::Result<()>
+                 }],
+                 body: Some(b"request-body".to_vec().into()),
+                 timeout_ms: Some(5_000),
++                redirect_policy: None,
+                 request_id: "buffered-request".to_string(),
+                 stream_response: false,
+             })?,
+@@ -132,6 +133,7 @@ async fn exec_server_http_request_streams_response_body_notifications() -> anyho
+                 }],
+                 body: None,
+                 timeout_ms: Some(5_000),
++                redirect_policy: None,
+                 request_id: "stream-1".to_string(),
+                 stream_response: true,
+             })?,
+@@ -218,6 +220,7 @@ async fn exec_server_http_request_rejects_duplicate_stream_request_ids() -> anyh
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "stream-dup".to_string(),
+                 stream_response: true,
+             })?,
+@@ -241,6 +244,7 @@ async fn exec_server_http_request_rejects_duplicate_stream_request_ids() -> anyh
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "stream-dup".to_string(),
+                 stream_response: true,
+             })?,
+@@ -295,6 +299,7 @@ async fn exec_server_http_request_honors_optional_timeout() -> anyhow::Result<()
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "buffered-request".to_string(),
+                 stream_response: false,
+             })?,
+@@ -320,6 +325,7 @@ async fn exec_server_http_request_honors_optional_timeout() -> anyhow::Result<()
+                 headers: Vec::new(),
+                 body: None,
+                 timeout_ms: Some(10),
++                redirect_policy: None,
+                 request_id: "buffered-request".to_string(),
+                 stream_response: false,
+             })?,
 diff --git a/codex-rs/rmcp-client/Cargo.toml b/codex-rs/rmcp-client/Cargo.toml
 index 63c6d74..35a9023 100644
 --- a/codex-rs/rmcp-client/Cargo.toml
@@ -10,27 +390,246 @@ index 63c6d74..35a9023 100644
  ] }
  rmcp = { workspace = true, default-features = false, features = [
      "auth",
+diff --git a/codex-rs/rmcp-client/src/http_client_adapter.rs b/codex-rs/rmcp-client/src/http_client_adapter.rs
+index 6f98f78..183a18b 100644
+--- a/codex-rs/rmcp-client/src/http_client_adapter.rs
++++ b/codex-rs/rmcp-client/src/http_client_adapter.rs
+@@ -8,7 +8,9 @@
+ //! - a remote HTTP client that forwards requests to the remote runtime
+ 
+ use std::collections::HashMap;
++use std::future::Future;
+ use std::io;
++use std::pin::Pin;
+ use std::sync::Arc;
+ 
+ use bytes::Bytes;
+@@ -16,6 +18,7 @@ use codex_api::SharedAuthProvider;
+ use codex_exec_server::ExecServerError;
+ use codex_exec_server::HttpClient;
+ use codex_exec_server::HttpHeader;
++use codex_exec_server::HttpRedirectPolicy;
+ use codex_exec_server::HttpRequestParams;
+ use codex_exec_server::HttpResponseBodyStream;
+ use futures::StreamExt;
+@@ -30,6 +33,9 @@ use reqwest::header::HeaderName;
+ use rmcp::model::ClientJsonRpcMessage;
+ use rmcp::model::JsonRpcMessage;
+ use rmcp::model::ServerJsonRpcMessage;
++use rmcp::transport::auth::OAuthHttpClient;
++use rmcp::transport::auth::OAuthHttpClientError;
++use rmcp::transport::auth::OAuthRedirectPolicy;
+ use rmcp::transport::streamable_http_client::AuthRequiredError;
+ use rmcp::transport::streamable_http_client::InsufficientScopeError;
+ use rmcp::transport::streamable_http_client::StreamableHttpClient;
+@@ -54,6 +60,68 @@ pub(crate) struct StreamableHttpClientAdapter {
+     auth_provider: Option<SharedAuthProvider>,
+ }
+ 
++#[derive(Clone)]
++pub(crate) struct SharedOAuthHttpClientAdapter {
++    http_client: Arc<dyn HttpClient>,
++    default_headers: HeaderMap,
++}
++
++impl SharedOAuthHttpClientAdapter {
++    pub(crate) fn new(http_client: Arc<dyn HttpClient>, default_headers: HeaderMap) -> Self {
++        Self {
++            http_client,
++            default_headers,
++        }
++    }
++}
++
++impl OAuthHttpClient for SharedOAuthHttpClientAdapter {
++    fn execute(
++        &self,
++        request: oauth2::HttpRequest,
++        redirect_policy: OAuthRedirectPolicy,
++    ) -> Pin<Box<dyn Future<Output = Result<oauth2::HttpResponse, OAuthHttpClientError>> + Send + '_>>
++    {
++        Box::pin(async move {
++            let (parts, body) = request.into_parts();
++            let mut headers = protocol_headers(&self.default_headers);
++            for (name, value) in &parts.headers {
++                headers.push(HttpHeader {
++                    name: name.as_str().to_string(),
++                    value: value
++                        .to_str()
++                        .map_err(OAuthHttpClientError::new)?
++                        .to_string(),
++                });
++            }
++            let response = self
++                .http_client
++                .http_request(HttpRequestParams {
++                    method: parts.method.to_string(),
++                    url: parts.uri.to_string(),
++                    headers,
++                    body: Some(body.into()),
++                    timeout_ms: Some(30_000),
++                    redirect_policy: Some(match redirect_policy {
++                        OAuthRedirectPolicy::Follow => HttpRedirectPolicy::Follow,
++                        OAuthRedirectPolicy::None => HttpRedirectPolicy::None,
++                    }),
++                    request_id: "oauth-buffered-request".to_string(),
++                    stream_response: false,
++                })
++                .await
++                .map_err(OAuthHttpClientError::new)?;
++            let mut builder = oauth2::http::Response::builder().status(response.status);
++            for header in response.headers {
++                builder = builder.header(header.name, header.value);
++            }
++            builder
++                .body(response.body.into_inner())
++                .map_err(OAuthHttpClientError::new)
++        })
++    }
++}
++
+ #[derive(Debug, thiserror::Error)]
+ pub(crate) enum StreamableHttpClientAdapterError {
+     #[error("streamable HTTP session expired with 404 Not Found")]
+@@ -133,6 +201,7 @@ impl StreamableHttpClient for StreamableHttpClientAdapter {
+                 headers: protocol_headers(&headers),
+                 body: Some(body.into()),
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "buffered-request".to_string(),
+                 stream_response: true,
+             })
+@@ -240,6 +309,7 @@ impl StreamableHttpClient for StreamableHttpClientAdapter {
+                 headers: protocol_headers(&headers),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "buffered-request".to_string(),
+                 stream_response: false,
+             })
+@@ -309,6 +379,7 @@ impl StreamableHttpClient for StreamableHttpClientAdapter {
+                 headers: protocol_headers(&headers),
+                 body: None,
+                 timeout_ms: None,
++                redirect_policy: None,
+                 request_id: "buffered-request".to_string(),
+                 stream_response: true,
+             })
+diff --git a/codex-rs/rmcp-client/src/perform_oauth_login.rs b/codex-rs/rmcp-client/src/perform_oauth_login.rs
+index a416b3d..c69d91b 100644
+--- a/codex-rs/rmcp-client/src/perform_oauth_login.rs
++++ b/codex-rs/rmcp-client/src/perform_oauth_login.rs
+@@ -9,11 +9,12 @@ use anyhow::anyhow;
+ use anyhow::bail;
+ use base64::Engine;
+ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+-use reqwest::ClientBuilder;
++use codex_exec_server::ReqwestHttpClient;
+ use reqwest::Url;
+ use rmcp::transport::AuthorizationManager;
+ use rmcp::transport::AuthorizationSession;
+ use rmcp::transport::auth::OAuthClientConfig;
++use rmcp::transport::auth::OAuthHttpClient;
+ use rmcp::transport::auth::OAuthState;
+ use sha2::Digest;
+ use sha2::Sha256;
+@@ -25,9 +26,9 @@ use urlencoding::decode;
+ 
+ use crate::StoredOAuthTokens;
+ use crate::WrappedOAuthTokenResponse;
++use crate::http_client_adapter::SharedOAuthHttpClientAdapter;
+ use crate::oauth::compute_expires_at_millis;
+ use crate::save_oauth_tokens;
+-use crate::utils::apply_default_headers;
+ use crate::utils::build_default_headers;
+ use codex_config::types::OAuthCredentialsStoreMode;
+ 
+@@ -481,7 +482,10 @@ impl OauthLoginFlow {
+             env_http_headers,
+         } = headers;
+         let default_headers = build_default_headers(http_headers, env_http_headers)?;
+-        let http_client = apply_default_headers(ClientBuilder::new(), &default_headers).build()?;
++        let http_client = Arc::new(SharedOAuthHttpClientAdapter::new(
++            Arc::new(ReqwestHttpClient),
++            default_headers,
++        ));
+ 
+         let scope_refs: Vec<&str> = scopes.iter().map(String::as_str).collect();
+         let oauth_state = start_authorization(
+@@ -603,22 +607,22 @@ impl OauthLoginFlow {
+ 
+ async fn start_authorization(
+     server_url: &str,
+-    http_client: reqwest::Client,
++    http_client: Arc<dyn OAuthHttpClient>,
+     scopes: &[&str],
+     redirect_uri: &str,
+     oauth_client_id: Option<&str>,
+ ) -> Result<OAuthState> {
+     let Some(oauth_client_id) = oauth_client_id.filter(|client_id| !client_id.trim().is_empty())
+     else {
+-        let mut oauth_state = OAuthState::new(server_url, Some(http_client)).await?;
++        let mut oauth_state = OAuthState::new_with_http_client(server_url, http_client).await?;
+         oauth_state
+             .start_authorization(scopes, redirect_uri, Some("Codex"))
+             .await?;
+         return Ok(oauth_state);
+     };
+ 
+-    let mut auth_manager = AuthorizationManager::new(server_url).await?;
+-    auth_manager.with_client(http_client)?;
++    let mut auth_manager =
++        AuthorizationManager::new_with_http_client(server_url, http_client).await?;
+     let metadata = auth_manager.discover_metadata().await?;
+     auth_manager.set_metadata(metadata);
+     auth_manager.configure_client(
 diff --git a/codex-rs/rmcp-client/src/rmcp_client.rs b/codex-rs/rmcp-client/src/rmcp_client.rs
-index 90b09d7..217bd24 100644
+index 90b09d7..e9ebd69 100644
 --- a/codex-rs/rmcp-client/src/rmcp_client.rs
 +++ b/codex-rs/rmcp-client/src/rmcp_client.rs
-@@ -12,6 +12,7 @@ use std::time::Instant;
+@@ -12,7 +12,6 @@ use std::time::Instant;
  use anyhow::Result;
  use anyhow::anyhow;
  use codex_api::SharedAuthProvider;
-+#[cfg(not(target_os = "android"))]
- use codex_client::maybe_build_rustls_client_config_with_custom_ca;
+-use codex_client::maybe_build_rustls_client_config_with_custom_ca;
  use codex_config::types::McpServerEnvVar;
  use codex_exec_server::HttpClient;
-@@ -1013,7 +1014,11 @@ async fn create_oauth_transport_and_runtime(
+ use futures::FutureExt;
+@@ -60,6 +59,7 @@ use tokio::time;
+ use tracing::warn;
+ 
+ use crate::elicitation_client_service::ElicitationClientService;
++use crate::http_client_adapter::SharedOAuthHttpClientAdapter;
+ use crate::http_client_adapter::StreamableHttpClientAdapter;
+ use crate::http_client_adapter::StreamableHttpClientAdapterError;
+ use crate::in_process_transport::InProcessTransportFactory;
+@@ -70,7 +70,6 @@ use crate::stdio_server_launcher::StdioServerCommand;
+ use crate::stdio_server_launcher::StdioServerLauncher;
+ use crate::stdio_server_launcher::StdioServerProcessHandle;
+ use crate::stdio_server_launcher::StdioServerTransport;
+-use crate::utils::apply_default_headers;
+ use crate::utils::build_default_headers;
+ use codex_config::types::OAuthCredentialsStoreMode;
+ 
+@@ -1013,16 +1012,11 @@ async fn create_oauth_transport_and_runtime(
      StreamableHttpClientTransport<AuthClient<StreamableHttpClientAdapter>>,
      OAuthPersistor,
  )> {
-+    #[cfg(not(target_os = "android"))]
-     let mut builder = apply_default_headers(reqwest::Client::builder(), &default_headers);
-+    #[cfg(target_os = "android")]
-+    let builder = apply_default_headers(reqwest::Client::builder(), &default_headers);
-+    #[cfg(not(target_os = "android"))]
-     if let Some(tls_config) = maybe_build_rustls_client_config_with_custom_ca()? {
-         builder = builder.tls_backend_preconfigured(tls_config.as_ref().clone());
-     }
+-    let mut builder = apply_default_headers(reqwest::Client::builder(), &default_headers);
+-    if let Some(tls_config) = maybe_build_rustls_client_config_with_custom_ca()? {
+-        builder = builder.tls_backend_preconfigured(tls_config.as_ref().clone());
+-    }
+-    let oauth_metadata_client = builder.build()?;
+-    // TODO(aibrahim): teach OAuth bootstrap and refresh to use the same
+-    // shared HTTP client abstraction instead of always creating the local
+-    // reqwest metadata client here.
+-    let mut oauth_state =
+-        OAuthState::new(url.to_string(), Some(oauth_metadata_client.clone())).await?;
++    let oauth_http = Arc::new(SharedOAuthHttpClientAdapter::new(
++        Arc::clone(&http_client),
++        default_headers.clone(),
++    ));
++    let mut oauth_state = OAuthState::new_with_http_client(url.to_string(), oauth_http).await?;
+ 
+     oauth_state
+         .set_credentials(

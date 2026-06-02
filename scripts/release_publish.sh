@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/release_publish.sh v0.136.0-ccva.2 [options]
+Usage: scripts/release_publish.sh v0.136.0-ccva.3 [options]
 
 Stages release manifests and, with --execute, pushes the Git tag and GitHub
 release assets.

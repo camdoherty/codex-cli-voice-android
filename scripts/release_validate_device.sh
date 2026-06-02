@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/release_validate_device.sh v0.136.0-ccva.2 [options]
+Usage: scripts/release_validate_device.sh v0.136.0-ccva.3 [options]
 
 Runs the local release checks and deploys the CLI package to the configured
 Termux target for non-billable validation.
@@ -110,6 +110,33 @@ if [[ "$skip_deploy" != "1" ]]; then
     else
         "$REPO_DIR/scripts/deploy_termux_package.sh" "$cli_asset" "$cli_sha" | tee -a "$report"
     fi
+    if [[ -f "$REPO_DIR/.env" ]]; then
+        set -a
+        # shellcheck disable=SC1091
+        . "$REPO_DIR/.env"
+        set +a
+    fi
+    pixel_host="${PIXEL_HOST:-}"
+    pixel_user="${PIXEL_USER:-}"
+    pixel_port="${PIXEL_PORT:-8022}"
+    ssh_config="${SSH_CONFIG:-/dev/null}"
+    [[ -n "$pixel_host" && -n "$pixel_user" ]] ||
+        die "PIXEL_HOST and PIXEL_USER are required for installed-binary smoke"
+    ssh_opts=(-F "$ssh_config" -p "$pixel_port")
+    if [[ -n "${PIXEL_IDENTITY:-}" ]]; then
+        ssh_opts+=(-o "IdentityFile=$PIXEL_IDENTITY" -o IdentitiesOnly=yes)
+    fi
+    ssh "${ssh_opts[@]}" "${pixel_user}@${pixel_host}" 'sh -s' <<'REMOTE_TLS_GUARD' | tee -a "$report"
+set -eu
+binary="$PREFIX/libexec/codex-cli-voice-android/codex.bin"
+if strings "$binary" | grep -F \
+    -e "rustls-platform-verifier" \
+    -e "Expect rustls-platform-verifier" >/dev/null; then
+    echo "Forbidden rustls platform verifier string in installed binary" >&2
+    exit 1
+fi
+echo "installed_android_tls_guard=ok"
+REMOTE_TLS_GUARD
 else
     echo "deploy=skipped" | tee -a "$report"
 fi

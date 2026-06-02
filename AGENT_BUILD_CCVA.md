@@ -189,18 +189,18 @@ For a publishable release candidate, use the release pipeline:
 
 ```bash
 scripts/release_prepare.sh rust-v0.136.0 --iteration 1
-scripts/release_build.sh v0.136.0-ccva.2
+scripts/release_build.sh v0.136.0-ccva.3
 ```
 
 Expected release outputs are under `dist/<release-tag>/`:
 
 ```text
-dist/v0.136.0-ccva.2/codex-cli-voice-android-rust-v0.136.0-ccva.2.tar.gz
-dist/v0.136.0-ccva.2/codex-cli-voice-android-rust-v0.136.0-ccva.2.tar.gz.sha256
-dist/v0.136.0-ccva.2/codex-cli-voice-android-rust-v0.136.0-ccva.2.tar.gz.metadata
-dist/v0.136.0-ccva.2/codex-aec-shim-v0.136.0-ccva.2-debug.apk
-dist/v0.136.0-ccva.2/codex-aec-shim-v0.136.0-ccva.2-debug.apk.sha256
-dist/v0.136.0-ccva.2/v0.136.0-ccva.2.json
+dist/v0.136.0-ccva.3/codex-cli-voice-android-rust-v0.136.0-ccva.3.tar.gz
+dist/v0.136.0-ccva.3/codex-cli-voice-android-rust-v0.136.0-ccva.3.tar.gz.sha256
+dist/v0.136.0-ccva.3/codex-cli-voice-android-rust-v0.136.0-ccva.3.tar.gz.metadata
+dist/v0.136.0-ccva.3/codex-aec-shim-v0.136.0-ccva.3-debug.apk
+dist/v0.136.0-ccva.3/codex-aec-shim-v0.136.0-ccva.3-debug.apk.sha256
+dist/v0.136.0-ccva.3/v0.136.0-ccva.3.json
 ```
 
 For lower-level local iteration, build the Android shim APK directly:
@@ -237,7 +237,7 @@ sha256sum -c codex-cli-voice-android-rust-v0.136.0.tar.gz.sha256
 For a release candidate, prefer:
 
 ```bash
-scripts/release_doctor.sh v0.136.0-ccva.2
+scripts/release_doctor.sh v0.136.0-ccva.3
 ```
 
 ## Deploy With SSH
@@ -302,14 +302,14 @@ Deploy the CLI package:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  dist/v0.136.0-ccva.2/codex-cli-voice-android-rust-v0.136.0-ccva.2.tar.gz \
-  dist/v0.136.0-ccva.2/codex-cli-voice-android-rust-v0.136.0-ccva.2.tar.gz.sha256
+  dist/v0.136.0-ccva.3/codex-cli-voice-android-rust-v0.136.0-ccva.3.tar.gz \
+  dist/v0.136.0-ccva.3/codex-cli-voice-android-rust-v0.136.0-ccva.3.tar.gz.sha256
 ```
 
 Or use the release validation wrapper:
 
 ```bash
-scripts/release_validate_device.sh v0.136.0-ccva.2 --fresh --target Pixel6a
+scripts/release_validate_device.sh v0.136.0-ccva.3 --fresh --target Pixel6a
 ```
 
 Stage the shim APK to Android Downloads from inside Termux. If the APK was

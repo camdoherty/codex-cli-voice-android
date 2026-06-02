@@ -13,6 +13,46 @@ PATCHES_DIR="$SCRIPT_DIR/patches"
 WORK_DIR="${WORK_DIR:-$SCRIPT_DIR/../codex-build-${CODEX_TAG}}"
 OUTPUT_DIR="${OUTPUT_DIR:-$SCRIPT_DIR}"
 CHECK_PATCHES_ONLY="${CHECK_PATCHES_ONLY:-0}"
+RESET_UPSTREAM_WORK_DIR="${RESET_UPSTREAM_WORK_DIR:-0}"
+
+reset_upstream_work_dir() {
+    work_dir_real="$(cd "$WORK_DIR" && pwd -P)"
+    repo_top="$(git -C "$WORK_DIR" rev-parse --show-toplevel)"
+    case "$(basename "$WORK_DIR")" in
+        codex-build-*) ;;
+        *)
+            echo "❌ Refusing to reset non-dedicated WORK_DIR: $WORK_DIR" >&2
+            exit 1
+            ;;
+    esac
+    [ "$work_dir_real" = "$repo_top" ] || {
+        echo "❌ Refusing to reset nested or mismatched WORK_DIR: $WORK_DIR" >&2
+        exit 1
+    }
+    [ "$work_dir_real" != "$SCRIPT_DIR" ] || {
+        echo "❌ Refusing to reset public source directory" >&2
+        exit 1
+    }
+    [ "$(git -C "$WORK_DIR" remote get-url origin)" = "https://github.com/openai/codex.git" ] || {
+        echo "❌ Refusing to reset WORK_DIR with unexpected origin: $WORK_DIR" >&2
+        exit 1
+    }
+    echo "🧹 Resetting dedicated upstream worktree..."
+    git -C "$WORK_DIR" reset --hard "$CODEX_TAG"
+    git -C "$WORK_DIR" clean -fd
+}
+
+check_public_release_source() {
+    dirty="$(
+        git -C "$SCRIPT_DIR" status --porcelain --untracked-files=all -- \
+            . ':(exclude)dist/**' ':(exclude)tmp/**'
+    )"
+    [ -z "$dirty" ] || {
+        echo "❌ Public release source is dirty; commit or stash these paths:" >&2
+        printf '%s\n' "$dirty" >&2
+        exit 1
+    }
+}
 
 echo "========================================"
 echo " Building $PROJECT_NAME"
@@ -43,7 +83,13 @@ if [ ! -e "$WORK_DIR/.git" ]; then
     git clone --depth=1 --branch "$CODEX_TAG" https://github.com/openai/codex.git "$WORK_DIR"
 else
     echo "🔄 Updating upstream Codex..."
-    (cd "$WORK_DIR" && git fetch origin tag "$CODEX_TAG" && git checkout "$CODEX_TAG")
+    if [ "$RESET_UPSTREAM_WORK_DIR" = "1" ]; then
+        git -C "$WORK_DIR" fetch origin tag "$CODEX_TAG"
+        reset_upstream_work_dir
+        git -C "$WORK_DIR" checkout "$CODEX_TAG"
+    else
+        (cd "$WORK_DIR" && git fetch origin tag "$CODEX_TAG" && git checkout "$CODEX_TAG")
+    fi
 fi
 
 # -- Apply patches (idempotent) --
@@ -58,6 +104,8 @@ echo "🩹 Applying patches..."
         exit 1
     fi
 done)
+
+"$SCRIPT_DIR/scripts/android_tls_guard.sh" graph "$WORK_DIR/codex-rs"
 
 if [ "$CHECK_PATCHES_ONLY" = "1" ]; then
     echo "🔎 Verifying locked Cargo metadata..."
@@ -75,6 +123,7 @@ echo "   Cargo target cache: $CARGO_TARGET_DIR"
     cargo ndk -t arm64-v8a --platform "$API_LEVEL" -- build --package codex-cli --release)
 
 # -- Stage --
+check_public_release_source
 echo "📦 Staging files..."
 STAGE=$(mktemp -d)
 trap "rm -rf $STAGE" EXIT
@@ -85,6 +134,7 @@ cp "$CARGO_TARGET_DIR/aarch64-linux-android/release/codex" \
     "$STAGE/$INSTALL_DIR/codex.bin"
 cp "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" \
     "$STAGE/$INSTALL_DIR/"
+"$SCRIPT_DIR/scripts/android_tls_guard.sh" binary "$STAGE/$INSTALL_DIR/codex.bin"
 cp -R "$SCRIPT_DIR/support/termux-skills/stts" \
     "$STAGE/$INSTALL_DIR/support/termux-skills/"
 find "$STAGE/$INSTALL_DIR/support/termux-skills/stts" -type d -name __pycache__ -exec rm -rf {} +
