@@ -75,26 +75,26 @@ Full build:
 ANDROID_NDK_HOME=/path/to/android-ndk-r29 ./build.sh
 ```
 
-By default the script builds upstream `rust-v0.135.0` and writes un-suffixed
+By default the script builds upstream `rust-v0.136.0` and writes un-suffixed
 local build artifacts:
 
 ```text
-codex-cli-voice-android-rust-v0.135.0.tar.gz
-codex-cli-voice-android-rust-v0.135.0.tar.gz.sha256
-codex-cli-voice-android-rust-v0.135.0.tar.gz.metadata
+codex-cli-voice-android-rust-v0.136.0.tar.gz
+codex-cli-voice-android-rust-v0.136.0.tar.gz.sha256
+codex-cli-voice-android-rust-v0.136.0.tar.gz.metadata
 ```
 
 For publishable CCVA release artifacts, use the release wrapper:
 
 ```bash
-scripts/release_build.sh v0.135.0-ccva.1
+scripts/release_build.sh v0.136.0-ccva.1
 ```
 
-That writes versioned assets under `dist/v0.135.0-ccva.1/`, for example:
+That writes versioned assets under `dist/v0.136.0-ccva.1/`, for example:
 
 ```text
-codex-cli-voice-android-rust-v0.135.0-ccva.1.tar.gz
-codex-aec-shim-v0.135.0-ccva.1-debug.apk
+codex-cli-voice-android-rust-v0.136.0-ccva.1.tar.gz
+codex-aec-shim-v0.136.0-ccva.1-debug.apk
 ```
 
 Cargo output is cached outside the source clone through:
@@ -106,14 +106,14 @@ CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-../codex-cargo-cache}
 Override the upstream tag for preflight or future bumps:
 
 ```bash
-CODEX_TAG=rust-v0.135.0 WORK_DIR=/tmp/codex-cli-preflight CHECK_PATCHES_ONLY=1 ./build.sh
+CODEX_TAG=rust-v0.136.0 WORK_DIR=/tmp/codex-cli-preflight CHECK_PATCHES_ONLY=1 ./build.sh
 ```
 
 For upstream bumps, use the bump preflight helper first. It skips the stale
 Cargo.lock patch, regenerates it, and verifies locked metadata:
 
 ```bash
-scripts/preflight_upstream_bump.sh rust-v0.135.0 --write-lock-patch
+scripts/preflight_upstream_bump.sh rust-v0.136.0 --write-lock-patch
 ```
 
 ## AEC Shim APK

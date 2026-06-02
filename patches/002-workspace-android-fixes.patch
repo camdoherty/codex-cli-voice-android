@@ -1,26 +1,41 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index c1258e8..70640f3 100644
+index f7e7efc..373f6bb 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
-@@ -73,7 +73,7 @@ members = [
+@@ -78,7 +78,6 @@ members = [
      "otel",
      "tui",
      "tools",
 -    "v8-poc",
-+
      "utils/absolute-path",
      "utils/cargo-bin",
      "git-utils",
-@@ -331,7 +331,7 @@ rcgen = { version = "0.14.7", default-features = false, features = [
+@@ -236,7 +236,6 @@ codex-utils-sleep-inhibitor = { path = "utils/sleep-inhibitor" }
+ codex-utils-stream-parser = { path = "utils/stream-parser" }
+ codex-utils-string = { path = "utils/string" }
+ codex-utils-template = { path = "utils/template" }
+-codex-v8-poc = { path = "v8-poc" }
+ codex-windows-sandbox = { path = "windows-sandbox-rs" }
+ core_test_support = { path = "core/tests/common" }
+ mcp_test_support = { path = "mcp-server/tests/common" }
+@@ -342,7 +341,7 @@ rcgen = { version = "0.14.7", default-features = false, features = [
  ] }
  regex = "1.12.3"
  regex-lite = "0.1.8"
 -reqwest = { version = "0.12", features = ["cookies"] }
 +reqwest = { version = "0.12", default-features = false, features = ["charset", "cookies", "http2", "macos-system-configuration", "rustls-tls"] }
- rmcp = { version = "0.15.0", default-features = false }
+ rmcp = { version = "1.7.0", default-features = false }
  runfiles = { git = "https://github.com/dzbarsky/rules_rust", rev = "b56cbaa8465e74127f1ea216f813cd377295ad81" }
  rustls = { version = "0.23", default-features = false, features = [
-@@ -484,14 +484,11 @@ debug = "none"
+@@ -480,7 +479,6 @@ ignored = [
+     "codex-goal-extension",
+     "icu_provider",
+     "openssl-sys",
+-    "codex-v8-poc",
+ ]
+ 
+ [profile.dev]
+@@ -495,14 +494,11 @@ debug = "none"
  strip = "symbols"
  
  [profile.release]

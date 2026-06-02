@@ -1,8 +1,8 @@
 diff --git a/codex-rs/code-mode/Cargo.toml b/codex-rs/code-mode/Cargo.toml
-index 19d6c3a..1ab2f29 100644
+index 879404d..c21b887 100644
 --- a/codex-rs/code-mode/Cargo.toml
 +++ b/codex-rs/code-mode/Cargo.toml
-@@ -25,6 +25,8 @@ serde_json = { workspace = true }
+@@ -23,6 +23,8 @@ serde_json = { workspace = true }
  tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
  tokio-util = { workspace = true, features = ["rt"] }
  tracing = { workspace = true }
@@ -12,7 +12,7 @@ index 19d6c3a..1ab2f29 100644
  
  [dev-dependencies]
 diff --git a/codex-rs/code-mode/src/lib.rs b/codex-rs/code-mode/src/lib.rs
-index 3da8c77..bcaf697 100644
+index 37ba1d2..681e303 100644
 --- a/codex-rs/code-mode/src/lib.rs
 +++ b/codex-rs/code-mode/src/lib.rs
 @@ -1,7 +1,13 @@
@@ -29,7 +29,7 @@ index 3da8c77..bcaf697 100644
  
  pub use description::CODE_MODE_PRAGMA_PREFIX;
  pub use description::CodeModeToolKind;
-@@ -18,20 +24,62 @@ pub use description::render_json_schema_to_typescript;
+@@ -18,29 +24,98 @@ pub use description::render_json_schema_to_typescript;
  pub use response::DEFAULT_IMAGE_DETAIL;
  pub use response::FunctionCallOutputContentItem;
  pub use response::ImageDetail;
@@ -78,29 +78,65 @@ index 3da8c77..bcaf697 100644
 +#[cfg(target_os = "android")]
 +pub use runtime_stub::WaitToPendingRequest;
 +#[cfg(not(target_os = "android"))]
+ pub use service::CellId;
++#[cfg(not(target_os = "android"))]
  pub use service::CodeModeService;
 +#[cfg(not(target_os = "android"))]
- pub use service::CodeModeTurnHost;
+ pub use service::CodeModeSession;
 +#[cfg(not(target_os = "android"))]
- pub use service::CodeModeTurnWorker;
+ pub use service::CodeModeSessionDelegate;
++#[cfg(not(target_os = "android"))]
+ pub use service::CodeModeSessionProvider;
++#[cfg(not(target_os = "android"))]
+ pub use service::CodeModeSessionProviderFuture;
++#[cfg(not(target_os = "android"))]
+ pub use service::CodeModeSessionResultFuture;
++#[cfg(not(target_os = "android"))]
+ pub use service::InProcessCodeModeSessionProvider;
++#[cfg(not(target_os = "android"))]
+ pub use service::NoopCodeModeSessionDelegate;
++#[cfg(not(target_os = "android"))]
+ pub use service::NotificationFuture;
++#[cfg(not(target_os = "android"))]
+ pub use service::StartedCell;
++#[cfg(not(target_os = "android"))]
+ pub use service::ToolInvocationFuture;
++#[cfg(target_os = "android")]
++pub use service_stub::CellId;
 +#[cfg(target_os = "android")]
 +pub use service_stub::CodeModeService;
 +#[cfg(target_os = "android")]
-+pub use service_stub::CodeModeTurnHost;
++pub use service_stub::CodeModeSession;
 +#[cfg(target_os = "android")]
-+pub use service_stub::CodeModeTurnWorker;
++pub use service_stub::CodeModeSessionDelegate;
++#[cfg(target_os = "android")]
++pub use service_stub::CodeModeSessionProvider;
++#[cfg(target_os = "android")]
++pub use service_stub::CodeModeSessionProviderFuture;
++#[cfg(target_os = "android")]
++pub use service_stub::CodeModeSessionResultFuture;
++#[cfg(target_os = "android")]
++pub use service_stub::InProcessCodeModeSessionProvider;
++#[cfg(target_os = "android")]
++pub use service_stub::NoopCodeModeSessionDelegate;
++#[cfg(target_os = "android")]
++pub use service_stub::NotificationFuture;
++#[cfg(target_os = "android")]
++pub use service_stub::StartedCell;
++#[cfg(target_os = "android")]
++pub use service_stub::ToolInvocationFuture;
  
  pub const PUBLIC_TOOL_NAME: &str = "exec";
  pub const WAIT_TOOL_NAME: &str = "wait";
 diff --git a/codex-rs/code-mode/src/runtime_stub.rs b/codex-rs/code-mode/src/runtime_stub.rs
 new file mode 100644
-index 0000000..5c771b4
+index 0000000..d008a1e
 --- /dev/null
 +++ b/codex-rs/code-mode/src/runtime_stub.rs
-@@ -0,0 +1,92 @@
+@@ -0,0 +1,91 @@
 +/// Android stub for the V8 runtime types.
-+/// V8 does not cross-compile to aarch64-linux-android, so we provide
-+/// type-compatible stubs that allow the rest of the crate graph to compile.
++/// V8 does not cross-compile to aarch64-linux-android, so these stubs keep the
++/// crate graph buildable while code-mode execution returns an explicit error.
 +use codex_protocol::ToolName;
 +use serde::Serialize;
 +use serde_json::Value as JsonValue;
@@ -108,6 +144,7 @@ index 0000000..5c771b4
 +use crate::description::CodeModeToolKind;
 +use crate::description::ToolDefinition;
 +use crate::response::FunctionCallOutputContentItem;
++use crate::service_stub::CellId;
 +
 +pub const DEFAULT_EXEC_YIELD_TIME_MS: u64 = 10_000;
 +pub const DEFAULT_WAIT_YIELD_TIME_MS: u64 = 10_000;
@@ -115,7 +152,6 @@ index 0000000..5c771b4
 +
 +#[derive(Clone, Debug)]
 +pub struct ExecuteRequest {
-+    pub cell_id: String,
 +    pub tool_call_id: String,
 +    pub enabled_tools: Vec<ToolDefinition>,
 +    pub source: String,
@@ -125,14 +161,13 @@ index 0000000..5c771b4
 +
 +#[derive(Clone, Debug)]
 +pub struct WaitRequest {
-+    pub cell_id: String,
++    pub cell_id: CellId,
 +    pub yield_time_ms: u64,
-+    pub terminate: bool,
 +}
 +
 +#[derive(Clone, Debug)]
 +pub struct WaitToPendingRequest {
-+    pub cell_id: String,
++    pub cell_id: CellId,
 +}
 +
 +#[derive(Debug, PartialEq)]
@@ -144,7 +179,7 @@ index 0000000..5c771b4
 +#[derive(Debug, PartialEq)]
 +pub enum ExecuteToPendingOutcome {
 +    Pending {
-+        cell_id: String,
++        cell_id: CellId,
 +        content_items: Vec<FunctionCallOutputContentItem>,
 +        pending_tool_call_ids: Vec<String>,
 +    },
@@ -168,15 +203,15 @@ index 0000000..5c771b4
 +#[derive(Debug, PartialEq, Serialize)]
 +pub enum RuntimeResponse {
 +    Yielded {
-+        cell_id: String,
++        cell_id: CellId,
 +        content_items: Vec<FunctionCallOutputContentItem>,
 +    },
 +    Terminated {
-+        cell_id: String,
++        cell_id: CellId,
 +        content_items: Vec<FunctionCallOutputContentItem>,
 +    },
 +    Result {
-+        cell_id: String,
++        cell_id: CellId,
 +        content_items: Vec<FunctionCallOutputContentItem>,
 +        error_text: Option<String>,
 +    },
@@ -184,7 +219,7 @@ index 0000000..5c771b4
 +
 +#[derive(Debug)]
 +pub struct CodeModeNestedToolCall {
-+    pub cell_id: String,
++    pub cell_id: CellId,
 +    pub runtime_tool_call_id: String,
 +    pub tool_name: ToolName,
 +    pub tool_kind: CodeModeToolKind,
@@ -192,107 +227,206 @@ index 0000000..5c771b4
 +}
 diff --git a/codex-rs/code-mode/src/service_stub.rs b/codex-rs/code-mode/src/service_stub.rs
 new file mode 100644
-index 0000000..0bdc3a3
+index 0000000..8add764
 --- /dev/null
 +++ b/codex-rs/code-mode/src/service_stub.rs
-@@ -0,0 +1,100 @@
-+/// Android stub for the V8-backed CodeModeService.
-+/// Returns errors for exec operations since V8 is unavailable.
-+use std::collections::HashMap;
+@@ -0,0 +1,199 @@
++/// Android stub for the V8-backed code-mode service.
++/// Code mode is unavailable on Android until V8 cross-compilation is supported.
++use std::fmt;
++use std::future::Future;
++use std::pin::Pin;
 +use std::sync::Arc;
-+use std::sync::atomic::AtomicU64;
-+use std::sync::atomic::Ordering;
 +
-+use async_trait::async_trait;
++use serde::Deserialize;
++use serde::Serialize;
 +use serde_json::Value as JsonValue;
++use tokio::sync::oneshot;
 +use tokio_util::sync::CancellationToken;
 +
 +use crate::runtime_stub::CodeModeNestedToolCall;
 +use crate::runtime_stub::ExecuteRequest;
-+use crate::runtime_stub::ExecuteToPendingOutcome;
 +use crate::runtime_stub::RuntimeResponse;
 +use crate::runtime_stub::WaitOutcome;
 +use crate::runtime_stub::WaitRequest;
-+use crate::runtime_stub::WaitToPendingOutcome;
-+use crate::runtime_stub::WaitToPendingRequest;
 +
-+#[async_trait]
-+pub trait CodeModeTurnHost: Send + Sync {
-+    async fn invoke_tool(
-+        &self,
++pub type CodeModeSessionResultFuture<'a, T> =
++    Pin<Box<dyn Future<Output = Result<T, String>> + Send + 'a>>;
++pub type CodeModeSessionProviderFuture<'a> =
++    CodeModeSessionResultFuture<'a, Arc<dyn CodeModeSession>>;
++pub type ToolInvocationFuture<'a> =
++    Pin<Box<dyn Future<Output = Result<JsonValue, String>> + Send + 'a>>;
++pub type NotificationFuture<'a> = Pin<Box<dyn Future<Output = Result<(), String>> + Send + 'a>>;
++
++#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
++pub struct CellId(String);
++
++impl CellId {
++    pub fn new(value: String) -> Self {
++        Self(value)
++    }
++
++    pub fn as_str(&self) -> &str {
++        &self.0
++    }
++}
++
++impl AsRef<str> for CellId {
++    fn as_ref(&self) -> &str {
++        self.as_str()
++    }
++}
++
++impl fmt::Display for CellId {
++    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
++        formatter.write_str(self.as_str())
++    }
++}
++
++pub struct StartedCell {
++    pub cell_id: CellId,
++    initial_response_rx: oneshot::Receiver<RuntimeResponse>,
++}
++
++impl StartedCell {
++    pub async fn initial_response(self) -> Result<RuntimeResponse, String> {
++        self.initial_response_rx
++            .await
++            .map_err(|_| "code mode is unavailable on Android".to_string())
++    }
++}
++
++pub trait CodeModeSessionDelegate: Send + Sync {
++    fn invoke_tool<'a>(
++        &'a self,
 +        invocation: CodeModeNestedToolCall,
 +        cancellation_token: CancellationToken,
-+    ) -> Result<JsonValue, String>;
++    ) -> ToolInvocationFuture<'a>;
 +
-+    async fn notify(&self, call_id: String, cell_id: String, text: String) -> Result<(), String>;
++    fn notify<'a>(
++        &'a self,
++        call_id: String,
++        cell_id: CellId,
++        text: String,
++        cancellation_token: CancellationToken,
++    ) -> NotificationFuture<'a>;
++
++    fn cell_closed(&self, cell_id: &CellId);
 +}
 +
-+pub struct CodeModeService {
-+    next_cell_id: AtomicU64,
++pub struct NoopCodeModeSessionDelegate;
++
++impl CodeModeSessionDelegate for NoopCodeModeSessionDelegate {
++    fn invoke_tool<'a>(
++        &'a self,
++        _invocation: CodeModeNestedToolCall,
++        cancellation_token: CancellationToken,
++    ) -> ToolInvocationFuture<'a> {
++        Box::pin(async move {
++            cancellation_token.cancelled().await;
++            Err("code mode nested tools are unavailable on Android".to_string())
++        })
++    }
++
++    fn notify<'a>(
++        &'a self,
++        _call_id: String,
++        _cell_id: CellId,
++        _text: String,
++        _cancellation_token: CancellationToken,
++    ) -> NotificationFuture<'a> {
++        Box::pin(async { Ok(()) })
++    }
++
++    fn cell_closed(&self, _cell_id: &CellId) {}
 +}
++
++pub trait CodeModeSession: Send + Sync {
++    fn execute<'a>(
++        &'a self,
++        request: ExecuteRequest,
++    ) -> CodeModeSessionResultFuture<'a, StartedCell>;
++
++    fn wait<'a>(&'a self, request: WaitRequest) -> CodeModeSessionResultFuture<'a, WaitOutcome>;
++
++    fn terminate<'a>(&'a self, cell_id: CellId) -> CodeModeSessionResultFuture<'a, WaitOutcome>;
++
++    fn shutdown<'a>(&'a self) -> CodeModeSessionResultFuture<'a, ()>;
++}
++
++pub trait CodeModeSessionProvider: Send + Sync {
++    fn create_session<'a>(
++        &'a self,
++        delegate: Arc<dyn CodeModeSessionDelegate>,
++    ) -> CodeModeSessionProviderFuture<'a>;
++}
++
++#[derive(Default)]
++pub struct InProcessCodeModeSessionProvider;
++
++impl CodeModeSessionProvider for InProcessCodeModeSessionProvider {
++    fn create_session<'a>(
++        &'a self,
++        _delegate: Arc<dyn CodeModeSessionDelegate>,
++    ) -> CodeModeSessionProviderFuture<'a> {
++        Box::pin(async { Ok(Arc::new(CodeModeService) as Arc<dyn CodeModeSession>) })
++    }
++}
++
++#[derive(Default)]
++pub struct CodeModeService;
 +
 +impl CodeModeService {
 +    pub fn new() -> Self {
-+        Self {
-+            next_cell_id: AtomicU64::new(1),
-+        }
++        Self
 +    }
 +
-+    pub async fn stored_values(&self) -> HashMap<String, JsonValue> {
-+        HashMap::new()
++    pub fn with_delegate(_delegate: Arc<dyn CodeModeSessionDelegate>) -> Self {
++        Self
 +    }
 +
-+    pub async fn replace_stored_values(&self, _values: HashMap<String, JsonValue>) {}
-+
-+    pub fn allocate_cell_id(&self) -> String {
-+        self.next_cell_id
-+            .fetch_add(1, Ordering::Relaxed)
-+            .to_string()
-+    }
-+
-+    pub async fn execute(&self, _request: ExecuteRequest) -> Result<RuntimeResponse, String> {
-+        Err("exec is not supported in the Android Termux build (V8 unavailable)".to_string())
-+    }
-+
-+    pub async fn execute_to_pending(
-+        &self,
-+        _request: ExecuteRequest,
-+    ) -> Result<ExecuteToPendingOutcome, String> {
-+        Err("exec is not supported in the Android Termux build (V8 unavailable)".to_string())
++    pub async fn execute(&self, _request: ExecuteRequest) -> Result<StartedCell, String> {
++        Err("code mode is unavailable on Android".to_string())
 +    }
 +
 +    pub async fn wait(&self, request: WaitRequest) -> Result<WaitOutcome, String> {
-+        Ok(WaitOutcome::MissingCell(RuntimeResponse::Result {
-+            cell_id: request.cell_id,
-+            content_items: Vec::new(),
-+            error_text: Some(
-+                "exec is not supported in the Android Termux build (V8 unavailable)".to_string(),
-+            ),
-+        }))
++        Ok(WaitOutcome::MissingCell(missing_cell_response(request.cell_id)))
 +    }
 +
-+    pub async fn wait_to_pending(
-+        &self,
-+        request: WaitToPendingRequest,
-+    ) -> Result<WaitToPendingOutcome, String> {
-+        Ok(WaitToPendingOutcome::MissingCell(RuntimeResponse::Result {
-+            cell_id: request.cell_id,
-+            content_items: Vec::new(),
-+            error_text: Some(
-+                "exec is not supported in the Android Termux build (V8 unavailable)".to_string(),
-+            ),
-+        }))
++    pub async fn terminate(&self, cell_id: CellId) -> Result<WaitOutcome, String> {
++        Ok(WaitOutcome::MissingCell(missing_cell_response(cell_id)))
 +    }
 +
-+    pub fn start_turn_worker(&self, _host: Arc<dyn CodeModeTurnHost>) -> CodeModeTurnWorker {
-+        CodeModeTurnWorker {}
++    pub async fn shutdown(&self) -> Result<(), String> {
++        Ok(())
 +    }
 +}
 +
-+impl Default for CodeModeService {
-+    fn default() -> Self {
-+        Self::new()
++impl CodeModeSession for CodeModeService {
++    fn execute<'a>(
++        &'a self,
++        request: ExecuteRequest,
++    ) -> CodeModeSessionResultFuture<'a, StartedCell> {
++        Box::pin(CodeModeService::execute(self, request))
++    }
++
++    fn wait<'a>(&'a self, request: WaitRequest) -> CodeModeSessionResultFuture<'a, WaitOutcome> {
++        Box::pin(CodeModeService::wait(self, request))
++    }
++
++    fn terminate<'a>(&'a self, cell_id: CellId) -> CodeModeSessionResultFuture<'a, WaitOutcome> {
++        Box::pin(CodeModeService::terminate(self, cell_id))
++    }
++
++    fn shutdown<'a>(&'a self) -> CodeModeSessionResultFuture<'a, ()> {
++        Box::pin(CodeModeService::shutdown(self))
 +    }
 +}
 +
-+pub struct CodeModeTurnWorker {}
++fn missing_cell_response(cell_id: CellId) -> RuntimeResponse {
++    RuntimeResponse::Result {
++        error_text: Some("code mode is unavailable on Android".to_string()),
++        cell_id,
++        content_items: Vec::new(),
++    }
++}

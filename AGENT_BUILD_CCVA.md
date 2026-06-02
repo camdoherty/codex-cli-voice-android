@@ -220,9 +220,9 @@ export ANDROID_NDK_HOME=/path/to/android-ndk-r29
 Expected local outputs:
 
 ```text
-codex-cli-voice-android-rust-v0.135.0.tar.gz
-codex-cli-voice-android-rust-v0.135.0.tar.gz.sha256
-codex-cli-voice-android-rust-v0.135.0.tar.gz.metadata
+codex-cli-voice-android-rust-v0.136.0.tar.gz
+codex-cli-voice-android-rust-v0.136.0.tar.gz.sha256
+codex-cli-voice-android-rust-v0.136.0.tar.gz.metadata
 android-aec-shim/app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -230,8 +230,8 @@ Quick local checks:
 
 ```bash
 bash -n build.sh scripts/*.sh
-tar -tzf codex-cli-voice-android-rust-v0.135.0.tar.gz >/dev/null
-sha256sum -c codex-cli-voice-android-rust-v0.135.0.tar.gz.sha256
+tar -tzf codex-cli-voice-android-rust-v0.136.0.tar.gz >/dev/null
+sha256sum -c codex-cli-voice-android-rust-v0.136.0.tar.gz.sha256
 ```
 
 For a release candidate, prefer:
