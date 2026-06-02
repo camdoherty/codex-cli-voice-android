@@ -1497,8 +1497,11 @@ def generate_reply_cancellable(prompt: str, cwd: str, client: WebSocketTextClien
                 except (BrokenPipeError, ConnectionError, OSError, RuntimeError) as exc:
                     if is_socket_closed_exception(exc) and reconnect_if_possible(client, "codex generation"):
                         continue
+                    if is_socket_closed_exception(exc):
+                        client = None
+                        continue
                     stop_process_group(proc)
-                    raise RuntimeError("STTS control socket closed; cancelled codex exec")
+                    raise RuntimeError("STTS control socket failed; cancelled codex exec")
                 if event and event.get("event") == "cancel_processing":
                     stop_process_group(proc)
                     raise RuntimeError("STTS turn cancelled")
@@ -1619,11 +1622,14 @@ exec sh
         except (BrokenPipeError, ConnectionError, OSError, RuntimeError) as exc:
             if is_socket_closed_exception(exc) and reconnect_if_possible(client, "codex generation"):
                 continue
+            if is_socket_closed_exception(exc):
+                client = None
+                continue
             result = wait_for_completed_result(2.0)
             if result is not None:
                 return result
             cancel_activity_pane(pane_id)
-            raise RuntimeError("STTS control socket closed; cancelled codex exec")
+            raise RuntimeError("STTS control socket failed; cancelled codex exec")
         if event and event.get("event") == "cancel_processing":
             cancel_activity_pane(pane_id)
             raise RuntimeError("STTS turn cancelled")

@@ -224,6 +224,23 @@ wait_for_mode() {
   return 1
 }
 
+wait_for_share_pointer_change() {
+  local previous=$1
+  local seconds=${2:-15}
+  local deadline=$((SECONDS + seconds))
+  local pointer
+  while (( SECONDS < deadline )); do
+    pointer="$(ssh_cmd 'cat ~/.local/state/codex-stts/latest-share-manifest.txt 2>/dev/null || true' | tr -d '\r')"
+    if [[ -n "$pointer" && "$pointer" != "$previous" ]]; then
+      printf '%s\n' "$pointer"
+      return 0
+    fi
+    sleep 1
+  done
+  printf '%s\n' "$pointer"
+  return 1
+}
+
 cleanup() {
   set +e
   for item in "${CREATED_ITEMS[@]:-}"; do
@@ -423,11 +440,13 @@ fi
 
 # D. Review Now from current state.
 D_payload="CCAT UX smoke $STAMP review https://example.com/ccat-review-$STAMP"
+D_previous_pointer="$(ssh_cmd 'cat ~/.local/state/codex-stts/latest-share-manifest.txt 2>/dev/null || true' | tr -d '\r')"
 adb_share_text "ShareReviewActivity" "$D_payload" "$RUN_DIR/adb/D-share-review.txt"
-sleep 35
-D_pointer="$(ssh_cmd 'cat ~/.local/state/codex-stts/latest-share-manifest.txt 2>/dev/null || true' | tr -d '\r')"
+D_pointer="$(wait_for_share_pointer_change "$D_previous_pointer" 15 || true)"
 D_item="$(dirname "$D_pointer" 2>/dev/null || true)"
 [[ -n "$D_item" ]] && CREATED_ITEMS+=("$D_item")
+[[ -n "$D_pointer" ]] && wait_for_log "$D_pointer" 20 || true
+wait_for_log "tts_complete" 75 || true
 D_log="$(latest_log_tail 140)"
 capture_ssh "D-review-log" 'stts status; last=$(cat ~/.local/state/codex-stts/last-session.txt 2>/dev/null); tail -n 180 "$last" 2>/dev/null || true; tmux ls 2>/dev/null || true; tmux list-panes -a -F "#{session_name}:#{window_index}.#{pane_index} #{pane_id} #{pane_current_command} active=#{pane_active}" 2>/dev/null || true' >/dev/null
 if echo "$D_log" | grep -F "reviewing shared item" >/dev/null && echo "$D_log" | grep -E "tts(_complete|: tts complete|: tts dispatched)" >/dev/null && [[ "$(count_ccva_sessions)" == "1" ]]; then
@@ -446,11 +465,13 @@ if ! wait_for_mode wake 18; then
   run_runtime_failure_capture "E-review-while-wake"
 else
 E_payload="CCAT UX smoke $STAMP wake review https://github.com/camdoherty/fluxfce-simplified"
+E_previous_pointer="$(ssh_cmd 'cat ~/.local/state/codex-stts/latest-share-manifest.txt 2>/dev/null || true' | tr -d '\r')"
 adb_share_text "ShareReviewActivity" "$E_payload" "$RUN_DIR/adb/E-share-review-wake.txt"
-wait_for_log "reviewing shared item" 15 || true
+E_pointer="$(wait_for_share_pointer_change "$E_previous_pointer" 15 || true)"
+[[ -n "$E_pointer" ]] && wait_for_log "$E_pointer" 20 || true
+wait_for_log "tts_complete" 75 || true
 wait_for_log "returning to wake word" 60 || true
 wait_for_mode wake 30 || true
-E_pointer="$(ssh_cmd 'cat ~/.local/state/codex-stts/latest-share-manifest.txt 2>/dev/null || true' | tr -d '\r')"
 E_item="$(dirname "$E_pointer" 2>/dev/null || true)"
 [[ -n "$E_item" ]] && CREATED_ITEMS+=("$E_item")
 E_log="$(latest_log_tail 180)"
@@ -475,7 +496,7 @@ ssh_cmd 'stts stop >/dev/null 2>&1 || true; stts talk summarize that GitHub repo
 sleep 35
 F_log="$(latest_log_tail 220)"
 capture_ssh "F-follow-up-context" 'stts status; last=$(cat ~/.local/state/codex-stts/last-session.txt 2>/dev/null); tail -n 260 "$last" 2>/dev/null || true' >/dev/null
-if echo "$F_log" | grep -F "user: summarize that GitHub repo" >/dev/null && ! echo "$F_log" | grep -Ei "which (github )?repo|which link|which item" >/dev/null && echo "$F_log" | grep -Ei "fluxfce|github|repository|repo" >/dev/null; then
+if echo "$F_log" | grep -F "user: summarize that GitHub repo" >/dev/null && ! echo "$F_log" | grep -Ei "socket closed|socket failed|which (github )?repo|which link|which item" >/dev/null && echo "$F_log" | grep -Ei "fluxfce|github|repository|repo" >/dev/null; then
   event "F-latest-share-follow-up" "diagnostic-only" "latest share known; WWS active" "queue talk summarize that GitHub repo via FIFO" "Codex uses latest shared repo context, not ask which repo" "$(echo "$F_log" | tail -n 35)" "PASS" "ssh/F-follow-up-context.txt" ""
 else
   event "F-latest-share-follow-up" "diagnostic-only" "latest share known; WWS active" "queue talk summarize that GitHub repo via FIFO" "Codex uses latest shared repo context, not ask which repo" "$(echo "$F_log" | tail -n 45)" "FAIL" "ssh/F-follow-up-context.txt" "latest-share context"
