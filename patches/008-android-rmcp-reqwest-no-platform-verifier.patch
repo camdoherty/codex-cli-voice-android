@@ -1,0 +1,36 @@
+diff --git a/codex-rs/rmcp-client/Cargo.toml b/codex-rs/rmcp-client/Cargo.toml
+index 63c6d74..35a9023 100644
+--- a/codex-rs/rmcp-client/Cargo.toml
++++ b/codex-rs/rmcp-client/Cargo.toml
+@@ -30,7 +30,6 @@ oauth2 = "5"
+ reqwest = { version = "0.13", default-features = false, features = [
+     "json",
+     "stream",
+-    "rustls",
+ ] }
+ rmcp = { workspace = true, default-features = false, features = [
+     "auth",
+diff --git a/codex-rs/rmcp-client/src/rmcp_client.rs b/codex-rs/rmcp-client/src/rmcp_client.rs
+index 90b09d7..217bd24 100644
+--- a/codex-rs/rmcp-client/src/rmcp_client.rs
++++ b/codex-rs/rmcp-client/src/rmcp_client.rs
+@@ -12,6 +12,7 @@ use std::time::Instant;
+ use anyhow::Result;
+ use anyhow::anyhow;
+ use codex_api::SharedAuthProvider;
++#[cfg(not(target_os = "android"))]
+ use codex_client::maybe_build_rustls_client_config_with_custom_ca;
+ use codex_config::types::McpServerEnvVar;
+ use codex_exec_server::HttpClient;
+@@ -1013,7 +1014,11 @@ async fn create_oauth_transport_and_runtime(
+     StreamableHttpClientTransport<AuthClient<StreamableHttpClientAdapter>>,
+     OAuthPersistor,
+ )> {
++    #[cfg(not(target_os = "android"))]
+     let mut builder = apply_default_headers(reqwest::Client::builder(), &default_headers);
++    #[cfg(target_os = "android")]
++    let builder = apply_default_headers(reqwest::Client::builder(), &default_headers);
++    #[cfg(not(target_os = "android"))]
+     if let Some(tls_config) = maybe_build_rustls_client_config_with_custom_ca()? {
+         builder = builder.tls_backend_preconfigured(tls_config.as_ref().clone());
+     }

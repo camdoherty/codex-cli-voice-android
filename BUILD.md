@@ -26,9 +26,9 @@ For publishable releases, use the release scripts as the canonical path:
 
 ```bash
 scripts/release_prepare.sh rust-v0.136.0 --iteration 1
-scripts/release_build.sh v0.136.0-ccva.1
-scripts/release_validate_device.sh v0.136.0-ccva.1 --target Pixel6a
-scripts/release_publish.sh v0.136.0-ccva.1 --stable
+scripts/release_build.sh v0.136.0-ccva.2
+scripts/release_validate_device.sh v0.136.0-ccva.2 --target Pixel6a
+scripts/release_publish.sh v0.136.0-ccva.2 --stable
 ```
 
 `release_publish.sh` is dry-run/check-only by default. Add `--execute` only
@@ -87,14 +87,14 @@ codex-cli-voice-android-rust-v0.136.0.tar.gz.metadata
 For publishable CCVA release artifacts, use the release wrapper:
 
 ```bash
-scripts/release_build.sh v0.136.0-ccva.1
+scripts/release_build.sh v0.136.0-ccva.2
 ```
 
-That writes versioned assets under `dist/v0.136.0-ccva.1/`, for example:
+That writes versioned assets under `dist/v0.136.0-ccva.2/`, for example:
 
 ```text
-codex-cli-voice-android-rust-v0.136.0-ccva.1.tar.gz
-codex-aec-shim-v0.136.0-ccva.1-debug.apk
+codex-cli-voice-android-rust-v0.136.0-ccva.2.tar.gz
+codex-aec-shim-v0.136.0-ccva.2-debug.apk
 ```
 
 Cargo output is cached outside the source clone through:

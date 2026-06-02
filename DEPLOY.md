@@ -26,13 +26,13 @@ For release candidates built with `scripts/release_build.sh`, prefer the
 validation wrapper before publishing:
 
 ```bash
-scripts/release_validate_device.sh v0.136.0-ccva.1 --target Pixel6a
+scripts/release_validate_device.sh v0.136.0-ccva.2 --target Pixel6a
 ```
 
 For a first install on a clean Termux target:
 
 ```bash
-scripts/release_validate_device.sh v0.136.0-ccva.1 --fresh --target Pixel6a
+scripts/release_validate_device.sh v0.136.0-ccva.2 --fresh --target Pixel6a
 ```
 
 The wrapper runs `release_doctor`, deploys the CLI package through
