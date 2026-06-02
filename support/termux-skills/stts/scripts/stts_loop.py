@@ -152,6 +152,61 @@ class WakeDiagnostics:
             print(f"diag: {message}", flush=True)
 
 
+class TimingLogger:
+    def __init__(self, path: str = "") -> None:
+        self.path = Path(path).expanduser() if path else None
+        self.run_id = os.environ.get("CODEX_STTS_TIMING_RUN_ID", "")
+        if not self.run_id:
+            self.run_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}"
+
+    def configure(self, path: str) -> None:
+        if path:
+            self.path = Path(path).expanduser()
+
+    def enabled(self) -> bool:
+        return self.path is not None
+
+    def emit(self, event: str, *, command: str = "", turn_id: str = "", proves: str = "", **fields: object) -> None:
+        if self.path is None:
+            return
+        payload: dict[str, object] = {
+            "run_id": self.run_id,
+            "event": event,
+            "timestamp_ms": int(time.time() * 1000),
+            "monotonic_ns": time.monotonic_ns(),
+        }
+        if command:
+            payload["command"] = command
+        if turn_id:
+            payload["turn_id"] = turn_id
+        if proves:
+            payload["proves"] = proves
+        for key, value in fields.items():
+            if value is None:
+                continue
+            if isinstance(value, Path):
+                payload[key] = str(value)
+            else:
+                payload[key] = value
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(payload, sort_keys=True) + "\n")
+        except Exception as exc:
+            print(f"timing-log: {exc}", file=sys.stderr)
+
+
+TIMING = TimingLogger(os.environ.get("CODEX_STTS_TIMING_LOG", ""))
+
+
+def timing_event(event: str, *, command: str = "", turn_id: str = "", proves: str = "", **fields: object) -> None:
+    TIMING.emit(event, command=command, turn_id=turn_id, proves=proves, **fields)
+
+
+def make_turn_id() -> str:
+    return time.strftime("%Y%m%d-%H%M%S") + f"-{os.getpid()}-{time.monotonic_ns()}"
+
+
 def ensure_command(name: str) -> None:
     if shutil.which(name) is None:
         raise RuntimeError(f"missing command: {name}")
@@ -371,8 +426,15 @@ class ReconnectableTextClient:
         return self.client.recv_json_timeout(timeout_seconds)
 
 
-def say_text_shim(text: str) -> str:
+def say_text_shim(text: str, *, command: str = "", turn_id: str = "") -> str:
     timeout_seconds = max(8.0, estimate_post_speech_pause(text, DEFAULT_POST_SPEECH_DELAY_SECONDS) + 8.0)
+    timing_event(
+        "tts.backend_selected",
+        command=command,
+        turn_id=turn_id,
+        backend="shim",
+        proves="shim backend selected for this TTS request",
+    )
     client = WebSocketTextClient(
         SHIM_TEXT_VOICE_HOST,
         SHIM_TEXT_VOICE_PORT,
@@ -387,8 +449,35 @@ def say_text_shim(text: str) -> str:
             event = client.recv_json()
             if event.get("id") not in (request_id, None):
                 continue
+            if event.get("event") == "tts_started":
+                timing_event(
+                    "tts.observed_started",
+                    command=command,
+                    turn_id=turn_id,
+                    backend="shim",
+                    request_id=request_id,
+                    proves="shim websocket emitted tts_started",
+                )
             if event.get("event") == "tts_complete":
                 latency = event.get("latencyMs", "unknown")
+                timing_event(
+                    "tts.observed_complete",
+                    command=command,
+                    turn_id=turn_id,
+                    backend="shim",
+                    request_id=request_id,
+                    latency_ms=latency,
+                    proves="shim websocket emitted tts_complete",
+                )
+                timing_event(
+                    "tts.dispatch_returned",
+                    command=command,
+                    turn_id=turn_id,
+                    backend="shim",
+                    request_id=request_id,
+                    latency_ms=latency,
+                    proves="shim TTS request returned after observed completion",
+                )
                 return f"tts complete on shim ({latency} ms)"
             if event.get("event") == "error":
                 code = event.get("code", "tts_error")
@@ -398,8 +487,16 @@ def say_text_shim(text: str) -> str:
         client.close()
 
 
-def say_text_termux(text: str, *, stream_name: str = DEFAULT_TTS_STREAM) -> str:
+def say_text_termux(text: str, *, stream_name: str = DEFAULT_TTS_STREAM, command: str = "", turn_id: str = "") -> str:
     ensure_command("termux-tts-speak")
+    timing_event(
+        "tts.backend_selected",
+        command=command,
+        turn_id=turn_id,
+        backend="termux",
+        stream=stream_name,
+        proves="Termux TTS backend selected for this TTS request",
+    )
     cmd = ["termux-tts-speak"]
     stream_label = "default"
     if stream_name:
@@ -422,19 +519,44 @@ def say_text_termux(text: str, *, stream_name: str = DEFAULT_TTS_STREAM) -> str:
         stderr = ""
         if proc.stderr is not None:
             stderr = proc.stderr.read().strip()
+        timing_event(
+            "tts.dispatch_returned",
+            command=command,
+            turn_id=turn_id,
+            backend="termux",
+            exit_code=return_code,
+            error=stderr or "termux-tts-speak failed",
+            proves="termux-tts-speak process returned an immediate error; audible playback not directly observed",
+        )
         raise RuntimeError(stderr or "termux-tts-speak failed")
+    timing_event(
+        "tts.dispatch_returned",
+        command=command,
+        turn_id=turn_id,
+        backend="termux",
+        pid=proc.pid,
+        exit_code=return_code,
+        stream=stream_label,
+        proves="termux-tts-speak process was dispatched; audible playback not directly observed",
+    )
     return f"tts dispatched on {stream_label} stream"
 
 
-def say_text_termux_with_retry(text: str, *, stream_name: str = DEFAULT_TTS_STREAM) -> str:
+def say_text_termux_with_retry(
+    text: str,
+    *,
+    stream_name: str = DEFAULT_TTS_STREAM,
+    command: str = "",
+    turn_id: str = "",
+) -> str:
     try:
-        return say_text_termux(text, stream_name=stream_name)
+        return say_text_termux(text, stream_name=stream_name, command=command, turn_id=turn_id)
     except RuntimeError as exc:
         if "terminated" not in str(exc).lower():
             raise
         cleanup_voice_helpers()
         time.sleep(0.5)
-        return say_text_termux(text, stream_name=stream_name)
+        return say_text_termux(text, stream_name=stream_name, command=command, turn_id=turn_id)
 
 
 def say_text(
@@ -442,21 +564,39 @@ def say_text(
     *,
     stream_name: str = DEFAULT_TTS_STREAM,
     backend: str = DEFAULT_TTS_BACKEND,
+    command: str = "",
+    turn_id: str = "",
 ) -> str:
     global LAST_TTS_COMPLETED
 
     spoken = sanitize_for_tts(text)
     LAST_TTS_COMPLETED = False
+    timing_event(
+        "tts.dispatch_start",
+        command=command,
+        turn_id=turn_id,
+        backend=backend,
+        text_len=len(spoken),
+        proves="STTS script is requesting speech from the configured TTS backend",
+    )
     if backend in ("auto", "shim"):
         try:
-            result = say_text_shim(spoken)
+            result = say_text_shim(spoken, command=command, turn_id=turn_id)
             LAST_TTS_COMPLETED = True
             return result
-        except Exception:
+        except Exception as exc:
+            timing_event(
+                "tts.dispatch_returned",
+                command=command,
+                turn_id=turn_id,
+                backend="shim",
+                error=str(exc),
+                proves="shim TTS request failed before observed completion",
+            )
             if backend == "shim":
                 raise
 
-    return say_text_termux_with_retry(spoken, stream_name=stream_name)
+    return say_text_termux_with_retry(spoken, stream_name=stream_name, command=command, turn_id=turn_id)
 
 
 def protected_process_pids() -> set[int]:
@@ -572,6 +712,8 @@ def pause_after_speech(
     recovery_seconds: float,
     drain_timeout_seconds: float,
     next_state: str = "listening",
+    command: str = "",
+    turn_id: str = "",
 ) -> None:
     global LAST_TTS_COMPLETED
 
@@ -579,27 +721,73 @@ def pause_after_speech(
         emit(transcript_path, "tts_complete", "shim reported completion")
         LAST_TTS_COMPLETED = False
     else:
+        timing_event(
+            "tts.post_delay_start",
+            command=command,
+            turn_id=turn_id,
+            proves="STTS is entering the local post-speech wait after a dispatch-only TTS backend",
+        )
         wait_for_tts_boundary(
             estimate_post_speech_pause(text, minimum_seconds),
             drain_timeout_seconds,
             transcript_path,
         )
+        timing_event(
+            "tts.post_delay_end",
+            command=command,
+            turn_id=turn_id,
+            proves="STTS local post-speech wait ended; audible playback was not directly observed",
+        )
     if recovery_seconds > 0:
+        timing_event(
+            "tts.post_delay_start",
+            command=command,
+            turn_id=turn_id,
+            phase="audio_recovery",
+            duration_ms=int(recovery_seconds * 1000),
+            proves="STTS is entering configured audio recovery wait",
+        )
         emit(transcript_path, "status", f"audio recovery; waiting {recovery_seconds:g}s before {next_state}")
         time.sleep(recovery_seconds)
+        timing_event(
+            "tts.post_delay_end",
+            command=command,
+            turn_id=turn_id,
+            phase="audio_recovery",
+            proves="STTS configured audio recovery wait ended",
+        )
 
 
-def wait_after_one_shot_tts(text: str, minimum_seconds: int, drain_timeout_seconds: float) -> None:
+def wait_after_one_shot_tts(
+    text: str,
+    minimum_seconds: int,
+    drain_timeout_seconds: float,
+    *,
+    command: str = "",
+    turn_id: str = "",
+) -> None:
     global LAST_TTS_COMPLETED
 
     if LAST_TTS_COMPLETED:
         emit_optional(None, "tts_complete", "shim reported completion")
         LAST_TTS_COMPLETED = False
         return
+    timing_event(
+        "tts.post_delay_start",
+        command=command,
+        turn_id=turn_id,
+        proves="STTS is entering the local post-speech wait after a dispatch-only TTS backend",
+    )
     wait_for_tts_boundary(
         estimate_post_speech_pause(text, minimum_seconds),
         drain_timeout_seconds,
         None,
+    )
+    timing_event(
+        "tts.post_delay_end",
+        command=command,
+        turn_id=turn_id,
+        proves="STTS local post-speech wait ended; audible playback was not directly observed",
     )
 
 
@@ -1335,6 +1523,21 @@ def codex_turn_completed(stdout_text: str) -> bool:
     return False
 
 
+def extract_codex_usage(stdout_text: str) -> dict[str, object]:
+    for line in stdout_text.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "turn.completed":
+            usage = event.get("usage")
+            return usage if isinstance(usage, dict) else {}
+    return {}
+
+
 def find_json_values(value: object, wanted_keys: set[str]) -> list[str]:
     found: list[str] = []
     if isinstance(value, dict):
@@ -1455,8 +1658,17 @@ def codex_exec_shell_command(cwd: str, prompt_path: Path, pipe_path: Path) -> st
     return f"{shlex.join(command)} < {shlex.quote(str(prompt_path))} > {shlex.quote(str(pipe_path))} 2>&1"
 
 
-def generate_reply(prompt: str, cwd: str) -> CodexTurnResult:
+def generate_reply(prompt: str, cwd: str, *, command: str = "talk", turn_id: str = "") -> CodexTurnResult:
     ensure_command("codex")
+    started_ns = time.monotonic_ns()
+    timing_event(
+        "codex.exec_start",
+        command=command,
+        turn_id=turn_id,
+        prompt_chars=len(prompt),
+        prompt_lines=len(prompt.splitlines()),
+        proves="STTS is starting codex exec as a subprocess",
+    )
     result = subprocess.run(
         codex_exec_command(cwd),
         input=prompt,
@@ -1464,20 +1676,86 @@ def generate_reply(prompt: str, cwd: str) -> CodexTurnResult:
         capture_output=True,
         check=False,
     )
+    stdout = result.stdout
+    usage = extract_codex_usage(stdout)
+    if stdout.lstrip().startswith("{"):
+        timing_event(
+            "codex.exec_first_json_event",
+            command=command,
+            turn_id=turn_id,
+            proves="codex exec JSON output contains at least one JSON event; this path reads it after process completion",
+        )
     if result.returncode != 0:
         detail = extract_codex_error(result.stdout) or result.stderr.strip()
+        timing_event(
+            "codex.exec_end",
+            command=command,
+            turn_id=turn_id,
+            exit_code=result.returncode,
+            duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+            error=detail,
+            proves="codex exec subprocess exited with an error",
+        )
         raise RuntimeError(speakable_error(detail))
-    reply = extract_codex_reply(result.stdout)
+    reply = extract_codex_reply(stdout)
     if not reply:
+        timing_event(
+            "codex.exec_end",
+            command=command,
+            turn_id=turn_id,
+            exit_code=result.returncode,
+            duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+            error="codex exec returned no assistant message",
+            proves="codex exec subprocess exited without an assistant message",
+        )
         raise RuntimeError("codex exec returned no assistant message")
-    return CodexTurnResult(reply=reply, source_notes=extract_codex_source_notes(result.stdout))
+    timing_event(
+        "codex.exec_assistant_done",
+        command=command,
+        turn_id=turn_id,
+        text_len=len(reply),
+        proves="STTS extracted an assistant message from codex exec JSON output",
+    )
+    if usage:
+        timing_event(
+            "codex.exec_usage",
+            command=command,
+            turn_id=turn_id,
+            proves="codex exec emitted turn.completed usage metadata",
+            **usage,
+        )
+    timing_event(
+        "codex.exec_end",
+        command=command,
+        turn_id=turn_id,
+        exit_code=result.returncode,
+        duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+        proves="codex exec subprocess exited successfully",
+    )
+    return CodexTurnResult(reply=reply, source_notes=extract_codex_source_notes(stdout))
 
 
-def generate_reply_cancellable(prompt: str, cwd: str, client: WebSocketTextClient | None) -> CodexTurnResult:
+def generate_reply_cancellable(
+    prompt: str,
+    cwd: str,
+    client: WebSocketTextClient | None,
+    *,
+    command: str = "talk",
+    turn_id: str = "",
+) -> CodexTurnResult:
     if client is not None and activity_pane_available():
-        return generate_reply_visible_in_tmux(prompt, cwd, client)
+        return generate_reply_visible_in_tmux(prompt, cwd, client, command=command, turn_id=turn_id)
 
     ensure_command("codex")
+    started_ns = time.monotonic_ns()
+    timing_event(
+        "codex.exec_start",
+        command=command,
+        turn_id=turn_id,
+        prompt_chars=len(prompt),
+        prompt_lines=len(prompt.splitlines()),
+        proves="STTS is starting cancellable codex exec as a subprocess",
+    )
     proc = subprocess.Popen(
         codex_exec_command(cwd),
         stdin=subprocess.PIPE,
@@ -1514,10 +1792,59 @@ def generate_reply_cancellable(prompt: str, cwd: str, client: WebSocketTextClien
             stop_process_group(proc)
         raise
     if proc.returncode != 0:
+        timing_event(
+            "codex.exec_end",
+            command=command,
+            turn_id=turn_id,
+            exit_code=proc.returncode,
+            duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+            error=stderr.strip() or stdout.strip() or "codex exec failed",
+            proves="cancellable codex exec subprocess exited with an error",
+        )
         raise RuntimeError(stderr.strip() or stdout.strip() or "codex exec failed")
+    if stdout.lstrip().startswith("{"):
+        timing_event(
+            "codex.exec_first_json_event",
+            command=command,
+            turn_id=turn_id,
+            proves="codex exec JSON output contains at least one JSON event; this path reads it after process completion",
+        )
     reply = extract_codex_reply(stdout)
     if not reply:
+        timing_event(
+            "codex.exec_end",
+            command=command,
+            turn_id=turn_id,
+            exit_code=proc.returncode,
+            duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+            error="codex exec returned no assistant message",
+            proves="cancellable codex exec exited without an assistant message",
+        )
         raise RuntimeError("codex exec returned no assistant message")
+    usage = extract_codex_usage(stdout)
+    timing_event(
+        "codex.exec_assistant_done",
+        command=command,
+        turn_id=turn_id,
+        text_len=len(reply),
+        proves="STTS extracted an assistant message from codex exec JSON output",
+    )
+    if usage:
+        timing_event(
+            "codex.exec_usage",
+            command=command,
+            turn_id=turn_id,
+            proves="codex exec emitted turn.completed usage metadata",
+            **usage,
+        )
+    timing_event(
+        "codex.exec_end",
+        command=command,
+        turn_id=turn_id,
+        exit_code=proc.returncode,
+        duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+        proves="cancellable codex exec subprocess exited successfully",
+    )
     return CodexTurnResult(reply=reply, source_notes=extract_codex_source_notes(stdout))
 
 
@@ -1552,13 +1879,20 @@ def cancel_activity_pane(pane_id: str) -> None:
     reset_activity_pane(pane_id, "STTS Codex turn cancelled.")
 
 
-def generate_reply_visible_in_tmux(prompt: str, cwd: str, client: WebSocketTextClient | None) -> CodexTurnResult:
+def generate_reply_visible_in_tmux(
+    prompt: str,
+    cwd: str,
+    client: WebSocketTextClient | None,
+    *,
+    command: str = "talk",
+    turn_id: str = "",
+) -> CodexTurnResult:
     pane_id = read_activity_pane_id()
     if not tmux_pane_exists(pane_id):
         raise RuntimeError("STTS activity pane is unavailable")
 
     TURN_DIR.mkdir(parents=True, exist_ok=True)
-    turn_id = time.strftime("%Y%m%d-%H%M%S") + f"-{os.getpid()}"
+    turn_id = turn_id or make_turn_id()
     prompt_path = TURN_DIR / f"{turn_id}.prompt.txt"
     output_path = TURN_DIR / f"{turn_id}.jsonl"
     rc_path = TURN_DIR / f"{turn_id}.rc"
@@ -1566,6 +1900,17 @@ def generate_reply_visible_in_tmux(prompt: str, cwd: str, client: WebSocketTextC
     pipe_path = TURN_DIR / f"{turn_id}.pipe"
     prompt_path.write_text(prompt, encoding="utf-8")
     codex_command = codex_exec_shell_command(cwd, prompt_path, pipe_path)
+    started_ns = time.monotonic_ns()
+    timing_event(
+        "codex.exec_start",
+        command=command,
+        turn_id=turn_id,
+        prompt_chars=len(prompt),
+        prompt_lines=len(prompt.splitlines()),
+        prompt_path=prompt_path,
+        output_path=output_path,
+        proves="STTS is dispatching codex exec into the tmux activity pane",
+    )
 
     script = f"""
 set -u
@@ -1587,7 +1932,18 @@ exec sh
 """.strip()
     result = run_command(["tmux", "respawn-pane", "-k", "-t", pane_id, shlex.join(["sh", "-lc", script])])
     if result.returncode != 0:
+        timing_event(
+            "codex.exec_end",
+            command=command,
+            turn_id=turn_id,
+            exit_code=result.returncode,
+            duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+            error=result.stderr.strip() or "failed to run codex exec in activity pane",
+            proves="tmux rejected the codex exec activity-pane command",
+        )
         raise RuntimeError(result.stderr.strip() or "failed to run codex exec in activity pane")
+
+    first_json_logged = False
 
     def completed_result() -> CodexTurnResult | None:
         stdout = output_path.read_text(encoding="utf-8", errors="replace") if output_path.exists() else ""
@@ -1613,7 +1969,24 @@ exec sh
     while not done_path.exists():
         if time.monotonic() >= deadline:
             cancel_activity_pane(pane_id)
+            timing_event(
+                "codex.exec_end",
+                command=command,
+                turn_id=turn_id,
+                duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+                error="codex exec timed out",
+                proves="STTS timed out while waiting for activity-pane codex exec",
+            )
             raise RuntimeError("codex exec timed out")
+        if not first_json_logged and output_path.exists() and output_path.stat().st_size > 0:
+            first_json_logged = True
+            timing_event(
+                "codex.exec_first_json_event",
+                command=command,
+                turn_id=turn_id,
+                output_path=output_path,
+                proves="activity-pane codex exec wrote its first captured output bytes",
+            )
         if client is None:
             time.sleep(0.2)
             continue
@@ -1629,6 +2002,14 @@ exec sh
             if result is not None:
                 return result
             cancel_activity_pane(pane_id)
+            timing_event(
+                "codex.exec_end",
+                command=command,
+                turn_id=turn_id,
+                duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+                error="STTS control socket failed; cancelled codex exec",
+                proves="STTS cancelled activity-pane codex exec after a control socket failure",
+            )
             raise RuntimeError("STTS control socket failed; cancelled codex exec")
         if event and event.get("event") == "cancel_processing":
             cancel_activity_pane(pane_id)
@@ -1638,10 +2019,52 @@ exec sh
     rc = rc_path.read_text(encoding="utf-8", errors="replace").strip() if rc_path.exists() else "1"
     if rc != "0":
         detail = extract_codex_error(stdout) or stdout.strip() or f"codex exec failed with exit {rc}"
+        timing_event(
+            "codex.exec_end",
+            command=command,
+            turn_id=turn_id,
+            exit_code=rc,
+            duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+            error=detail,
+            proves="activity-pane codex exec exited with an error",
+        )
         raise RuntimeError(speakable_error(detail))
     reply = extract_codex_reply(stdout)
     if not reply:
+        timing_event(
+            "codex.exec_end",
+            command=command,
+            turn_id=turn_id,
+            exit_code=rc,
+            duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+            error="codex exec returned no assistant message",
+            proves="activity-pane codex exec exited without an assistant message",
+        )
         raise RuntimeError("codex exec returned no assistant message")
+    timing_event(
+        "codex.exec_assistant_done",
+        command=command,
+        turn_id=turn_id,
+        text_len=len(reply),
+        proves="STTS extracted an assistant message from activity-pane codex exec JSON output",
+    )
+    usage = extract_codex_usage(stdout)
+    if usage:
+        timing_event(
+            "codex.exec_usage",
+            command=command,
+            turn_id=turn_id,
+            proves="activity-pane codex exec emitted turn.completed usage metadata",
+            **usage,
+        )
+    timing_event(
+        "codex.exec_end",
+        command=command,
+        turn_id=turn_id,
+        exit_code=rc,
+        duration_ms=int((time.monotonic_ns() - started_ns) / 1_000_000),
+        proves="activity-pane codex exec exited successfully",
+    )
     return CodexTurnResult(reply=reply, source_notes=extract_codex_source_notes(stdout))
 
 
@@ -1811,12 +2234,30 @@ def classify_wake_exception(exc: Exception, start_timeout_reason: str = "wake_st
     return "wake_error"
 
 
-def cue_ready(client: WebSocketTextClient) -> None:
+def cue_ready(client: WebSocketTextClient, *, command: str = "wake") -> None:
+    timing_event(
+        "wake.cue_start",
+        command=command,
+        proves="STTS requested the Bridge wake-detected cue",
+    )
     try:
         request_id = send_action(client, "cue_ready")
         event = wait_for_id_event(client, request_id, {"cue_ready", "cue_failed"}, 3.0)
+        timing_event(
+            "wake.cue_complete",
+            command=command,
+            ok=event.get("event") == "cue_ready",
+            latency_ms=event.get("latencyMs"),
+            proves="Bridge returned a cue_ready or cue_failed event",
+        )
         print(summarize_wake_event(event), flush=True)
     except Exception as exc:
+        timing_event(
+            "wake.cue_complete",
+            command=command,
+            error=str(exc),
+            proves="Bridge wake cue request raised before a ready event",
+        )
         print(f"wake_event: cue_failed message={exc}", flush=True)
 
 
@@ -1936,15 +2377,81 @@ def run_stts_doctor(download: bool = False) -> int:
     return 0 if ok else 2
 
 
-def wait_for_shim_tts(client: WebSocketTextClient, text: str, timeout_seconds: float = 60.0) -> None:
+def wait_for_shim_tts(
+    client: WebSocketTextClient,
+    text: str,
+    timeout_seconds: float = 60.0,
+    *,
+    command: str = "",
+    turn_id: str = "",
+) -> None:
+    sanitized = sanitize_for_tts(text)
+
+    def request_and_wait() -> None:
+        timing_event(
+            "tts.dispatch_start",
+            command=command,
+            turn_id=turn_id,
+            backend="shim",
+            text_len=len(sanitized),
+            proves="STTS is requesting reply speech from the shim websocket",
+        )
+        timing_event(
+            "tts.backend_selected",
+            command=command,
+            turn_id=turn_id,
+            backend="shim",
+            proves="shim backend selected for reply TTS",
+        )
+        request_id = send_action(client, "tts_speak", text=sanitized, interrupt=True)
+        deadline = time.monotonic() + timeout_seconds
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError("timeout waiting for tts_complete")
+            event = client.recv_json_timeout(min(0.5, remaining))
+            if event is None:
+                continue
+            if event.get("id") not in (request_id, None):
+                continue
+            if event.get("event") == "tts_started":
+                timing_event(
+                    "tts.observed_started",
+                    command=command,
+                    turn_id=turn_id,
+                    backend="shim",
+                    request_id=request_id,
+                    proves="shim websocket emitted tts_started",
+                )
+            elif event.get("event") == "tts_complete":
+                timing_event(
+                    "tts.observed_complete",
+                    command=command,
+                    turn_id=turn_id,
+                    backend="shim",
+                    request_id=request_id,
+                    latency_ms=event.get("latencyMs"),
+                    proves="shim websocket emitted tts_complete",
+                )
+                timing_event(
+                    "tts.dispatch_returned",
+                    command=command,
+                    turn_id=turn_id,
+                    backend="shim",
+                    request_id=request_id,
+                    latency_ms=event.get("latencyMs"),
+                    proves="shim reply TTS request returned after observed completion",
+                )
+                return
+            elif event.get("event") == "error":
+                raise RuntimeError(f"{event.get('code', 'tts_error')}: {event.get('message', '')}")
+
     try:
-        request_id = send_action(client, "tts_speak", text=sanitize_for_tts(text), interrupt=True)
-        wait_for_id_event(client, request_id, {"tts_complete"}, timeout_seconds)
+        request_and_wait()
     except (BrokenPipeError, ConnectionError, OSError, RuntimeError) as exc:
         if not is_socket_closed_exception(exc) or not reconnect_if_possible(client, "tts"):
             raise
-        request_id = send_action(client, "tts_speak", text=sanitize_for_tts(text), interrupt=True)
-        wait_for_id_event(client, request_id, {"tts_complete"}, timeout_seconds)
+        request_and_wait()
 
 
 def send_client_state(client: WebSocketTextClient, state: str) -> None:
@@ -1963,12 +2470,22 @@ def listen_once_on_client(
     possibly_complete_silence_ms: int = DEFAULT_SHIM_STT_POSSIBLY_COMPLETE_SILENCE_MS,
     minimum_length_ms: int = DEFAULT_SHIM_STT_MINIMUM_LENGTH_MS,
     diagnostics: WakeDiagnostics | None = None,
+    command: str = "talk",
+    turn_id: str = "",
 ) -> str:
     if diagnostics is not None:
         diagnostics.mark(
             "post_wake_stt_request",
             f"timeoutMs={int(timeout_seconds * 1000)} completeSilenceMs={complete_silence_ms}",
         )
+    timing_event(
+        "stt.listen_start",
+        command=command,
+        turn_id=turn_id,
+        timeout_ms=int(timeout_seconds * 1000),
+        complete_silence_ms=complete_silence_ms,
+        proves="STTS sent start_stt to the shim websocket",
+    )
     request_id = send_action(
         client,
         "start_stt",
@@ -2008,6 +2525,14 @@ def listen_once_on_client(
             if candidate:
                 candidates.append(candidate)
             transcript = extract_final_transcript("\n".join(candidates))
+            timing_event(
+                "stt.transcript_received",
+                command=command,
+                turn_id=turn_id,
+                text_len=len(transcript),
+                latency_ms=event.get("latencyMs"),
+                proves="shim websocket emitted stt_final and STTS extracted a transcript",
+            )
             if diagnostics is not None:
                 diagnostics.transcript = transcript
                 diagnostics.mark("post_wake_stt_final", f"text={json.dumps(transcript, ensure_ascii=True)}")
@@ -2038,7 +2563,16 @@ def run_stts_turn_on_client(
     possibly_complete_silence_ms: int = DEFAULT_SHIM_STT_POSSIBLY_COMPLETE_SILENCE_MS,
     minimum_length_ms: int = DEFAULT_SHIM_STT_MINIMUM_LENGTH_MS,
     diagnostics: WakeDiagnostics | None = None,
+    command: str = "talk",
 ) -> bool:
+    turn_id = make_turn_id()
+    timing_event(
+        "command.start",
+        command=command,
+        turn_id=turn_id,
+        queued_transcript=transcript is not None,
+        proves="STTS is starting a voice turn on the active text-voice client",
+    )
     source_notes = source_notes if source_notes is not None else []
     if transcript is None:
         if transcript_path is not None:
@@ -2050,6 +2584,8 @@ def run_stts_turn_on_client(
             possibly_complete_silence_ms=possibly_complete_silence_ms,
             minimum_length_ms=minimum_length_ms,
             diagnostics=diagnostics,
+            command=command,
+            turn_id=turn_id,
         )
     if not transcript:
         if transcript_path is not None:
@@ -2058,6 +2594,22 @@ def run_stts_turn_on_client(
             diagnostics.no_transcript = True
             diagnostics.failure = diagnostics.failure or "no_transcript"
         send_client_state(client, "ready")
+        timing_event(
+            "turn.done",
+            command=command,
+            turn_id=turn_id,
+            exit_code=0,
+            result="no_transcript",
+            proves="STTS turn ended without a transcript",
+        )
+        timing_event(
+            "command.end",
+            command=command,
+            turn_id=turn_id,
+            exit_code=0,
+            result="no_transcript",
+            proves="STTS voice turn command finished without a transcript",
+        )
         return False
     history.append(("user", transcript))
     if transcript_path is not None:
@@ -2066,6 +2618,22 @@ def run_stts_turn_on_client(
         if transcript_path is not None:
             emit(transcript_path, "assistant", "Okay, stopping here.")
         send_client_state(client, "ready")
+        timing_event(
+            "turn.done",
+            command=command,
+            turn_id=turn_id,
+            exit_code=130,
+            result="stopped_by_user",
+            proves="STTS recognized a stop phrase and ended the turn",
+        )
+        timing_event(
+            "command.end",
+            command=command,
+            turn_id=turn_id,
+            exit_code=130,
+            result="stopped_by_user",
+            proves="STTS voice turn command ended after a stop phrase",
+        )
         return True
     host_summary = gather_host_summary(cwd)
     prompt = build_prompt(host_summary, history, transcript, source_notes)
@@ -2073,7 +2641,7 @@ def run_stts_turn_on_client(
         emit(transcript_path, "status", "generating reply")
     send_client_state(client, "processing")
     try:
-        result = generate_reply_cancellable(prompt, cwd, client)
+        result = generate_reply_cancellable(prompt, cwd, client, command=command, turn_id=turn_id)
         reply = make_reply_tts_friendly(result.reply)
         source_notes.extend(result.source_notes)
         del source_notes[:-8]
@@ -2088,13 +2656,29 @@ def run_stts_turn_on_client(
     if diagnostics is not None:
         diagnostics.assistant_done = True
         diagnostics.mark("assistant_done")
-    wait_for_shim_tts(client, reply)
+    wait_for_shim_tts(client, reply, command=command, turn_id=turn_id)
     if transcript_path is not None:
         emit(transcript_path, "tts", "tts complete on shim")
     if diagnostics is not None:
         diagnostics.tts_complete = True
         diagnostics.mark("tts_complete")
     send_client_state(client, "ready")
+    timing_event(
+        "turn.done",
+        command=command,
+        turn_id=turn_id,
+        exit_code=0,
+        result="assistant_reply",
+        proves="STTS generated and spoke an assistant reply for this turn",
+    )
+    timing_event(
+        "command.end",
+        command=command,
+        turn_id=turn_id,
+        exit_code=0,
+        result="assistant_reply",
+        proves="STTS voice turn command finished after reply TTS completed",
+    )
     return False
 
 
@@ -2108,6 +2692,7 @@ def run_stts_turn_with_socket_recovery(
     complete_silence_ms: int,
     transcript: str | None = None,
     diagnostics: WakeDiagnostics | None = None,
+    command: str = "talk",
 ) -> bool:
     try:
         return run_stts_turn_on_client(
@@ -2121,6 +2706,7 @@ def run_stts_turn_with_socket_recovery(
             complete_silence_ms=complete_silence_ms,
             possibly_complete_silence_ms=complete_silence_ms,
             diagnostics=diagnostics,
+            command=command,
         )
     except (BrokenPipeError, ConnectionError, OSError, RuntimeError) as exc:
         if not is_socket_closed_exception(exc) or not reconnect_if_possible(client, "turn recovery", transcript_path):
@@ -2788,6 +3374,15 @@ def run_wake_loop(
             }
             if not fake_wake:
                 payload["profile"] = wake_profile(threshold, input_gain_db)
+            timing_event(
+                "wake.listen_start",
+                command="wake",
+                max_listen_ms=max_listen_ms,
+                fake_wake=fake_wake,
+                threshold=threshold,
+                input_gain_db=input_gain_db,
+                proves="STTS sent wake_start to the Bridge wake listener",
+            )
             request_id = send_action(client, "wake_start", **payload)
             started_event = wait_for_id_event(client, request_id, {"wake_started"}, 15.0)
             print(summarize_wake_event(started_event), flush=True)
@@ -2834,17 +3429,26 @@ def run_wake_loop(
                         transcript_path=transcript_path,
                         timeout_seconds=stt_timeout_seconds,
                         complete_silence_ms=complete_silence_ms,
+                        command="wake",
                     )
                     time.sleep(WAKE_REARM_DELAY_SECONDS)
                     if once:
                         return 0
                     break
                 if event_name == "wake_detected":
+                    timing_event(
+                        "wake.detected",
+                        command="wake",
+                        score=event.get("score"),
+                        elapsed_ms=event.get("elapsedMs"),
+                        max_score=event.get("maxScore"),
+                        proves="Bridge wake listener emitted wake_detected",
+                    )
                     if transcript_path is not None:
                         emit(transcript_path, "status", "wake word detected; listening")
                     reconnect_if_possible(client, "wake handoff", transcript_path)
                     if cue:
-                        cue_ready(client)
+                        cue_ready(client, command="wake")
                     run_stts_turn_with_socket_recovery(
                         client,
                         cwd,
@@ -2853,6 +3457,7 @@ def run_wake_loop(
                         transcript_path=transcript_path,
                         timeout_seconds=stt_timeout_seconds,
                         complete_silence_ms=complete_silence_ms,
+                        command="wake",
                     )
                     time.sleep(WAKE_REARM_DELAY_SECONDS)
                     if once:
@@ -2903,6 +3508,15 @@ def run_wake_test_loop(
             payload["profile"] = wake_profile(threshold, input_gain_db)
         diagnostics.mark("wake_armed", f"threshold={threshold}")
         try:
+            timing_event(
+                "wake.listen_start",
+                command="wake-test",
+                max_listen_ms=60_000,
+                fake_wake=fake_wake,
+                threshold=threshold,
+                input_gain_db=input_gain_db,
+                proves="STTS diagnostic sent wake_start to the Bridge wake listener",
+            )
             request_id = send_action(client, "wake_start", **payload)
             started_event = wait_for_id_event(client, request_id, {"wake_started"}, 15.0)
         except Exception as exc:
@@ -2941,10 +3555,18 @@ def run_wake_test_loop(
             if event_name in {"wake_score", "wake_timeout", "wake_detected", "wake_stopped", "wake_idle", "wake_error"}:
                 print(summarize_wake_event(event), flush=True)
             if event_name == "wake_detected":
+                timing_event(
+                    "wake.detected",
+                    command="wake-test",
+                    score=event.get("score"),
+                    elapsed_ms=event.get("elapsedMs"),
+                    max_score=event.get("maxScore"),
+                    proves="Bridge wake listener emitted wake_detected during wake-test",
+                )
                 diagnostics.wake_detected = True
                 diagnostics.mark("wake_detected", summarize_wake_event(event))
                 if cue:
-                    cue_ready(client)
+                    cue_ready(client, command="wake-test")
                 break
             if event_name in {"wake_timeout", "wake_stopped", "wake_idle"}:
                 diagnostics.failure = str(event_name)
@@ -2971,6 +3593,7 @@ def run_wake_test_loop(
             complete_silence_ms=complete_silence_ms,
             possibly_complete_silence_ms=complete_silence_ms,
             diagnostics=diagnostics,
+            command="wake-test",
         )
         if stopped:
             diagnostics.mark("wake_test_stopped_by_user")
@@ -3157,17 +3780,35 @@ def run_session(
 
     history.append(("assistant", opener))
     emit(transcript_path, "assistant", opener)
-    emit(transcript_path, "tts", say_text(opener, stream_name=tts_stream, backend=tts_backend))
-    pause_after_speech(opener, delay_seconds, transcript_path, post_tts_recovery_seconds, tts_drain_timeout_seconds)
+    opener_turn_id = make_turn_id()
+    emit(transcript_path, "tts", say_text(opener, stream_name=tts_stream, backend=tts_backend, command="loop", turn_id=opener_turn_id))
+    pause_after_speech(
+        opener,
+        delay_seconds,
+        transcript_path,
+        post_tts_recovery_seconds,
+        tts_drain_timeout_seconds,
+        command="loop",
+        turn_id=opener_turn_id,
+    )
 
     try:
         while True:
             elapsed = time.time() - start_time
             if elapsed >= timeout_seconds:
                 timeout_reply = "Timing out."
+                timeout_turn_id = make_turn_id()
                 emit(transcript_path, "assistant", timeout_reply)
-                emit(transcript_path, "tts", say_text(timeout_reply, stream_name=tts_stream, backend=tts_backend))
-                pause_after_speech(timeout_reply, delay_seconds, transcript_path, post_tts_recovery_seconds, tts_drain_timeout_seconds)
+                emit(transcript_path, "tts", say_text(timeout_reply, stream_name=tts_stream, backend=tts_backend, command="loop", turn_id=timeout_turn_id))
+                pause_after_speech(
+                    timeout_reply,
+                    delay_seconds,
+                    transcript_path,
+                    post_tts_recovery_seconds,
+                    tts_drain_timeout_seconds,
+                    command="loop",
+                    turn_id=timeout_turn_id,
+                )
                 return 0
             remaining = timeout_seconds - elapsed
 
@@ -3206,25 +3847,44 @@ def run_session(
             emit(transcript_path, "user", transcript)
 
             if should_stop(transcript):
+                turn_id = make_turn_id()
                 goodbye = "Okay, stopping here."
                 history.append(("assistant", goodbye))
                 emit(transcript_path, "assistant", goodbye)
-                emit(transcript_path, "tts", say_text(goodbye, stream_name=tts_stream, backend=tts_backend))
-                pause_after_speech(goodbye, delay_seconds, transcript_path, post_tts_recovery_seconds, tts_drain_timeout_seconds)
+                emit(transcript_path, "tts", say_text(goodbye, stream_name=tts_stream, backend=tts_backend, command="loop", turn_id=turn_id))
+                pause_after_speech(
+                    goodbye,
+                    delay_seconds,
+                    transcript_path,
+                    post_tts_recovery_seconds,
+                    tts_drain_timeout_seconds,
+                    command="loop",
+                    turn_id=turn_id,
+                )
                 return 0
 
             if looks_incomplete(transcript):
+                turn_id = make_turn_id()
                 prompt_again = build_incomplete_prompt(transcript)
                 history.append(("assistant", prompt_again))
                 emit(transcript_path, "assistant", prompt_again)
-                emit(transcript_path, "tts", say_text(prompt_again, stream_name=tts_stream, backend=tts_backend))
-                pause_after_speech(prompt_again, delay_seconds, transcript_path, post_tts_recovery_seconds, tts_drain_timeout_seconds)
+                emit(transcript_path, "tts", say_text(prompt_again, stream_name=tts_stream, backend=tts_backend, command="loop", turn_id=turn_id))
+                pause_after_speech(
+                    prompt_again,
+                    delay_seconds,
+                    transcript_path,
+                    post_tts_recovery_seconds,
+                    tts_drain_timeout_seconds,
+                    command="loop",
+                    turn_id=turn_id,
+                )
                 continue
 
+            turn_id = make_turn_id()
             prompt = build_prompt(host_summary, history, transcript, source_notes)
             emit(transcript_path, "status", "generating reply")
             try:
-                result = generate_reply(prompt, working_dir)
+                result = generate_reply(prompt, working_dir, command="loop", turn_id=turn_id)
                 reply = make_reply_tts_friendly(result.reply)
                 source_notes.extend(result.source_notes)
                 del source_notes[:-8]
@@ -3235,14 +3895,30 @@ def run_session(
                 append_log(transcript_path, f"error: {exc}")
                 history.append(("assistant", fallback))
                 emit(transcript_path, "assistant", fallback)
-                emit(transcript_path, "tts", say_text(fallback, stream_name=tts_stream, backend=tts_backend))
-                pause_after_speech(fallback, delay_seconds, transcript_path, post_tts_recovery_seconds, tts_drain_timeout_seconds)
+                emit(transcript_path, "tts", say_text(fallback, stream_name=tts_stream, backend=tts_backend, command="loop", turn_id=turn_id))
+                pause_after_speech(
+                    fallback,
+                    delay_seconds,
+                    transcript_path,
+                    post_tts_recovery_seconds,
+                    tts_drain_timeout_seconds,
+                    command="loop",
+                    turn_id=turn_id,
+                )
                 continue
 
             history.append(("assistant", reply))
             emit(transcript_path, "assistant", reply)
-            emit(transcript_path, "tts", say_text(reply, stream_name=tts_stream, backend=tts_backend))
-            pause_after_speech(reply, delay_seconds, transcript_path, post_tts_recovery_seconds, tts_drain_timeout_seconds)
+            emit(transcript_path, "tts", say_text(reply, stream_name=tts_stream, backend=tts_backend, command="loop", turn_id=turn_id))
+            pause_after_speech(
+                reply,
+                delay_seconds,
+                transcript_path,
+                post_tts_recovery_seconds,
+                tts_drain_timeout_seconds,
+                command="loop",
+                turn_id=turn_id,
+            )
     finally:
         clear_session_pid()
 
@@ -3307,16 +3983,54 @@ def main() -> int:
     parser.add_argument("--no-wake-cue", action="store_true", help="For wake mode: do not play the subtle cue after wake detection.")
     parser.add_argument("--speak", action="store_true", help="For ingest mode: speak the review result after generating it.")
     parser.add_argument("--then-wake", action="store_true", help="For ingest mode: return to wake word after speaking the review.")
+    parser.add_argument(
+        "--timing-log",
+        default=os.environ.get("CODEX_STTS_TIMING_LOG", ""),
+        help="Append evidence-aware STTS timing events as JSONL to PATH.",
+    )
     args = parser.parse_args()
+    TIMING.configure(args.timing_log)
+    command_turn_id = make_turn_id()
+    timing_event(
+        "command.start",
+        command=args.command,
+        turn_id=command_turn_id,
+        proves="stts_loop.py command dispatch started",
+    )
+
+    def finish(rc: int) -> int:
+        timing_event(
+            "command.end",
+            command=args.command,
+            turn_id=command_turn_id,
+            exit_code=rc,
+            proves="stts_loop.py command dispatch ended",
+        )
+        return rc
 
     try:
         if args.command == "say":
             if not args.text:
                 raise RuntimeError("say requires text")
             spoken = " ".join(args.text)
-            print(say_text(spoken, stream_name=args.tts_stream, backend=args.tts_backend), flush=True)
-            wait_after_one_shot_tts(spoken, args.post_speech_delay, args.tts_drain_timeout)
-            return 0
+            print(
+                say_text(
+                    spoken,
+                    stream_name=args.tts_stream,
+                    backend=args.tts_backend,
+                    command="say",
+                    turn_id=command_turn_id,
+                ),
+                flush=True,
+            )
+            wait_after_one_shot_tts(
+                spoken,
+                args.post_speech_delay,
+                args.tts_drain_timeout,
+                command="say",
+                turn_id=command_turn_id,
+            )
+            return finish(0)
         if args.command == "listen":
             transcript, _raw_transcript = listen_once(
                 args.post_speech_delay,
@@ -3329,11 +4043,11 @@ def main() -> int:
             )
             if transcript:
                 print(transcript)
-            return 0
+            return finish(0)
         opener = " ".join(args.text).strip() or DEFAULT_OPENER
         working_dir = resolve_working_dir(args.cwd)
         if args.command == "talk":
-            return run_talk_tmux(
+            return finish(run_talk_tmux(
                 raw_args,
                 args.post_speech_delay,
                 args.post_tts_recovery,
@@ -3342,9 +4056,9 @@ def main() -> int:
                 args.tts_stream,
                 args.tts_backend,
                 working_dir,
-            )
+            ))
         if args.command == "ingest":
-            return run_ingest_tmux(
+            return finish(run_ingest_tmux(
                 raw_args,
                 args.post_speech_delay,
                 args.post_tts_recovery,
@@ -3353,9 +4067,9 @@ def main() -> int:
                 args.tts_stream,
                 args.tts_backend,
                 working_dir,
-            )
+            ))
         if args.command == "wake":
-            return run_wake_tmux(
+            return finish(run_wake_tmux(
                 raw_args,
                 args.post_speech_delay,
                 args.post_tts_recovery,
@@ -3364,9 +4078,9 @@ def main() -> int:
                 args.tts_stream,
                 args.tts_backend,
                 working_dir,
-            )
+            ))
         if args.command == "wake-test":
-            return run_wake_test_tmux(
+            return finish(run_wake_test_tmux(
                 raw_args,
                 args.post_speech_delay,
                 args.post_tts_recovery,
@@ -3375,35 +4089,35 @@ def main() -> int:
                 args.tts_stream,
                 args.tts_backend,
                 working_dir,
-            )
+            ))
         if args.command == "doctor":
-            return run_stts_doctor(download=args.download)
+            return finish(run_stts_doctor(download=args.download))
         if args.command == "model-import":
             if args.download:
                 download_wake_models(Path(args.source_dir).expanduser())
             import_wake_models(Path(args.source_dir).expanduser())
             print("wake model imported")
-            return 0
+            return finish(0)
         if args.command == "status":
             print(format_status())
-            return 0
+            return finish(0)
         if args.command == "diag":
             if args.download:
-                return run_stts_doctor(download=True)
-            return run_diag()
+                return finish(run_stts_doctor(download=True))
+            return finish(run_diag())
         if args.command == "stt-check":
-            return run_stt_check(
+            return finish(run_stt_check(
                 args.post_speech_delay,
                 args.stt_backend,
                 args.stt_timeout_seconds,
                 args.stt_offline_only,
                 args.stt_complete_silence_ms,
-            )
+            ))
         if args.command in ("stop", "cleanup"):
             print(cleanup_voice_processes())
-            return 0
+            return finish(0)
         if args.command == "session":
-            return run_session_tmux(
+            return finish(run_session_tmux(
                 raw_args,
                 opener,
                 args.post_speech_delay,
@@ -3413,8 +4127,8 @@ def main() -> int:
                 args.tts_stream,
                 args.tts_backend,
                 working_dir,
-            )
-        return run_session(
+            ))
+        return finish(run_session(
             opener,
             args.post_speech_delay,
             args.post_tts_recovery,
@@ -3429,11 +4143,19 @@ def main() -> int:
             args.stt_offline_only,
             args.stt_complete_silence_ms,
             working_dir,
-        )
+        ))
     except KeyboardInterrupt:
-        return 130
+        return finish(130)
     except Exception as exc:
         print(f"stts: {exc}", file=sys.stderr)
+        timing_event(
+            "command.end",
+            command=args.command,
+            turn_id=command_turn_id,
+            exit_code=1,
+            error=str(exc),
+            proves="stts_loop.py command dispatch ended with an exception",
+        )
         return 1
     finally:
         cleanup_tts_helpers()
