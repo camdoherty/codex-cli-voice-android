@@ -189,18 +189,18 @@ For a publishable release candidate, use the release pipeline:
 
 ```bash
 scripts/release_prepare.sh rust-v0.136.0 --iteration 1
-scripts/release_build.sh v0.136.0-ccva.4
+scripts/release_build.sh v0.136.0-ccva.5
 ```
 
 Expected release outputs are under `dist/<release-tag>/`:
 
 ```text
-dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz
-dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz.sha256
-dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz.metadata
-dist/v0.136.0-ccva.4/codex-aec-shim-v0.136.0-ccva.4-debug.apk
-dist/v0.136.0-ccva.4/codex-aec-shim-v0.136.0-ccva.4-debug.apk.sha256
-dist/v0.136.0-ccva.4/v0.136.0-ccva.4.json
+dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz
+dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz.sha256
+dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz.metadata
+dist/v0.136.0-ccva.5/codex-aec-shim-v0.136.0-ccva.5-debug.apk
+dist/v0.136.0-ccva.5/codex-aec-shim-v0.136.0-ccva.5-debug.apk.sha256
+dist/v0.136.0-ccva.5/v0.136.0-ccva.5.json
 ```
 
 For lower-level local iteration, build the Android shim APK directly:
@@ -237,7 +237,7 @@ sha256sum -c codex-cli-voice-android-rust-v0.136.0.tar.gz.sha256
 For a release candidate, prefer:
 
 ```bash
-scripts/release_doctor.sh v0.136.0-ccva.4
+scripts/release_doctor.sh v0.136.0-ccva.5
 ```
 
 ## Deploy With SSH
@@ -306,14 +306,14 @@ Deploy the CLI package:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz \
-  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz.sha256
+  dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz \
+  dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz.sha256
 ```
 
 Or use the release validation wrapper:
 
 ```bash
-scripts/release_validate_device.sh v0.136.0-ccva.4 --fresh --target Pixel6a
+scripts/release_validate_device.sh v0.136.0-ccva.5 --fresh --target Pixel6a
 ```
 
 Stage the shim APK to Android Downloads from inside Termux. If the APK was
@@ -322,7 +322,7 @@ repo/release asset path that exists on the phone.
 
 ```sh
 sh scripts/install_aec_shim_apk.sh \
-  /path/on/phone/to/codex-aec-shim-v0.136.0-ccva.4-debug.apk
+  /path/on/phone/to/codex-aec-shim-v0.136.0-ccva.5-debug.apk
 ```
 
 The helper stages the APK with its versioned basename in Android Downloads.
@@ -366,7 +366,7 @@ finally:
 PY
 ```
 
-For `v0.136.0-ccva.4`, also verify the installed binary does not contain the
+For `v0.136.0-ccva.5`, also verify the installed binary does not contain the
 Android RMCP platform verifier panic path:
 
 ```sh
@@ -419,3 +419,22 @@ The build/deploy is successful when:
   setup issue after `codex --version` and `codex exec --help` pass.
 - Do not use `/tmp` for important Termux output. Prefer `$HOME` because Android
   app sandbox behavior can differ from a normal Linux host.
+
+## Agent Token Efficiency Notes
+
+For release work, keep agent context focused on the current candidate and avoid
+re-reading broad docs after every step. A low-token loop is:
+
+1. Inspect `git status`, the active release tag, and the relevant script help.
+2. Run the release wrapper and preserve its report path.
+3. Use targeted checks for changed surfaces only: artifact manifest, TLS guard,
+   SSH UID, CLI versions, Termux:API, STTS status, Bridge package, and loopback
+   port.
+4. Collect all doc/process updates before the final rebuild. Any tracked doc or
+   script change after a release build should either stay out of the release
+   branch or trigger one new candidate build.
+5. Keep device-specific facts in validation reports, not public docs. Public
+   docs should use placeholders and describe the verification method.
+
+Avoid dumping full command logs into chat unless the user asks. Summarize the
+state transitions, artifact hashes, report paths, and remaining manual checks.

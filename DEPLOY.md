@@ -26,13 +26,13 @@ For release candidates built with `scripts/release_build.sh`, prefer the
 validation wrapper before publishing:
 
 ```bash
-scripts/release_validate_device.sh v0.136.0-ccva.4 --target Pixel6a
+scripts/release_validate_device.sh v0.136.0-ccva.5 --target Pixel6a
 ```
 
 For a first install on a clean Termux target:
 
 ```bash
-scripts/release_validate_device.sh v0.136.0-ccva.4 --fresh --target Pixel6a
+scripts/release_validate_device.sh v0.136.0-ccva.5 --fresh --target Pixel6a
 ```
 
 The wrapper runs `release_doctor`, deploys the CLI package through
@@ -125,8 +125,8 @@ then reconnect. Do not disable host-key checking globally.
 
 ```bash
 scripts/deploy_termux_package.sh \
-  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz \
-  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz.sha256
+  dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz \
+  dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz.sha256
 ```
 
 The script refuses to continue if the remote checksum differs.
@@ -135,8 +135,8 @@ For a first install on a clean Termux device:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz \
-  dist/v0.136.0-ccva.4/codex-cli-voice-android-rust-v0.136.0-ccva.4.tar.gz.sha256
+  dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz \
+  dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz.sha256
 ```
 
 The deploy also installs or updates:
@@ -515,7 +515,7 @@ private storage:
 
 ```sh
 sh scripts/install_aec_shim_apk.sh \
-  ./dist/v0.136.0-ccva.4/codex-aec-shim-v0.136.0-ccva.4-debug.apk
+  ./dist/v0.136.0-ccva.5/codex-aec-shim-v0.136.0-ccva.5-debug.apk
 ```
 
 The helper preserves the APK basename in Downloads. `termux-open` is an
