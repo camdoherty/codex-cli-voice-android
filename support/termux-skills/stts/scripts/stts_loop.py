@@ -1050,6 +1050,10 @@ def cleanup_voice_processes() -> str:
         messages.append(session_status)
     messages.extend(cleanup_voice_helpers())
     clear_session_pid()
+    try:
+        MODE_PATH.unlink()
+    except FileNotFoundError:
+        pass
     remove_command_fifo()
     tmux_status = stop_tmux_session()
     if tmux_status != "tmux session not running":
@@ -2096,6 +2100,7 @@ def run_stts_turn_with_socket_recovery(
     transcript_path: Path | None,
     timeout_seconds: float,
     complete_silence_ms: int,
+    transcript: str | None = None,
     diagnostics: WakeDiagnostics | None = None,
 ) -> bool:
     try:
@@ -2104,6 +2109,7 @@ def run_stts_turn_with_socket_recovery(
             cwd,
             history,
             source_notes,
+            transcript=transcript,
             transcript_path=transcript_path,
             timeout_seconds=timeout_seconds,
             complete_silence_ms=complete_silence_ms,
@@ -2215,6 +2221,7 @@ def run_session_host(
                     continue
                 if command_name == "talk":
                     write_session_mode("talk")
+                    queued_transcript = " ".join(tokens[1:]).strip() or None
                     try:
                         turn_client, _status = shim_connect(15.0)
                         try:
@@ -2224,6 +2231,9 @@ def run_session_host(
                                 history,
                                 source_notes,
                                 transcript_path=transcript_path,
+                                timeout_seconds=DEFAULT_SHIM_STT_TIMEOUT_SECONDS,
+                                complete_silence_ms=DEFAULT_SHIM_STT_COMPLETE_SILENCE_MS,
+                                transcript=queued_transcript,
                             )
                         finally:
                             turn_client.close()
@@ -2526,7 +2536,9 @@ def run_talk_tmux(
         tts_backend,
         working_dir,
     )
-    if not send_session_command("talk"):
+    talk_args = args_after_command(raw_args, "talk")
+    command_tokens = ["talk", *talk_args]
+    if not send_session_command(shlex.join(command_tokens)):
         raise RuntimeError("failed to queue STTS talk turn")
     print(f"talk request sent to {TMUX_SESSION_NAME}")
     if sys.stdout.isatty():

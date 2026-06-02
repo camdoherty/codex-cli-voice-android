@@ -37,6 +37,7 @@
             android:name=".WakeWordActivity"
             android:exported="true"
             android:label="Codex Wake Word"
+            android:launchMode="singleTop"
             android:theme="@android:style/Theme.Material.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
