@@ -1608,8 +1608,8 @@ def build_prompt(
 
 Session behavior:
 - The voice session should feel calm, conversational, and continuous.
-- If the latest user message is casual or does not contain a concrete task, keep the conversation moving with small talk.
-- During small talk, respond naturally and ask one short follow-up question.
+- If the latest user message is casual or does not contain a concrete task, respond briefly without forcing a follow-up question.
+- During small talk, ask a question only when it is genuinely useful, not as a default ending.
 - If the latest user message contains a specific request, stop small talk and help with that request directly.
 - Keep the response easy to speak aloud: 1-2 short sentences by default, no markdown, no bullets, no code fences.
 - Prefer one short sentence. Keep replies under 25 spoken words unless the user explicitly asks for detail.
