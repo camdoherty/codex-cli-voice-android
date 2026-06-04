@@ -93,3 +93,15 @@ index 55ca6ca..ccc1399 100644
  #[cfg(target_os = "android")]
  pub fn paste_image_as_png() -> Result<(Vec<u8>, PastedImageInfo), PasteImageError> {
      Err(PasteImageError::ClipboardUnavailable(
+diff --git a/codex-rs/tui/src/slash_command.rs b/codex-rs/tui/src/slash_command.rs
+index e1f35e1..1fd83d2 100644
+--- a/codex-rs/tui/src/slash_command.rs
++++ b/codex-rs/tui/src/slash_command.rs
+@@ -238,7 +238,6 @@ impl SlashCommand {
+     fn is_visible(self) -> bool {
+         match self {
+             SlashCommand::SandboxReadRoot => cfg!(target_os = "windows"),
+-            SlashCommand::Copy => !cfg!(target_os = "android"),
+             SlashCommand::Rollout | SlashCommand::TestApproval => cfg!(debug_assertions),
+             _ => true,
+         }
