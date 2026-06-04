@@ -1,0 +1,16 @@
+# Local/private Obsidian note paths for this device or host.
+# Copy to ~/.codex/skills/obsidian-notes-maintainer/.local on the target.
+# Do not commit or publish a filled .local file.
+
+# Obsidian vault display name used in obsidian://open?vault=...
+OBSIDIAN_VAULT_NAME=
+
+# Current host's preferred vault path. Set one or both platform-specific values
+# when a shared skill is used across Devbox and Android/Termux.
+OBSIDIAN_VAULT=
+OBSIDIAN_VAULT_ANDROID=
+OBSIDIAN_VAULT_DEVBOX=
+OBSIDIAN_VAULT_CANDIDATES=
+
+# Codex-managed notes workspace.
+CODEX_NOTES="$HOME/codex_notes"

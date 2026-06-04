@@ -116,7 +116,9 @@ copy_dir() {
         echo "installed=$dest"
         return 0
     fi
-    if diff -qr "$src" "$dest" >/dev/null 2>&1; then
+    diff_excludes="-x .local -x __pycache__ -x *.pyc"
+    # shellcheck disable=SC2086
+    if diff -qr $diff_excludes "$src" "$dest" >/dev/null 2>&1; then
         echo "skip_identical=$dest"
         return 0
     fi

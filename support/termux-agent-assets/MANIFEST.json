@@ -29,7 +29,15 @@
       "source_device": "pixel9",
       "source_path": ".codex/skills/obsidian-notes-maintainer/SKILL.md",
       "target_path": "~/.codex/skills/obsidian-notes-maintainer/SKILL.md",
-      "sha256": "883a8881e048d8ac2c348208f78de3bd8eb7f689f2e49ef0540eabf3fb75383e",
+      "sha256": "1630114507dfa0a9ba1b5462f93a08f545edcd5f9465b4cf4b1578558ce24cc2",
+      "install_policy": "install-missing-skip-identical-conflict-incoming"
+    },
+    {
+      "asset": "support/termux-skills/obsidian-notes-maintainer/.local.example",
+      "source_device": "devbox",
+      "source_path": "support/termux-skills/obsidian-notes-maintainer/.local.example",
+      "target_path": "~/.codex/skills/obsidian-notes-maintainer/.local.example",
+      "sha256": "859027852b1fae2193eaec87bb025bb6c996e4567c9a3ce364f74acb4a31be0a",
       "install_policy": "install-missing-skip-identical-conflict-incoming"
     },
     {

@@ -19,6 +19,21 @@ metadata:
 
 Verify locally before acting if a path may differ on the current host.
 
+If present, read local/private path defaults from:
+
+```text
+~/.codex/skills/obsidian-notes-maintainer/.local
+```
+
+The file uses shell-style variables such as `OBSIDIAN_VAULT_NAME`,
+`OBSIDIAN_VAULT`, `OBSIDIAN_VAULT_ANDROID`, `OBSIDIAN_VAULT_DEVBOX`, and
+`OBSIDIAN_VAULT_CANDIDATES`. Treat those values as local evidence, not public
+defaults. Do not copy them into managed skill files, commits, release docs, or
+chat unless the user explicitly asks.
+
+If only `OBSIDIAN_VAULT_CANDIDATES` is set, inspect those paths and ask before
+writing to a user vault. Do not guess a default vault from candidates alone.
+
 User vaults, read/write only by explicit request:
 
 ```text
