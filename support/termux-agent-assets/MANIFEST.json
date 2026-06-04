@@ -29,7 +29,7 @@
       "source_device": "pixel9",
       "source_path": ".codex/skills/obsidian-notes-maintainer/SKILL.md",
       "target_path": "~/.codex/skills/obsidian-notes-maintainer/SKILL.md",
-      "sha256": "1630114507dfa0a9ba1b5462f93a08f545edcd5f9465b4cf4b1578558ce24cc2",
+      "sha256": "e04ab836937a69c79bbb9e99291b4e86c722df36abd0c5aa37d9b66e4018e774",
       "install_policy": "install-missing-skip-identical-conflict-incoming"
     },
     {

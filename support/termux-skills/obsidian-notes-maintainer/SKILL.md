@@ -34,6 +34,11 @@ chat unless the user explicitly asks.
 If only `OBSIDIAN_VAULT_CANDIDATES` is set, inspect those paths and ask before
 writing to a user vault. Do not guess a default vault from candidates alone.
 
+On Android/Termux, only maintain vaults reachable from Termux shared storage,
+normally under `~/storage/shared/...`. App-private Obsidian vault data is not
+directly maintainable from Termux; ask the user to expose or sync the vault into
+shared storage first.
+
 User vaults, read/write only by explicit request:
 
 ```text
