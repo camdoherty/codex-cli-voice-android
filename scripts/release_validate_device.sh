@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/release_validate_device.sh v0.136.0-ccva.5 [options]
+Usage: scripts/release_validate_device.sh v0.137.0-ccva.1 [options]
 
 Runs the local release checks and deploys the CLI package to the configured
 Termux target for non-billable validation.

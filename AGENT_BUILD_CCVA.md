@@ -188,19 +188,19 @@ scripts/setup_android_toolchain.sh
 For a publishable release candidate, use the release pipeline:
 
 ```bash
-scripts/release_prepare.sh rust-v0.136.0 --iteration 1
-scripts/release_build.sh v0.136.0-ccva.5
+scripts/release_prepare.sh rust-v0.137.0 --iteration 1
+scripts/release_build.sh v0.137.0-ccva.1
 ```
 
 Expected release outputs are under `dist/<release-tag>/`:
 
 ```text
-dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz
-dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz.sha256
-dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz.metadata
-dist/v0.136.0-ccva.5/codex-aec-shim-v0.136.0-ccva.5-debug.apk
-dist/v0.136.0-ccva.5/codex-aec-shim-v0.136.0-ccva.5-debug.apk.sha256
-dist/v0.136.0-ccva.5/v0.136.0-ccva.5.json
+dist/v0.137.0-ccva.1/codex-cli-voice-android-rust-v0.137.0-ccva.1.tar.gz
+dist/v0.137.0-ccva.1/codex-cli-voice-android-rust-v0.137.0-ccva.1.tar.gz.sha256
+dist/v0.137.0-ccva.1/codex-cli-voice-android-rust-v0.137.0-ccva.1.tar.gz.metadata
+dist/v0.137.0-ccva.1/codex-aec-shim-v0.137.0-ccva.1-debug.apk
+dist/v0.137.0-ccva.1/codex-aec-shim-v0.137.0-ccva.1-debug.apk.sha256
+dist/v0.137.0-ccva.1/v0.137.0-ccva.1.json
 ```
 
 For lower-level local iteration, build the Android shim APK directly:
@@ -220,9 +220,9 @@ export ANDROID_NDK_HOME=/path/to/android-ndk-r29
 Expected local outputs:
 
 ```text
-codex-cli-voice-android-rust-v0.136.0.tar.gz
-codex-cli-voice-android-rust-v0.136.0.tar.gz.sha256
-codex-cli-voice-android-rust-v0.136.0.tar.gz.metadata
+codex-cli-voice-android-rust-v0.137.0.tar.gz
+codex-cli-voice-android-rust-v0.137.0.tar.gz.sha256
+codex-cli-voice-android-rust-v0.137.0.tar.gz.metadata
 android-aec-shim/app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -230,14 +230,14 @@ Quick local checks:
 
 ```bash
 bash -n build.sh scripts/*.sh
-tar -tzf codex-cli-voice-android-rust-v0.136.0.tar.gz >/dev/null
-sha256sum -c codex-cli-voice-android-rust-v0.136.0.tar.gz.sha256
+tar -tzf codex-cli-voice-android-rust-v0.137.0.tar.gz >/dev/null
+sha256sum -c codex-cli-voice-android-rust-v0.137.0.tar.gz.sha256
 ```
 
 For a release candidate, prefer:
 
 ```bash
-scripts/release_doctor.sh v0.136.0-ccva.5
+scripts/release_doctor.sh v0.137.0-ccva.1
 ```
 
 ## Deploy With SSH
@@ -313,14 +313,14 @@ Deploy the CLI package:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz \
-  dist/v0.136.0-ccva.5/codex-cli-voice-android-rust-v0.136.0-ccva.5.tar.gz.sha256
+  dist/v0.137.0-ccva.1/codex-cli-voice-android-rust-v0.137.0-ccva.1.tar.gz \
+  dist/v0.137.0-ccva.1/codex-cli-voice-android-rust-v0.137.0-ccva.1.tar.gz.sha256
 ```
 
 Or use the release validation wrapper:
 
 ```bash
-scripts/release_validate_device.sh v0.136.0-ccva.5 --fresh --target Pixel6a
+scripts/release_validate_device.sh v0.137.0-ccva.1 --fresh --target Pixel6a
 ```
 
 Stage the shim APK to Android Downloads from inside Termux. If the APK was
@@ -329,7 +329,7 @@ repo/release asset path that exists on the phone.
 
 ```sh
 sh scripts/install_aec_shim_apk.sh \
-  /path/on/phone/to/codex-aec-shim-v0.136.0-ccva.5-debug.apk
+  /path/on/phone/to/codex-aec-shim-v0.137.0-ccva.1-debug.apk
 ```
 
 The helper stages the APK with its versioned basename in Android Downloads.
@@ -373,7 +373,7 @@ finally:
 PY
 ```
 
-For `v0.136.0-ccva.5`, also verify the installed binary does not contain the
+For `v0.137.0-ccva.1`, also verify the installed binary does not contain the
 Android RMCP platform verifier panic path:
 
 ```sh

@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/release_prepare.sh rust-v0.136.0 [options]
+Usage: scripts/release_prepare.sh rust-v0.137.0 [options]
 
 Prepares a CCVA release branch for a new upstream Codex tag.
 
@@ -33,7 +33,7 @@ if [[ -z "$codex_tag" || "$codex_tag" == "-h" || "$codex_tag" == "--help" ]]; th
 fi
 shift
 
-[[ "$codex_tag" == rust-v* ]] || die "expected upstream tag like rust-v0.136.0"
+[[ "$codex_tag" == rust-v* ]] || die "expected upstream tag like rust-v0.137.0"
 
 iteration="1"
 branch=""
@@ -134,6 +134,7 @@ files = [
     Path("BUILD.md"),
     Path("README.md"),
     Path("AGENT_BUILD_CCVA.md"),
+    Path("DEPLOY.md"),
 ]
 
 for path in files:
