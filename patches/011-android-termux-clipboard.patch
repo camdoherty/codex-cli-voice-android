@@ -1,0 +1,95 @@
+diff --git a/codex-rs/tui/src/clipboard_copy.rs b/codex-rs/tui/src/clipboard_copy.rs
+index 1ad369d..9f9877f 100644
+--- a/codex-rs/tui/src/clipboard_copy.rs
++++ b/codex-rs/tui/src/clipboard_copy.rs
+@@ -6,7 +6,8 @@
+ //! 1. **SSH session** (`SSH_TTY` / `SSH_CONNECTION` set): use tmux clipboard
+ //!    integration when available, otherwise OSC 52, because the native clipboard
+ //!    belongs to the remote machine.
+-//! 2. **Local session**: try `arboard` (native clipboard) first. On WSL, fall back
++//! 2. **Android/Termux local session**: use `termux-clipboard-set`.
++//! 3. **Other local sessions**: try `arboard` (native clipboard) first. On WSL, fall back
+ //!    to the Windows clipboard through PowerShell if `arboard` fails. Finally, fall
+ //!    back to terminal-mediated copy if no native/WSL clipboard path succeeds.
+ //!
+@@ -255,8 +256,43 @@ fn arboard_copy(text: &str) -> Result<Option<ClipboardLease>, String> {
+ }
+
+ #[cfg(target_os = "android")]
+-fn arboard_copy(_text: &str) -> Result<Option<ClipboardLease>, String> {
+-    Err("native clipboard unavailable on Android".to_string())
++fn arboard_copy(text: &str) -> Result<Option<ClipboardLease>, String> {
++    let mut child = std::process::Command::new("termux-clipboard-set")
++        .stdin(std::process::Stdio::piped())
++        .stdout(std::process::Stdio::null())
++        .stderr(std::process::Stdio::piped())
++        .spawn()
++        .map_err(|e| format!("failed to spawn termux-clipboard-set: {e}"))?;
++
++    let Some(mut stdin) = child.stdin.take() else {
++        let _ = child.kill();
++        let _ = child.wait();
++        return Err("failed to open termux-clipboard-set stdin".to_string());
++    };
++
++    if let Err(err) = stdin.write_all(text.as_bytes()) {
++        let _ = child.kill();
++        let _ = child.wait();
++        return Err(format!("failed to write to termux-clipboard-set: {err}"));
++    }
++
++    drop(stdin);
++
++    let output = child
++        .wait_with_output()
++        .map_err(|e| format!("failed to wait for termux-clipboard-set: {e}"))?;
++
++    if output.status.success() {
++        Ok(None)
++    } else {
++        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
++        if stderr.is_empty() {
++            let status = output.status;
++            Err(format!("termux-clipboard-set exited with status {status}"))
++        } else {
++            Err(format!("termux-clipboard-set failed: {stderr}"))
++        }
++    }
+ }
+
+ /// Copy text into the Windows clipboard from a WSL process.
+@@ -444,10 +480,10 @@ impl Drop for SuppressStderr {
+     }
+ }
+
+-#[cfg(not(target_os = "macos"))]
++#[cfg(all(not(target_os = "macos"), not(target_os = "android")))]
+ struct SuppressStderr;
+
+-#[cfg(not(target_os = "macos"))]
++#[cfg(all(not(target_os = "macos"), not(target_os = "android")))]
+ impl SuppressStderr {
+     fn new() -> Self {
+         Self
+diff --git a/codex-rs/tui/src/clipboard_paste.rs b/codex-rs/tui/src/clipboard_paste.rs
+index 55ca6ca..ccc1399 100644
+--- a/codex-rs/tui/src/clipboard_paste.rs
++++ b/codex-rs/tui/src/clipboard_paste.rs
+@@ -1,7 +1,9 @@
+ use std::path::Path;
+ use std::path::PathBuf;
++#[cfg(not(target_os = "android"))]
+ use tempfile::Builder;
+
++#[cfg_attr(target_os = "android", allow(dead_code))]
+ #[derive(Debug, Clone)]
+ pub enum PasteImageError {
+     ClipboardUnavailable(String),
+@@ -109,6 +111,7 @@ pub fn paste_image_as_png() -> Result<(Vec<u8>, PastedImageInfo), PasteImageErro
+ }
+
+ /// Android/Termux does not support arboard; return a clear error.
++#[allow(dead_code)]
+ #[cfg(target_os = "android")]
+ pub fn paste_image_as_png() -> Result<(Vec<u8>, PastedImageInfo), PasteImageError> {
+     Err(PasteImageError::ClipboardUnavailable(
