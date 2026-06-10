@@ -1,16 +1,16 @@
 diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index f7e7efc..373f6bb 100644
+index 0c7dff4..dc44213 100644
 --- a/codex-rs/Cargo.toml
 +++ b/codex-rs/Cargo.toml
-@@ -78,7 +78,6 @@ members = [
+@@ -81,7 +81,6 @@ members = [
      "otel",
      "tui",
      "tools",
 -    "v8-poc",
      "utils/absolute-path",
+     "utils/path-uri",
      "utils/cargo-bin",
-     "git-utils",
-@@ -236,7 +236,6 @@ codex-utils-sleep-inhibitor = { path = "utils/sleep-inhibitor" }
+@@ -242,7 +241,6 @@ codex-utils-sleep-inhibitor = { path = "utils/sleep-inhibitor" }
  codex-utils-stream-parser = { path = "utils/stream-parser" }
  codex-utils-string = { path = "utils/string" }
  codex-utils-template = { path = "utils/template" }
@@ -18,7 +18,7 @@ index f7e7efc..373f6bb 100644
  codex-windows-sandbox = { path = "windows-sandbox-rs" }
  core_test_support = { path = "core/tests/common" }
  mcp_test_support = { path = "mcp-server/tests/common" }
-@@ -342,7 +341,7 @@ rcgen = { version = "0.14.7", default-features = false, features = [
+@@ -349,7 +347,7 @@ rcgen = { version = "0.14.7", default-features = false, features = [
  ] }
  regex = "1.12.3"
  regex-lite = "0.1.8"
@@ -27,20 +27,31 @@ index f7e7efc..373f6bb 100644
  rmcp = { version = "1.7.0", default-features = false }
  runfiles = { git = "https://github.com/dzbarsky/rules_rust", rev = "b56cbaa8465e74127f1ea216f813cd377295ad81" }
  rustls = { version = "0.23", default-features = false, features = [
-@@ -480,7 +479,6 @@ ignored = [
-     "codex-goal-extension",
+@@ -486,7 +484,6 @@ ignored = [
+     "codex-agent-graph-store",
      "icu_provider",
      "openssl-sys",
 -    "codex-v8-poc",
  ]
  
-@@ -504 +504,2 @@
+ [profile.dev]
+@@ -501,15 +498,16 @@ debug = "none"
+ strip = "symbols"
+ 
+ [profile.release]
 -lto = "thin"
 +lto = false
 +opt-level = "z"
-@@ -509 +510 @@
+ debug = "line-tables-only"
+ split-debuginfo = "off"
+ # Keep release binaries symbolicateable until packaging has archived the
+ # sidecar symbols and stripped the binaries.
 -strip = false
 +strip = "symbols"
-@@ -512 +513 @@
+ 
+ # See https://github.com/openai/codex/issues/1411 for details.
 -codegen-units = 1
 +codegen-units = 16
+ 
+ [profile.profiling]
+ inherits = "release"
