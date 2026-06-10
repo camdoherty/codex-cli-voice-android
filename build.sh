@@ -5,7 +5,7 @@ set -euo pipefail
 PROJECT_NAME="Codex CLI + Voice (Android)"
 ARTIFACT_PREFIX="codex-cli-voice-android"
 INSTALL_DIR="libexec/codex-cli-voice-android"
-CODEX_TAG="${CODEX_TAG:-rust-v0.137.0}"
+CODEX_TAG="${CODEX_TAG:-rust-v0.139.0}"
 NDK_VERSION="${NDK_VERSION:-r29}"
 API_LEVEL="${API_LEVEL:-29}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

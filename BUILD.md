@@ -25,10 +25,10 @@ That downloads a local JDK, Gradle, and Android SDK into `android-toolchain/`.
 For publishable releases, use the release scripts as the canonical path:
 
 ```bash
-scripts/release_prepare.sh rust-v0.137.0 --iteration 1
-scripts/release_build.sh v0.137.0-ccva.1
-scripts/release_validate_device.sh v0.137.0-ccva.1 --fresh --target Pixel6a
-scripts/release_publish.sh v0.137.0-ccva.1 --stable
+scripts/release_prepare.sh rust-v0.139.0 --iteration 1
+scripts/release_build.sh v0.139.0-ccva.1
+scripts/release_validate_device.sh v0.139.0-ccva.1 --fresh --target Pixel6a
+scripts/release_publish.sh v0.139.0-ccva.1 --stable
 ```
 
 `release_publish.sh` is dry-run/check-only by default. Add `--execute` only
@@ -59,7 +59,7 @@ Android UI approvals, Codex sign-in, Bridge microphone permission, widget
 overlay permission, Wake Word human testing, and billable Realtime checks remain
 explicit validation steps.
 
-For `v0.137.0-ccva.1`, the release build also enforces the Android RMCP
+For `v0.139.0-ccva.1`, the release build also enforces the Android RMCP
 OAuth/TLS regression guard. The graph, staged binary, and packaged CLI tarball
 must not contain `rustls-platform-verifier`; Android RMCP OAuth bootstrap is
 routed through Codex's shared HTTP client instead.
@@ -80,26 +80,26 @@ Full build:
 ANDROID_NDK_HOME=/path/to/android-ndk-r29 ./build.sh
 ```
 
-By default the script builds upstream `rust-v0.137.0` and writes un-suffixed
+By default the script builds upstream `rust-v0.139.0` and writes un-suffixed
 local build artifacts:
 
 ```text
-codex-cli-voice-android-rust-v0.137.0.tar.gz
-codex-cli-voice-android-rust-v0.137.0.tar.gz.sha256
-codex-cli-voice-android-rust-v0.137.0.tar.gz.metadata
+codex-cli-voice-android-rust-v0.139.0.tar.gz
+codex-cli-voice-android-rust-v0.139.0.tar.gz.sha256
+codex-cli-voice-android-rust-v0.139.0.tar.gz.metadata
 ```
 
 For publishable CCVA release artifacts, use the release wrapper:
 
 ```bash
-scripts/release_build.sh v0.137.0-ccva.1
+scripts/release_build.sh v0.139.0-ccva.1
 ```
 
-That writes versioned assets under `dist/v0.137.0-ccva.1/`, for example:
+That writes versioned assets under `dist/v0.139.0-ccva.1/`, for example:
 
 ```text
-codex-cli-voice-android-rust-v0.137.0-ccva.1.tar.gz
-codex-aec-shim-v0.137.0-ccva.1-debug.apk
+codex-cli-voice-android-rust-v0.139.0-ccva.1.tar.gz
+codex-aec-shim-v0.139.0-ccva.1-debug.apk
 ```
 
 Cargo output is cached outside the source clone through:
@@ -115,14 +115,14 @@ build speed matters. Use the family-aware cleanup policy in
 Override the upstream tag for preflight or future bumps:
 
 ```bash
-CODEX_TAG=rust-v0.137.0 WORK_DIR=/tmp/codex-cli-preflight CHECK_PATCHES_ONLY=1 ./build.sh
+CODEX_TAG=rust-v0.139.0 WORK_DIR=/tmp/codex-cli-preflight CHECK_PATCHES_ONLY=1 ./build.sh
 ```
 
 For upstream bumps, use the bump preflight helper first. It skips the stale
 Cargo.lock patch, regenerates it, and verifies locked metadata:
 
 ```bash
-scripts/preflight_upstream_bump.sh rust-v0.137.0 --write-lock-patch
+scripts/preflight_upstream_bump.sh rust-v0.139.0 --write-lock-patch
 ```
 
 ## AEC Shim APK
