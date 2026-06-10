@@ -28,8 +28,12 @@ public class ShareActivity extends Activity {
     private final List<SharedFile> files = new ArrayList<>();
     private final List<String> filenames = new ArrayList<>();
     private final List<String> textParts = new ArrayList<>();
+    private final List<String> fullTextParts = new ArrayList<>();
     private int encodedBytes;
     private int textChars;
+    private int fullTextChars;
+    private boolean textTruncated;
+    private boolean fullTextAttachmentPrepared;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -169,6 +173,8 @@ public class ShareActivity extends Activity {
     }
 
     private String buildTermuxCommand(String itemId, boolean review) {
+        prepareFullTextAttachment();
+
         String inboxExpr = "\"$HOME/storage/shared/Documents/codex_notes/inbox\"";
         String fallbackExpr = "\"$HOME/codex_notes/inbox\"";
         String itemDirExpr = "\"$inbox/" + itemId + "\"";
@@ -208,21 +214,62 @@ public class ShareActivity extends Activity {
         if (textParts.isEmpty()) {
             return "# Shared Text\n\nNo shared text payload was provided.\n";
         }
-        return "# Shared Text\n\n" + String.join("\n\n---\n\n", textParts) + "\n";
+        StringBuilder markdown = new StringBuilder();
+        markdown.append("# Shared Text\n\n");
+        if (textTruncated) {
+            markdown.append("Preview only. Complete shared text is available at ")
+                    .append("`attachments/shared-text-full.txt`.\n\n");
+        }
+        markdown.append(String.join("\n\n---\n\n", textParts)).append("\n");
+        return markdown.toString();
     }
 
     private void addTextPart(String value) {
+        fullTextParts.add(value);
+        fullTextChars += value.length();
         if (textChars >= MAX_TEXT_CHARS) {
+            textTruncated = true;
             return;
         }
         String text = value;
         int remaining = MAX_TEXT_CHARS - textChars;
         if (text.length() > remaining) {
             text = text.substring(0, remaining)
-                    + "\n\n[Codex Bridge truncated shared text at " + MAX_TEXT_CHARS + " characters.]";
+                    + "\n\n[Codex Bridge preview capped at " + MAX_TEXT_CHARS
+                    + " characters. See attachments/shared-text-full.txt for complete shared text.]";
+            textTruncated = true;
         }
         textParts.add(text);
         textChars += text.length();
+    }
+
+    private void prepareFullTextAttachment() {
+        if (fullTextAttachmentPrepared || !textTruncated || fullTextParts.isEmpty()) {
+            return;
+        }
+        fullTextAttachmentPrepared = true;
+        String fullText = String.join("\n\n---\n\n", fullTextParts) + "\n";
+        byte[] data = fullText.getBytes(StandardCharsets.UTF_8);
+        String encoded = Base64.encodeToString(data, Base64.NO_WRAP);
+        if (encodedBytes + encoded.length() > MAX_TOTAL_ENCODED_BYTES) {
+            files.add(SharedFile.metadataOnly(
+                    "shared-text-full.txt",
+                    "text/plain; charset=utf-8",
+                    "android-intent-text",
+                    "complete shared text exceeds " + MAX_TOTAL_ENCODED_BYTES
+                            + " byte Codex Bridge command limit"));
+            return;
+        }
+        encodedBytes += encoded.length();
+        files.add(new SharedFile(
+                uniqueFilename("shared-text-full.txt"),
+                "text/plain; charset=utf-8",
+                "android-intent-text",
+                encoded,
+                data.length,
+                "complete shared text; payload.md is a preview",
+                "full_text",
+                fullTextChars));
     }
 
     private String manifestJson(String itemId) {
@@ -244,6 +291,12 @@ public class ShareActivity extends Activity {
             json.append("\"copied\": ").append(file.encodedContent.isEmpty() ? "false" : "true").append(", ");
             json.append("\"size_bytes\": ").append(file.sizeBytes).append(", ");
             json.append("\"path\": \"attachments/").append(jsonEscape(file.name)).append("\"");
+            if (!file.role.isEmpty()) {
+                json.append(", \"role\": \"").append(jsonEscape(file.role)).append("\"");
+            }
+            if (file.originalCharacterCount > 0) {
+                json.append(", \"original_character_count\": ").append(file.originalCharacterCount);
+            }
             if (!file.note.isEmpty()) {
                 json.append(", \"note\": \"").append(jsonEscape(file.note)).append("\"");
             }
@@ -368,14 +421,30 @@ public class ShareActivity extends Activity {
         final String encodedContent;
         final int sizeBytes;
         final String note;
+        final String role;
+        final int originalCharacterCount;
 
         SharedFile(String name, String mimeType, String sourceUri, String encodedContent, int sizeBytes, String note) {
+            this(name, mimeType, sourceUri, encodedContent, sizeBytes, note, "", 0);
+        }
+
+        SharedFile(
+                String name,
+                String mimeType,
+                String sourceUri,
+                String encodedContent,
+                int sizeBytes,
+                String note,
+                String role,
+                int originalCharacterCount) {
             this.name = name;
             this.mimeType = mimeType;
             this.sourceUri = sourceUri;
             this.encodedContent = encodedContent;
             this.sizeBytes = sizeBytes;
             this.note = note;
+            this.role = role;
+            this.originalCharacterCount = originalCharacterCount;
         }
 
         static SharedFile metadataOnly(String name, String mimeType, String sourceUri, String note) {
