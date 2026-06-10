@@ -15,6 +15,9 @@ Codex CLI + Voice on Android/Termux.
 - Treat `support/termux-skills/obsidian-notes-maintainer` as the source mirror for the local Termux `obsidian-notes-maintainer` skill.
 - Treat `support/termux-agent-assets` as opt-in/reference assets for device agent instructions and CCAT contract docs; do not auto-install them during package deploy.
 - Keep experimental activation prototypes, private logs, personal profiles, and prototype routing assumptions out of the stable release.
+- For dev workspace disk cleanup, follow `docs/maintenance/DEV_REPO_CLEANUP.md`.
+  Preserve the active release family, the latest known-good previous build,
+  `codex-cargo-cache`, and `android-toolchain`.
 - A successful Bridge APK build is not a device deploy. When Android Bridge
   behavior changes, install the rebuilt APK on the target device, restart the
   Bridge foreground service, and verify `127.0.0.1:8765` from Termux before

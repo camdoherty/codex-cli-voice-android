@@ -108,6 +108,10 @@ Cargo output is cached outside the source clone through:
 CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-../codex-cargo-cache}
 ```
 
+Do not delete this cache during routine workspace cleanup if future Android
+build speed matters. Use the family-aware cleanup policy in
+[docs/maintenance/DEV_REPO_CLEANUP.md](docs/maintenance/DEV_REPO_CLEANUP.md).
+
 Override the upstream tag for preflight or future bumps:
 
 ```bash

@@ -77,6 +77,11 @@ Do not assume Android UI actions succeeded. Verify observable state:
 - `/v1/text-voice` smoke test passes.
 - Audible TTS is confirmed by the user.
 
+When freeing devbox disk space, follow
+[docs/maintenance/DEV_REPO_CLEANUP.md](docs/maintenance/DEV_REPO_CLEANUP.md).
+Do not delete `codex-cargo-cache`, `android-toolchain`, active release-family
+artifacts, or the latest known-good previous build.
+
 ## Questions For The User
 
 Ask only what cannot be discovered safely:
@@ -445,3 +450,29 @@ re-reading broad docs after every step. A low-token loop is:
 
 Avoid dumping full command logs into chat unless the user asks. Summarize the
 state transitions, artifact hashes, report paths, and remaining manual checks.
+
+## Next Build Notes
+
+2026-06-08 local source patch to include in the next CCVA binary rebuild:
+
+- Shortened the under-development feature warning shown when `realtime_conversation`
+  is enabled. This is display-only cleanup for the Pixel recording flow; it does
+  not change Realtime behavior, feature gating, billing guard behavior, or the
+  Android shim contract.
+- Source files changed in the active build tree:
+  - `codex-rs/features/src/lib.rs`: TUI/session warning event now emits
+    `⚠ Under-development feature enabled: {feature_keys}` instead of the long
+    suppress-config guidance block.
+  - `codex-rs/cli/src/main.rs`: CLI stderr warning now emits the same short
+    wording.
+  - `codex-rs/features/src/tests.rs` and
+    `codex-rs/core/tests/suite/unstable_features_warning.rs`: updated assertions
+    that depended on the old long warning text.
+- Targeted verification completed on devbox:
+  `cargo test -p codex-features unstable_warning_event_only_mentions_enabled_under_development_features`
+  passed.
+- On-device workaround already validated for the current installed binary:
+  `suppress_unstable_features_warning = true` in Termux `~/.codex/config.toml`
+  hides the warning without a rebuild.
+- A Pixel-visible wording change still requires rebuilding and deploying the
+  Codex CLI Termux binary. No APK rebuild is implied by this patch.
