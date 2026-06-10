@@ -42,6 +42,10 @@ separate explicitly billable validation item unless recorded independently.
 7. The release doctor previously compared only committed history with the
    artifact source commit. It could pass while tracked or untracked source
    changes existed after the build. It now rejects a dirty source worktree.
+8. Same-upstream iteration preparation previously used the stable manifest to
+   identify the old candidate. When stable lagged the active release branch,
+   this produced mixed `.1` and `.2` documentation paths. Preparation now uses
+   the source release branch when its upstream version matches.
 
 ## Next Deployment Checklist
 

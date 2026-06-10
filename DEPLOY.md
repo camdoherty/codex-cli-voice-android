@@ -32,7 +32,7 @@ validation wrapper before publishing:
 PIXEL_HOST=pixel6a-ccva \
 PIXEL_USER="$(ssh pixel6a-ccva whoami)" \
 SSH_CONFIG="$HOME/.ssh/config" \
-scripts/release_validate_device.sh v0.139.0-ccva.1 --target Pixel6a
+scripts/release_validate_device.sh v0.139.0-ccva.2 --target Pixel6a
 ```
 
 For a first install on a clean Termux target:
@@ -41,7 +41,7 @@ For a first install on a clean Termux target:
 PIXEL_HOST=pixel6a-ccva \
 PIXEL_USER="$(ssh pixel6a-ccva whoami)" \
 SSH_CONFIG="$HOME/.ssh/config" \
-scripts/release_validate_device.sh v0.139.0-ccva.1 --fresh --target Pixel6a
+scripts/release_validate_device.sh v0.139.0-ccva.2 --fresh --target Pixel6a
 ```
 
 The wrapper runs `release_doctor`, deploys the CLI package through
@@ -153,8 +153,8 @@ then reconnect. Do not disable host-key checking globally.
 
 ```bash
 scripts/deploy_termux_package.sh \
-  dist/v0.139.0-ccva.1/codex-cli-voice-android-rust-v0.139.0-ccva.1.tar.gz \
-  dist/v0.139.0-ccva.1/codex-cli-voice-android-rust-v0.139.0-ccva.1.tar.gz.sha256
+  dist/v0.139.0-ccva.2/codex-cli-voice-android-rust-v0.139.0-ccva.2.tar.gz \
+  dist/v0.139.0-ccva.2/codex-cli-voice-android-rust-v0.139.0-ccva.2.tar.gz.sha256
 ```
 
 The script refuses to continue if the remote checksum differs.
@@ -163,8 +163,8 @@ For a first install on a clean Termux device:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  dist/v0.139.0-ccva.1/codex-cli-voice-android-rust-v0.139.0-ccva.1.tar.gz \
-  dist/v0.139.0-ccva.1/codex-cli-voice-android-rust-v0.139.0-ccva.1.tar.gz.sha256
+  dist/v0.139.0-ccva.2/codex-cli-voice-android-rust-v0.139.0-ccva.2.tar.gz \
+  dist/v0.139.0-ccva.2/codex-cli-voice-android-rust-v0.139.0-ccva.2.tar.gz.sha256
 ```
 
 The deploy also installs or updates:
@@ -569,7 +569,7 @@ private storage:
 
 ```sh
 sh scripts/install_aec_shim_apk.sh \
-  ./dist/v0.139.0-ccva.1/codex-aec-shim-v0.139.0-ccva.1-debug.apk
+  ./dist/v0.139.0-ccva.2/codex-aec-shim-v0.139.0-ccva.2-debug.apk
 ```
 
 The helper preserves the APK basename in Downloads. `termux-open` is an

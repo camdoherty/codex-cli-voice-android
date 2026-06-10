@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/release_build.sh v0.135.0-ccva.1
+Usage: scripts/release_build.sh v0.139.0-ccva.2
 
 Builds a versioned CCVA release candidate into dist/<release-tag>/.
 EOF
@@ -20,7 +20,7 @@ case "$release_tag" in
     v[0-9]*.[0-9]*.[0-9]*-ccva.[0-9]*) ;;
     *)
         echo "Invalid release tag: $release_tag" >&2
-        echo "Expected form: v0.135.0-ccva.1" >&2
+        echo "Expected form: v0.139.0-ccva.2" >&2
         exit 2
         ;;
 esac

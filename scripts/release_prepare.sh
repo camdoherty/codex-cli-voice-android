@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/release_prepare.sh rust-v0.137.0 [options]
+Usage: scripts/release_prepare.sh rust-v0.139.0 [options]
 
 Prepares a CCVA release branch for a new upstream Codex tag.
 
@@ -93,14 +93,23 @@ fi
 current_default="$(sed -n 's/^CODEX_TAG="${CODEX_TAG:-\(rust-v[^}]*\)}"/\1/p' build.sh)"
 [[ -n "$current_default" ]] || die "could not read default CODEX_TAG from build.sh"
 current_semver="${current_default#rust-v}"
-current_release="$(python3 - <<'PY'
+source_branch="$(git branch --show-current)"
+current_release=""
+case "$source_branch" in
+    "release/v${current_semver}-ccva."*)
+        current_release="${source_branch#release/}"
+        ;;
+esac
+if [[ -z "$current_release" ]]; then
+    current_release="$(python3 - <<'PY'
 import json
 from pathlib import Path
 p = Path("releases/stable.json")
 if p.exists():
     print(json.loads(p.read_text()).get("version", ""))
 PY
-)"
+    )"
+fi
 current_release="${current_release:-v${current_semver}-ccva.1}"
 current_iteration="${current_release##*-ccva.}"
 current_package="${current_default}-ccva.${current_iteration}"

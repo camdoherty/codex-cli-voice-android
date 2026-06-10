@@ -184,7 +184,7 @@ folders unless needed.
 ```sh
 git clone https://github.com/camdoherty/codex-cli-voice-android.git
 cd codex-cli-voice-android
-scripts/release_build.sh v0.139.0-ccva.1
+scripts/release_build.sh v0.139.0-ccva.2
 ```
 
 See [BUILD.md](BUILD.md).

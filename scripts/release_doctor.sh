@@ -4,7 +4,7 @@ set -euo pipefail
 release_tag="${1:-}"
 if [[ -z "$release_tag" || "$release_tag" == "-h" || "$release_tag" == "--help" ]]; then
     cat <<'EOF'
-Usage: scripts/release_doctor.sh v0.139.0-ccva.1
+Usage: scripts/release_doctor.sh v0.139.0-ccva.2
 EOF
     [[ -n "$release_tag" ]] && exit 0
     exit 2
