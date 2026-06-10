@@ -119,12 +119,12 @@ set --
 }
 
 if [ "$#" -gt 0 ]; then
-    backup="$HOME/codex-backup-before-${remote_name%.tar.gz}-$ts.tar.gz"
-    tar -czf "$backup" "$@"
-    tar -tzf "$backup" >/dev/null
-    ln -sf "$backup" "$HOME/codex-backup-before-latest.tar.gz"
+    install_backup="$HOME/codex-backup-before-${remote_name%.tar.gz}-$ts.tar.gz"
+    tar -czf "$install_backup" "$@"
+    tar -tzf "$install_backup" >/dev/null
+    ln -sf "$install_backup" "$HOME/codex-backup-before-latest.tar.gz"
 else
-    backup=""
+    install_backup=""
 fi
 
 rm -rf "$PREFIX/libexec/codex-cli-voice-android" "$PREFIX/opt/codex-termux"
@@ -220,13 +220,13 @@ write_shortcut() {
         echo "shortcut_skip_identical=$path"
         return
     fi
-    backup="$path.backup.$ts"
+    shortcut_backup="$path.backup.$ts"
     incoming="$path.incoming.$ts"
-    cp "$path" "$backup"
+    cp "$path" "$shortcut_backup"
     mv "$tmp" "$incoming"
     chmod 700 "$incoming"
     echo "shortcut_conflict_preserved=$path"
-    echo "shortcut_backup=$backup"
+    echo "shortcut_backup=$shortcut_backup"
     echo "shortcut_incoming=$incoming"
 }
 
@@ -281,7 +281,7 @@ for old_shortcut in \
     [ ! -e "$old_shortcut" ] || echo "old_shortcut_present=$old_shortcut"
 done
 
-echo "backup=$backup"
+echo "install_backup=$install_backup"
 REMOTE_DEPLOY
 
 echo "Running non-paid smoke tests"

@@ -82,6 +82,9 @@ When freeing devbox disk space, follow
 Do not delete `codex-cargo-cache`, `android-toolchain`, active release-family
 artifacts, or the latest known-good previous build.
 
+Before multi-device validation, read
+[docs/maintenance/RELEASE_DEPLOYMENT_LESSONS.md](docs/maintenance/RELEASE_DEPLOYMENT_LESSONS.md).
+
 ## Questions For The User
 
 Ask only what cannot be discovered safely:
@@ -283,12 +286,15 @@ Then verify non-interactive SSH before using it for deployment. Example:
 ssh pixel6a-ccva 'echo ssh-ok; whoami; hostname'
 ```
 
-For routine agent commands after SSH is established, prefer the local helper:
+If the maintainer workstation has the optional `pixel-ssh` helper, select the
+device explicitly:
 
 ```sh
-scripts/pixel-ssh --device pixel9 'echo ssh-ok'
-scripts/pixel-ssh --device 6a 'echo ssh-ok'
+pixel-ssh --device pixel9 'echo ssh-ok'
+pixel-ssh --device 6a 'echo ssh-ok'
 ```
+
+The helper is workstation-local and is not included in the public release.
 
 If this fails after a fresh Termux reinstall, remove only the stale host entry
 for that device/port from `known_hosts`, confirm the new fingerprint with the
@@ -325,8 +331,15 @@ ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
 Or use the release validation wrapper:
 
 ```bash
+PIXEL_HOST=pixel6a-ccva \
+PIXEL_USER=termux-user \
+SSH_CONFIG="$HOME/.ssh/config" \
 scripts/release_validate_device.sh v0.139.0-ccva.1 --fresh --target Pixel6a
 ```
+
+The `--target` value is report metadata only. It does not select the SSH host.
+Confirm the device model and `whoami`, then set the transport variables before
+running the wrapper.
 
 Stage the shim APK to Android Downloads from inside Termux. If the APK was
 built on the host, first transfer `app-debug.apk` to the phone, or use a synced

@@ -4,7 +4,7 @@ set -euo pipefail
 release_tag="${1:-}"
 if [[ -z "$release_tag" || "$release_tag" == "-h" || "$release_tag" == "--help" ]]; then
     cat <<'EOF'
-Usage: scripts/release_doctor.sh v0.135.0-ccva.1
+Usage: scripts/release_doctor.sh v0.139.0-ccva.1
 EOF
     [[ -n "$release_tag" ]] && exit 0
     exit 2
@@ -81,6 +81,17 @@ grep -q "\"ccva_source_commit\": \"$ccva_source_commit\"" "$manifest" || {
     echo "Manifest ccva_source_commit mismatch or missing" >&2
     exit 1
 }
+
+dirty="$(
+    git -C "$REPO_DIR" status --porcelain --untracked-files=all -- \
+        . ':(exclude)dist/**' ':(exclude)tmp/**'
+)"
+if [[ -n "$dirty" ]]; then
+    echo "Release source worktree is dirty; artifacts are not publish-ready:" >&2
+    printf '%s\n' "$dirty" >&2
+    echo "Commit the intended changes and rebuild the candidate." >&2
+    exit 1
+fi
 
 if git -C "$REPO_DIR" ls-files | grep -E '\.(apk|aab|tar\.gz|metadata|sha256)$' >/dev/null; then
     echo "Built artifacts are tracked by git" >&2

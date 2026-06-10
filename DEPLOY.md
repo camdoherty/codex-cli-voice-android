@@ -7,6 +7,9 @@ repairs launcher symlinks, and runs non-paid smoke tests.
 
 For a no-PC, on-device install from GitHub Releases, use the manual installation section in [README.md](README.md).
 
+For process corrections and the latest multi-device deployment findings, see
+[docs/maintenance/RELEASE_DEPLOYMENT_LESSONS.md](docs/maintenance/RELEASE_DEPLOYMENT_LESSONS.md).
+
 For agent-driven device work, prefer this flow:
 
 1. Commit or otherwise stage source changes on the workstation.
@@ -26,12 +29,18 @@ For release candidates built with `scripts/release_build.sh`, prefer the
 validation wrapper before publishing:
 
 ```bash
+PIXEL_HOST=pixel6a-ccva \
+PIXEL_USER="$(ssh pixel6a-ccva whoami)" \
+SSH_CONFIG="$HOME/.ssh/config" \
 scripts/release_validate_device.sh v0.139.0-ccva.1 --target Pixel6a
 ```
 
 For a first install on a clean Termux target:
 
 ```bash
+PIXEL_HOST=pixel6a-ccva \
+PIXEL_USER="$(ssh pixel6a-ccva whoami)" \
+SSH_CONFIG="$HOME/.ssh/config" \
 scripts/release_validate_device.sh v0.139.0-ccva.1 --fresh --target Pixel6a
 ```
 
@@ -39,6 +48,9 @@ The wrapper runs `release_doctor`, deploys the CLI package through
 `deploy_termux_package.sh`, and writes a report under
 `tmp/release-validation/`. If ADB is connected, add `--adb-serial SERIAL` to
 capture development-only permission/runtime snapshots after deploy.
+
+`--target` is a human-readable report label only. It does not select the SSH
+device. Verify the effective `PIXEL_HOST` and `PIXEL_USER` before mutation.
 
 The wrapper does not replace human-visible Android checks. Bridge APK install,
 microphone permission, widget overlay permission, Codex sign-in, `STTS: Start +
@@ -117,12 +129,16 @@ Then verify non-interactive key auth from the workstation. Example:
 ssh pixel6a-ccva 'echo ssh-ok; whoami; hostname'
 ```
 
-For routine agent work, use the local helper and select the device explicitly:
+If the maintainer workstation has the optional `pixel-ssh` helper, select the
+device explicitly:
 
 ```sh
-scripts/pixel-ssh --device pixel9 'echo ssh-ok'
-scripts/pixel-ssh --device 6a 'echo ssh-ok'
+pixel-ssh --device pixel9 'echo ssh-ok'
+pixel-ssh --device 6a 'echo ssh-ok'
 ```
+
+This helper is not part of the public release package. Standard SSH aliases
+remain the portable path.
 
 If a sandboxed side conversation reports SSH socket/config errors but the same
 command works in the normal Devbox shell, treat it as a side-runner limitation,
@@ -178,6 +194,8 @@ codex-install-agent-assets --apply --instructions
 
 If an existing target differs, the installer preserves the live file, creates a
 backup, and writes the candidate as `.incoming.<timestamp>`.
+Review the diff before replacing either side. A conflict can mean the device
+contains a newer managed asset that should be promoted back into the repo.
 
 Package deploy no longer changes `~/.termux/termux.properties` unless explicitly
 approved through:

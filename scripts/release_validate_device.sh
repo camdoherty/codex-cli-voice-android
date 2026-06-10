@@ -3,19 +3,21 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/release_validate_device.sh v0.137.0-ccva.1 [options]
+Usage: scripts/release_validate_device.sh v0.139.0-ccva.1 [options]
 
 Runs the local release checks and deploys the CLI package to the configured
 Termux target for non-billable validation.
 
 Options:
   --fresh              Set ALLOW_FRESH_INSTALL=1 for first install.
-  --target NAME        Human-readable target label for the report.
+  --target NAME        Human-readable report label only; does not select SSH.
   --adb-serial SERIAL  Capture ADB permission/runtime snapshots after deploy.
   --skip-deploy        Do not run deploy_termux_package.sh.
   -h, --help           Show this help.
 
-Device SSH settings come from DEPLOY.md/.env and deploy_termux_package.sh.
+Device SSH settings come from DEPLOY.md, the environment/.env, and
+deploy_termux_package.sh. Confirm PIXEL_HOST and PIXEL_USER before deployment;
+--target changes only the report filename and heading.
 Android UI checks, Codex sign-in, Bridge APK install approval, STTS widgets,
 Wake Word, and billable Realtime remain explicit user validation steps.
 EOF

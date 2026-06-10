@@ -197,6 +197,8 @@ See [BUILD.md](BUILD.md).
 - [BUILD.md](BUILD.md): build and release pipeline.
 - [AGENT_BUILD_CCVA.md](AGENT_BUILD_CCVA.md): agent-assisted source build and
   deploy.
+- [RELEASE_DEPLOYMENT_LESSONS.md](docs/maintenance/RELEASE_DEPLOYMENT_LESSONS.md):
+  multi-device validation lessons and next-deployment checklist.
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md): common Android/Termux setup issues.
 
 ## License

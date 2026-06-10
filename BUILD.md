@@ -27,7 +27,8 @@ For publishable releases, use the release scripts as the canonical path:
 ```bash
 scripts/release_prepare.sh rust-v0.139.0 --iteration 1
 scripts/release_build.sh v0.139.0-ccva.1
-scripts/release_validate_device.sh v0.139.0-ccva.1 --fresh --target Pixel6a
+PIXEL_HOST=pixel6a-ccva PIXEL_USER=termux-user SSH_CONFIG="$HOME/.ssh/config" \
+  scripts/release_validate_device.sh v0.139.0-ccva.1 --fresh --target Pixel6a
 scripts/release_publish.sh v0.139.0-ccva.1 --stable
 ```
 
@@ -43,7 +44,8 @@ The pipeline stages are:
   APK into `dist/<release-tag>/`, then runs `release_doctor.sh`.
 - `release_validate_device.sh`: wraps release doctor and the SSH deploy helper,
   writes a validation report under `tmp/release-validation/`, and optionally
-  captures ADB diagnostics.
+  captures ADB diagnostics. Its `--target` value labels the report; SSH device
+  selection still comes from `PIXEL_HOST`, `PIXEL_USER`, and related settings.
 - `release_publish.sh`: stages the release manifest and, with `--execute`,
   commits, tags, pushes, and uploads GitHub release assets.
 - `release_status.sh`: summarizes branch, stable manifest, release manifests,
@@ -54,6 +56,8 @@ CCAT/CCVA source commit. `release_doctor.sh` rejects artifacts when source,
 script, or docs changes exist after the recorded `ccva_source_commit`; commit
 local changes before the final rebuild/publish path. Release manifest-only
 commits under `releases/` are allowed after the artifact build.
+It also rejects tracked or untracked source changes in the current worktree,
+excluding ignored `dist/` and `tmp/` output.
 
 Android UI approvals, Codex sign-in, Bridge microphone permission, widget
 overlay permission, Wake Word human testing, and billable Realtime checks remain
