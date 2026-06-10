@@ -14,7 +14,7 @@ index 1ad369d..9f9877f 100644
  //!
 @@ -255,8 +256,43 @@ fn arboard_copy(text: &str) -> Result<Option<ClipboardLease>, String> {
  }
-
+ 
  #[cfg(target_os = "android")]
 -fn arboard_copy(_text: &str) -> Result<Option<ClipboardLease>, String> {
 -    Err("native clipboard unavailable on Android".to_string())
@@ -56,16 +56,16 @@ index 1ad369d..9f9877f 100644
 +        }
 +    }
  }
-
+ 
  /// Copy text into the Windows clipboard from a WSL process.
 @@ -444,10 +480,10 @@ impl Drop for SuppressStderr {
      }
  }
-
+ 
 -#[cfg(not(target_os = "macos"))]
 +#[cfg(all(not(target_os = "macos"), not(target_os = "android")))]
  struct SuppressStderr;
-
+ 
 -#[cfg(not(target_os = "macos"))]
 +#[cfg(all(not(target_os = "macos"), not(target_os = "android")))]
  impl SuppressStderr {
@@ -80,28 +80,28 @@ index 55ca6ca..ccc1399 100644
  use std::path::PathBuf;
 +#[cfg(not(target_os = "android"))]
  use tempfile::Builder;
-
+ 
 +#[cfg_attr(target_os = "android", allow(dead_code))]
  #[derive(Debug, Clone)]
  pub enum PasteImageError {
      ClipboardUnavailable(String),
 @@ -109,6 +111,7 @@ pub fn paste_image_as_png() -> Result<(Vec<u8>, PastedImageInfo), PasteImageErro
  }
-
+ 
  /// Android/Termux does not support arboard; return a clear error.
 +#[allow(dead_code)]
  #[cfg(target_os = "android")]
  pub fn paste_image_as_png() -> Result<(Vec<u8>, PastedImageInfo), PasteImageError> {
      Err(PasteImageError::ClipboardUnavailable(
 diff --git a/codex-rs/tui/src/slash_command.rs b/codex-rs/tui/src/slash_command.rs
-index e1f35e1..1fd83d2 100644
+index 805f266..cdf1e8c 100644
 --- a/codex-rs/tui/src/slash_command.rs
 +++ b/codex-rs/tui/src/slash_command.rs
-@@ -238,7 +238,6 @@ impl SlashCommand {
+@@ -241,7 +241,6 @@ impl SlashCommand {
      fn is_visible(self) -> bool {
          match self {
              SlashCommand::SandboxReadRoot => cfg!(target_os = "windows"),
 -            SlashCommand::Copy => !cfg!(target_os = "android"),
+             SlashCommand::App => cfg!(any(target_os = "macos", target_os = "windows")),
              SlashCommand::Rollout | SlashCommand::TestApproval => cfg!(debug_assertions),
              _ => true,
-         }
