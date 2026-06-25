@@ -296,44 +296,43 @@ set +e
 codex-voice >/dev/null 2>&1
 guard_exit="$?"
 set -e
-[ "$guard_exit" -eq 2 ] || {
+if [ "$guard_exit" -ne 2 ]; then
     echo "Expected codex-voice billing guard exit 2, got $guard_exit" >&2
     exit 1
-}
+fi
 
 for name in codex-api codex-voice codex-install-stts codex-install-agent-assets ccva-tmux-run ccva-realtime-stop; do
     target="$(readlink "$HOME/scripts/$name" 2>/dev/null || true)"
-    [ "$target" = "$PREFIX/bin/$name" ] || {
+    if [ "$target" != "$PREFIX/bin/$name" ]; then
         echo "$HOME/scripts/$name does not point to $PREFIX/bin/$name" >&2
         exit 1
-    }
+    fi
 done
 
-[ -x "$HOME/.codex/skills/stts/scripts/stts-session.sh" ] || {
+if [ ! -x "$HOME/.codex/skills/stts/scripts/stts-session.sh" ]; then
     echo "stts skill was not installed" >&2
     exit 1
-}
+fi
 timeout 8 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" status >/dev/null
 
-[ -f "$HOME/.codex/skills/termux-agent-ops/SKILL.md" ] || {
+if [ ! -f "$HOME/.codex/skills/termux-agent-ops/SKILL.md" ]; then
     echo "termux-agent-ops skill was not installed" >&2
     exit 1
-}
-[ -f "$HOME/.codex/skills/obsidian-notes-maintainer/SKILL.md" ] || {
+fi
+if [ ! -f "$HOME/.codex/skills/obsidian-notes-maintainer/SKILL.md" ]; then
     echo "obsidian-notes-maintainer skill was not installed" >&2
     exit 1
-}
-[ -f "$HOME/.codex/skills/codex-overview/SKILL.md" ] || {
+fi
+if [ ! -f "$HOME/.codex/skills/codex-overview/SKILL.md" ]; then
     echo "codex-overview skill was not installed" >&2
     exit 1
-}
-[ -x "$HOME/.codex/skills/tmux-support/scripts/tmux_context.sh" ] || {
+fi
+if [ ! -x "$HOME/.codex/skills/tmux-support/scripts/tmux_context.sh" ]; then
     echo "tmux-support skill was not installed" >&2
     exit 1
-}
+fi
 
-if strings "$PREFIX/libexec/codex-cli-voice-android/codex.bin" |
-    grep -F "WARNING: flock unsupported" >/dev/null; then
+if strings "$PREFIX/libexec/codex-cli-voice-android/codex.bin" | grep -F "WARNING: flock unsupported" >/dev/null; then
     echo "Unexpected Android flock warning string in installed binary" >&2
     exit 1
 fi

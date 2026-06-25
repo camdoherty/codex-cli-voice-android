@@ -1,15 +1,3 @@
-diff --git a/codex-rs/Cargo.toml b/codex-rs/Cargo.toml
-index f7e7efc..bbc333d 100644
---- a/codex-rs/Cargo.toml
-+++ b/codex-rs/Cargo.toml
-@@ -526,6 +520,7 @@ tungstenite = { git = "https://github.com/openai-oss-forks/tungstenite-rs", rev
- 
- # Uncomment to debug local changes.
- # rmcp = { path = "../../rust-sdk/crates/rmcp" }
-+rmcp = { git = "https://github.com/camdoherty/rust-sdk", rev = "66ac959a8a25a9173ba64784c1b4573696cad691" }
- 
- [patch."ssh://git@github.com/openai-oss-forks/tungstenite-rs.git"]
- tungstenite = { git = "https://github.com/openai-oss-forks/tungstenite-rs", rev = "9200079d3b54a1ff51072e24d81fd354f085156f" }
 diff --git a/codex-rs/exec-server/src/client/reqwest_http_client.rs b/codex-rs/exec-server/src/client/reqwest_http_client.rs
 index 9e22fc0..dcb57b3 100644
 --- a/codex-rs/exec-server/src/client/reqwest_http_client.rs
@@ -77,10 +65,10 @@ index 9e22fc0..dcb57b3 100644
          Ok(Self { client })
      }
 diff --git a/codex-rs/exec-server/src/lib.rs b/codex-rs/exec-server/src/lib.rs
-index f2d16f8..026178e 100644
+index d5c7167..ded1f25 100644
 --- a/codex-rs/exec-server/src/lib.rs
 +++ b/codex-rs/exec-server/src/lib.rs
-@@ -78,6 +78,7 @@ pub use protocol::FsRemoveResponse;
+@@ -112,6 +112,7 @@ pub use protocol::FsRemoveResponse;
  pub use protocol::FsWriteFileParams;
  pub use protocol::FsWriteFileResponse;
  pub use protocol::HttpHeader;
@@ -89,10 +77,10 @@ index f2d16f8..026178e 100644
  pub use protocol::HttpRequestParams;
  pub use protocol::HttpRequestResponse;
 diff --git a/codex-rs/exec-server/src/protocol.rs b/codex-rs/exec-server/src/protocol.rs
-index e801a7f..d809364 100644
+index 8771e86..4878b0a 100644
 --- a/codex-rs/exec-server/src/protocol.rs
 +++ b/codex-rs/exec-server/src/protocol.rs
-@@ -292,6 +292,10 @@ pub struct HttpRequestParams {
+@@ -398,6 +398,10 @@ pub struct HttpRequestParams {
      /// millisecond deadline.
      #[serde(default, skip_serializing_if = "Option::is_none")]
      pub timeout_ms: Option<u64>,
@@ -103,7 +91,7 @@ index e801a7f..d809364 100644
      /// Caller-chosen stream id for `http/request/bodyDelta` notifications.
      ///
      /// The id must remain unique on a connection until the terminal body delta
-@@ -304,6 +308,13 @@ pub struct HttpRequestParams {
+@@ -410,6 +414,13 @@ pub struct HttpRequestParams {
      pub stream_response: bool,
  }
  
@@ -118,10 +106,10 @@ index e801a7f..d809364 100644
  #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
  #[serde(rename_all = "camelCase")]
 diff --git a/codex-rs/exec-server/src/server/handler.rs b/codex-rs/exec-server/src/server/handler.rs
-index d064572..7f3ee83 100644
+index 07575a1..bb8730a 100644
 --- a/codex-rs/exec-server/src/server/handler.rs
 +++ b/codex-rs/exec-server/src/server/handler.rs
-@@ -178,7 +178,7 @@ impl ExecServerHandler {
+@@ -209,7 +209,7 @@ impl ExecServerHandler {
          if stream_response {
              self.reserve_http_body_stream(&http_request_id).await?;
          }
@@ -379,10 +367,10 @@ index f45261d..319f3c5 100644
                  stream_response: false,
              })?,
 diff --git a/codex-rs/rmcp-client/Cargo.toml b/codex-rs/rmcp-client/Cargo.toml
-index 63c6d74..35a9023 100644
+index 44f3eb1..570f4fd 100644
 --- a/codex-rs/rmcp-client/Cargo.toml
 +++ b/codex-rs/rmcp-client/Cargo.toml
-@@ -30,7 +30,6 @@ oauth2 = "5"
+@@ -33,7 +33,6 @@ oauth2 = "5"
  reqwest = { version = "0.13", default-features = false, features = [
      "json",
      "stream",
@@ -391,7 +379,7 @@ index 63c6d74..35a9023 100644
  rmcp = { workspace = true, default-features = false, features = [
      "auth",
 diff --git a/codex-rs/rmcp-client/src/http_client_adapter.rs b/codex-rs/rmcp-client/src/http_client_adapter.rs
-index 6f98f78..183a18b 100644
+index a9cdc7b..0bc4a4b 100644
 --- a/codex-rs/rmcp-client/src/http_client_adapter.rs
 +++ b/codex-rs/rmcp-client/src/http_client_adapter.rs
 @@ -8,7 +8,9 @@
@@ -412,8 +400,8 @@ index 6f98f78..183a18b 100644
  use codex_exec_server::HttpRequestParams;
  use codex_exec_server::HttpResponseBodyStream;
  use futures::StreamExt;
-@@ -30,6 +33,9 @@ use reqwest::header::HeaderName;
- use rmcp::model::ClientJsonRpcMessage;
+@@ -32,6 +35,9 @@ use rmcp::model::ClientNotification;
+ use rmcp::model::ConstString;
  use rmcp::model::JsonRpcMessage;
  use rmcp::model::ServerJsonRpcMessage;
 +use rmcp::transport::auth::OAuthHttpClient;
@@ -422,7 +410,7 @@ index 6f98f78..183a18b 100644
  use rmcp::transport::streamable_http_client::AuthRequiredError;
  use rmcp::transport::streamable_http_client::InsufficientScopeError;
  use rmcp::transport::streamable_http_client::StreamableHttpClient;
-@@ -54,6 +60,68 @@ pub(crate) struct StreamableHttpClientAdapter {
+@@ -56,6 +62,68 @@ pub(crate) struct StreamableHttpClientAdapter {
      auth_provider: Option<SharedAuthProvider>,
  }
  
@@ -491,7 +479,7 @@ index 6f98f78..183a18b 100644
  #[derive(Debug, thiserror::Error)]
  pub(crate) enum StreamableHttpClientAdapterError {
      #[error("streamable HTTP session expired with 404 Not Found")]
-@@ -133,6 +201,7 @@ impl StreamableHttpClient for StreamableHttpClientAdapter {
+@@ -135,6 +203,7 @@ impl StreamableHttpClient for StreamableHttpClientAdapter {
                  headers: protocol_headers(&headers),
                  body: Some(body.into()),
                  timeout_ms: None,
@@ -499,7 +487,7 @@ index 6f98f78..183a18b 100644
                  request_id: "buffered-request".to_string(),
                  stream_response: true,
              })
-@@ -240,6 +309,7 @@ impl StreamableHttpClient for StreamableHttpClientAdapter {
+@@ -261,6 +330,7 @@ impl StreamableHttpClient for StreamableHttpClientAdapter {
                  headers: protocol_headers(&headers),
                  body: None,
                  timeout_ms: None,
@@ -507,7 +495,7 @@ index 6f98f78..183a18b 100644
                  request_id: "buffered-request".to_string(),
                  stream_response: false,
              })
-@@ -309,6 +379,7 @@ impl StreamableHttpClient for StreamableHttpClientAdapter {
+@@ -330,6 +400,7 @@ impl StreamableHttpClient for StreamableHttpClientAdapter {
                  headers: protocol_headers(&headers),
                  body: None,
                  timeout_ms: None,
@@ -516,7 +504,7 @@ index 6f98f78..183a18b 100644
                  stream_response: true,
              })
 diff --git a/codex-rs/rmcp-client/src/perform_oauth_login.rs b/codex-rs/rmcp-client/src/perform_oauth_login.rs
-index a416b3d..c69d91b 100644
+index 8c72f32..5ebac2e 100644
 --- a/codex-rs/rmcp-client/src/perform_oauth_login.rs
 +++ b/codex-rs/rmcp-client/src/perform_oauth_login.rs
 @@ -9,11 +9,12 @@ use anyhow::anyhow;
@@ -542,9 +530,9 @@ index a416b3d..c69d91b 100644
  use crate::save_oauth_tokens;
 -use crate::utils::apply_default_headers;
  use crate::utils::build_default_headers;
+ use codex_config::types::AuthKeyringBackendKind;
  use codex_config::types::OAuthCredentialsStoreMode;
- 
-@@ -481,7 +482,10 @@ impl OauthLoginFlow {
+@@ -492,7 +493,10 @@ impl OauthLoginFlow {
              env_http_headers,
          } = headers;
          let default_headers = build_default_headers(http_headers, env_http_headers)?;
@@ -556,7 +544,7 @@ index a416b3d..c69d91b 100644
  
          let scope_refs: Vec<&str> = scopes.iter().map(String::as_str).collect();
          let oauth_state = start_authorization(
-@@ -603,22 +607,22 @@ impl OauthLoginFlow {
+@@ -620,22 +624,22 @@ impl OauthLoginFlow {
  
  async fn start_authorization(
      server_url: &str,
@@ -584,18 +572,18 @@ index a416b3d..c69d91b 100644
      auth_manager.set_metadata(metadata);
      auth_manager.configure_client(
 diff --git a/codex-rs/rmcp-client/src/rmcp_client.rs b/codex-rs/rmcp-client/src/rmcp_client.rs
-index 90b09d7..e9ebd69 100644
+index f5c7da5..5442938 100644
 --- a/codex-rs/rmcp-client/src/rmcp_client.rs
 +++ b/codex-rs/rmcp-client/src/rmcp_client.rs
-@@ -12,7 +12,6 @@ use std::time::Instant;
+@@ -11,7 +11,6 @@ use std::time::Instant;
  use anyhow::Result;
  use anyhow::anyhow;
  use codex_api::SharedAuthProvider;
 -use codex_client::maybe_build_rustls_client_config_with_custom_ca;
+ use codex_config::types::AuthKeyringBackendKind;
  use codex_config::types::McpServerEnvVar;
  use codex_exec_server::HttpClient;
- use futures::FutureExt;
-@@ -60,6 +59,7 @@ use tokio::time;
+@@ -61,6 +60,7 @@ use tokio::time;
  use tracing::warn;
  
  use crate::elicitation_client_service::ElicitationClientService;
@@ -603,7 +591,7 @@ index 90b09d7..e9ebd69 100644
  use crate::http_client_adapter::StreamableHttpClientAdapter;
  use crate::http_client_adapter::StreamableHttpClientAdapterError;
  use crate::in_process_transport::InProcessTransportFactory;
-@@ -70,7 +70,6 @@ use crate::stdio_server_launcher::StdioServerCommand;
+@@ -71,7 +71,6 @@ use crate::stdio_server_launcher::StdioServerCommand;
  use crate::stdio_server_launcher::StdioServerLauncher;
  use crate::stdio_server_launcher::StdioServerProcessHandle;
  use crate::stdio_server_launcher::StdioServerTransport;
@@ -611,7 +599,7 @@ index 90b09d7..e9ebd69 100644
  use crate::utils::build_default_headers;
  use codex_config::types::OAuthCredentialsStoreMode;
  
-@@ -1013,16 +1012,11 @@ async fn create_oauth_transport_and_runtime(
+@@ -1157,16 +1156,11 @@ async fn create_oauth_transport_and_runtime(
      StreamableHttpClientTransport<AuthClient<StreamableHttpClientAdapter>>,
      OAuthPersistor,
  )> {

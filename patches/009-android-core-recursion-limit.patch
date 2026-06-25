@@ -1,0 +1,12 @@
+diff --git a/codex-rs/core/src/lib.rs b/codex-rs/core/src/lib.rs
+index 72b4f71..a6cce85 100644
+--- a/codex-rs/core/src/lib.rs
++++ b/codex-rs/core/src/lib.rs
+@@ -4,6 +4,7 @@
+ // user-visible output must go through the appropriate abstraction (e.g.,
+ // the TUI or the tracing stack).
+ #![deny(clippy::print_stdout, clippy::print_stderr)]
++#![recursion_limit = "256"]
+ 
+ mod apply_patch;
+ mod apps;

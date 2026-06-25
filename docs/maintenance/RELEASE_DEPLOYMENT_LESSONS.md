@@ -4,6 +4,11 @@ Use this note after a candidate build and before the next Android deployment.
 It records durable process corrections, not device secrets or full command
 logs.
 
+For future release-asset based end-user upgrades, see
+[END_USER_UPGRADES.md](END_USER_UPGRADES.md). Treat that document as a
+roadmap/release target until `install.sh --upgrade` and `ccva-upgrade` are
+implemented and tested.
+
 ## Proven v0.139.0 Flow
 
 The `v0.139.0-ccva.1` CLI package passed checksum, release-doctor, Android TLS,
