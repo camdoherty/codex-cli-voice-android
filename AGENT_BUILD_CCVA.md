@@ -23,8 +23,10 @@ Main changes:
   file locking, URL opening, native TLS/Sentry constraints, and Android V8
   stubs.
 - Add `codex-api` and `codex-voice` launchers for Termux.
-- Add a guarded OpenAI Codex CLI Realtime voice path through Android native
-  audio.
+- Add a guarded `codex-voice` launcher for OpenAI Realtime experiments. On
+  `v0.142.x`, the legacy TUI Realtime audio controls are gone upstream; a thin
+  app-server Realtime adapter is still required before this is a proven audio
+  path.
 - Add the `$stts` skill for half-duplex local voice with normal Codex
   authentication and no Realtime API billing.
 - Add the Android AEC shim APK for local loopback audio endpoints:
@@ -52,8 +54,9 @@ Android is a practical always-nearby agent intake surface:
   same device used for capture.
 - `$stts` provides walkie-talkie-like local interaction without Realtime API
   billing.
-- `codex-voice --allow-realtime` exposes OpenAI Codex CLI Realtime voice mode
-  with Android native audio when the user explicitly accepts Realtime billing.
+- `codex-voice --allow-realtime` preserves the explicit Realtime billing guard.
+  On `v0.142.x`, treat it as launcher/control-path evidence only until the
+  app-server Realtime adapter is implemented and a billable audio smoke passes.
 
 ## Agent Operating Rules
 
@@ -414,7 +417,24 @@ sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" \
 
 Ask the user to confirm they heard the final TTS smoke.
 
-Only run the billable Realtime check with explicit approval:
+Only run the billable Realtime check with explicit approval.
+
+For `v0.142.x`, do not count a plain `codex-voice --allow-realtime` TUI launch
+as functional Realtime audio. The old upstream TUI controls used by earlier
+CCVA builds were removed after `v0.139.0`. First prove the non-billable
+app-server control path:
+
+```sh
+codex app-server --help
+```
+
+Then test a JSON-RPC `initialize` over `codex app-server --stdio`. Functional
+Realtime audio requires the Android adapter to drive app-server methods such as
+`thread/realtime/start`, `thread/realtime/appendAudio`,
+`thread/realtime/outputAudio/delta`, and `thread/realtime/stop` through the
+Bridge audio transport.
+
+The guarded legacy launcher may still be opened for UI inspection:
 
 ```sh
 codex-voice --allow-realtime
@@ -434,7 +454,9 @@ The build/deploy is successful when:
 - `/v1/text-voice` smoke passes.
 - The user confirms audible TTS.
 - Unguarded `codex-voice` exits before starting Realtime billing.
-- Billable Realtime is tested only if the user explicitly approves it.
+- `codex app-server --stdio` initializes over JSON-RPC on Android.
+- Billable Realtime audio is tested only if the user explicitly approves it and
+  only after an adapter-capable build exists.
 
 ## Troubleshooting Pointers
 

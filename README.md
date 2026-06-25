@@ -10,7 +10,8 @@ Tested on Pixel6a and Pixel9 running Android 16.
 - Upstream Codex CLI built for Android/Termux.
 - Codex Bridge: local Android audio bridge for native microphone/TTS integration.
 - STTS: local speech-to-text / text-to-speech mode using Android speech services.
-- OpenAI Realtime voice mode through `codex-voice --allow-realtime`.
+- Guarded OpenAI Realtime launcher through `codex-voice --allow-realtime`.
+  Realtime audio on `v0.142.x` is pending the app-server adapter.
 - Termux:Widget shortcuts and optional notification controls.
 - Wake-word entry through Codex Bridge. Pixel6a screen-off wake testing passed
   during alpha validation, but Android-wide lock-screen reliability is not
@@ -35,14 +36,17 @@ stts stop
 
 ### Realtime API Voice
 
-Realtime voice uses OpenAI's Realtime API through Codex CLI, adapted for
-Android-native audio.
+Realtime voice is the intended native OpenAI voice mode for CCAT. On `v0.142.x`,
+the old upstream TUI Realtime controls are gone, so Android Realtime audio is
+not considered functional until the app-server adapter is implemented and a
+billable smoke test passes.
 
 ```sh
 codex-voice --allow-realtime
 ```
 
-Realtime requires API billing. It is never started by the installer.
+Realtime requires API billing and explicit opt-in. It is never started by the
+installer.
 
 ## Install
 

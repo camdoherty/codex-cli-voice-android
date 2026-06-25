@@ -17,6 +17,28 @@ and Pixel 9. The user subsequently completed broader testing on both devices,
 including Bridge smoke validation, with no observed issues. Realtime remains a
 separate explicitly billable validation item unless recorded independently.
 
+## v0.142.2 Candidate Notes
+
+The `v0.142.2-ccva.1` CLI package passed release-doctor, Android TLS guard,
+deployment validation, STTS status, Bridge install, Bridge loopback, and audible
+shim TTS smoke on Pixel 6a and Pixel 9.
+
+Realtime evidence must be separated from those passes. For `v0.142.x`, upstream
+removed the old TUI Realtime audio controls used by earlier CCVA builds.
+Observed evidence:
+
+- `codex-voice` still exists on-device and preserves the explicit
+  `--allow-realtime` billing guard.
+- `codex app-server --help` works on Android.
+- `codex app-server --stdio` accepts a JSON-RPC `initialize` request on Android.
+- `codex-voice --allow-realtime` can launch the Codex TUI with
+  `realtime_conversation` enabled, but this does not start or prove functional
+  Realtime audio.
+
+Do not publish a release as "Realtime functional" until a thin Android adapter
+drives app-server Realtime methods through the Bridge audio transport and the
+user explicitly confirms a billable audio smoke.
+
 ## Findings
 
 1. `release_validate_device.sh --target NAME` labels the report only. It does
@@ -51,6 +73,12 @@ separate explicitly billable validation item unless recorded independently.
    identify the old candidate. When stable lagged the active release branch,
    this produced mixed `.1` and `.2` documentation paths. Preparation now uses
    the source release branch when its upstream version matches.
+9. `codex app-server --stdio` is a JSON-RPC server, not an interactive prompt.
+   For non-billable Realtime prep, send an `initialize` JSON-RPC request and
+   inspect the response before attempting billable audio.
+10. Existing Termux shells may not immediately see newly installed wrappers.
+    If `codex-voice` appears missing after deployment, run `hash -r`, start a
+    new Termux shell, or call `$PREFIX/bin/codex-voice` directly.
 
 ## Next Deployment Checklist
 

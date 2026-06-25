@@ -234,8 +234,14 @@ The `Codex`, `Codex Resume Last`, and `Realtime API Voice` shortcuts use
 `~/.local/state/ccva-tmux/logs/`; set `CCVA_TMUX_LOG=0` before launch to
 disable it.
 
-Use `Realtime API Voice Stop` to stop the billable Realtime tmux session and
-terminate any remaining Realtime process.
+Use `Realtime API Voice Stop` to stop the Realtime tmux session and terminate
+any remaining Realtime process.
+
+`v0.142.x` note: upstream removed the old TUI Realtime audio controls after
+`v0.139.0`. The shortcut and `codex-voice --allow-realtime` preserve the
+explicit billing guard, but a successful TUI launch is not proof of functional
+Realtime audio. Treat Realtime audio as unproven until an app-server adapter is
+implemented and a billable smoke test passes.
 
 For Termux:Widget shortcuts to open visible terminal sessions from the Android
 home screen on Android 10+, grant:
@@ -534,7 +540,10 @@ codex exec --help >/dev/null
 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" status
 ```
 
-It also verifies that an unguarded `codex-voice` launch exits before starting billable realtime usage.
+It also verifies that an unguarded `codex-voice` launch exits before starting
+billable realtime usage. On `v0.142.x`, Realtime audio validation additionally
+requires the app-server control path and an adapter-capable build; a plain TUI
+launch is not enough.
 
 On a clean device, `codex exec` with a real prompt requires a configured Codex
 login or API key. Treat a `401 Unauthorized` as a credential/setup issue, not as
