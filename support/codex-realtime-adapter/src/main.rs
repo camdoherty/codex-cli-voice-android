@@ -23,6 +23,7 @@ const BRIDGE_CHANNELS: u16 = 1;
 const BRIDGE_FRAME_MS: u32 = 20;
 const BRIDGE_SAMPLES_PER_FRAME: u32 = BRIDGE_SAMPLE_RATE * BRIDGE_FRAME_MS / 1_000;
 const BRIDGE_BYTES_PER_FRAME: usize = (BRIDGE_SAMPLES_PER_FRAME as usize) * 2;
+const MAX_PLAYBACK_QUEUE_FRAMES: usize = 250;
 
 #[derive(Parser, Debug)]
 #[command(version = VERSION, about = "Android Realtime adapter for Codex app-server and Codex Bridge")]
@@ -50,6 +51,10 @@ struct Args {
     /// Optional working directory for the app-server thread.
     #[arg(long, env = "CODEX_REALTIME_CWD")]
     cwd: Option<String>,
+
+    /// Print verbose realtime audio and bridge diagnostics.
+    #[arg(long, env = "CODEX_REALTIME_DEBUG", default_value_t = false)]
+    debug: bool,
 }
 
 #[tokio::main]
@@ -111,6 +116,7 @@ async fn realtime_session(args: Args) -> Result<()> {
         let _ = tokio::signal::ctrl_c().await;
         stop_signal.store(true, Ordering::Release);
     });
+    let debug = args.debug;
     let mut playback_queue: VecDeque<Vec<u8>> = VecDeque::new();
     let mut playback_tick = interval(Duration::from_millis(BRIDGE_FRAME_MS as u64));
     playback_tick.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -132,7 +138,7 @@ async fn realtime_session(args: Args) -> Result<()> {
                     Message::Text(text) => {
                         if text.contains("\"type\":\"error\"") || text.contains("\"event\":\"error\"") {
                             eprintln!("bridge_event={text}");
-                        } else if text.contains("\"type\":\"stats\"") {
+                        } else if debug && text.contains("\"type\":\"stats\"") {
                             eprintln!("bridge_stats={text}");
                         }
                     }
@@ -142,20 +148,39 @@ async fn realtime_session(args: Args) -> Result<()> {
             }
             message = app.read_message() => {
                 let message = message?;
-                if let Some((sample_rate, channels, samples, data)) = output_audio_delta(&message)? {
+                if is_input_speech_started(&message) {
+                    let cleared = playback_queue.len();
+                    playback_queue.clear();
+                    bridge_write
+                        .send(Message::Text("{\"type\":\"playback.clear\"}".into()))
+                        .await
+                        .context("send Bridge playback.clear")?;
+                    if debug {
+                        eprintln!("barge_in=clear_playback cleared_frames={cleared}");
+                    }
+                } else if let Some((sample_rate, channels, samples, data)) = output_audio_delta(&message)? {
                     let frames = normalize_pcm(sample_rate, channels, samples, &data)?;
-                    let duration_ms = frames.len() as u64 * BRIDGE_FRAME_MS as u64;
-                    eprintln!(
-                        "output_audio_delta sample_rate={sample_rate} channels={channels} samples_per_channel={} bytes={} bridge_frames={} duration_ms={} playback_queue={}",
-                        samples.map(|s| s.to_string()).unwrap_or_else(|| "unknown".to_string()),
-                        data.len(),
-                        frames.len(),
-                        duration_ms,
-                        playback_queue.len()
-                    );
+                    if debug {
+                        let duration_ms = frames.len() as u64 * BRIDGE_FRAME_MS as u64;
+                        eprintln!(
+                            "output_audio_delta sample_rate={sample_rate} channels={channels} samples_per_channel={} bytes={} bridge_frames={} duration_ms={} playback_queue={}",
+                            samples.map(|s| s.to_string()).unwrap_or_else(|| "unknown".to_string()),
+                            data.len(),
+                            frames.len(),
+                            duration_ms,
+                            playback_queue.len()
+                        );
+                    }
                     playback_queue.extend(frames);
-                } else if let Some(text) = transcript_text(&message) {
-                    println!("{text}");
+                    while playback_queue.len() > MAX_PLAYBACK_QUEUE_FRAMES {
+                        playback_queue.pop_front();
+                    }
+                } else if let Some(transcript) = transcript_event(&message) {
+                    if transcript.done {
+                        println!("\n{}: {}", transcript.role, transcript.text);
+                    } else if debug {
+                        print!("{}", transcript.text);
+                    }
                 } else if let Some(err) = realtime_error(&message) {
                     eprintln!("realtime_error={err}");
                 }
@@ -275,18 +300,52 @@ fn output_audio_delta(message: &Value) -> Result<Option<(u32, u16, Option<u32>, 
     Ok(Some((sample_rate, channels, samples, data)))
 }
 
-fn transcript_text(message: &Value) -> Option<String> {
+fn is_input_speech_started(message: &Value) -> bool {
+    message.get("method").and_then(Value::as_str) == Some("thread/realtime/itemAdded")
+        && message
+            .get("params")
+            .and_then(|p| p.get("item"))
+            .and_then(|i| i.get("type"))
+            .and_then(Value::as_str)
+            == Some("input_audio_buffer.speech_started")
+}
+
+struct TranscriptEvent {
+    role: String,
+    text: String,
+    done: bool,
+}
+
+fn transcript_event(message: &Value) -> Option<TranscriptEvent> {
     match message.get("method").and_then(Value::as_str) {
-        Some("thread/realtime/transcript/delta") => message
-            .get("params")
-            .and_then(|p| p.get("delta"))
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned),
-        Some("thread/realtime/transcript/done") => message
-            .get("params")
-            .and_then(|p| p.get("text"))
-            .and_then(Value::as_str)
-            .map(|s| format!("\n{s}")),
+        Some("thread/realtime/transcript/delta") => Some(TranscriptEvent {
+            role: message
+                .get("params")
+                .and_then(|p| p.get("role"))
+                .and_then(Value::as_str)
+                .unwrap_or("unknown")
+                .to_string(),
+            text: message
+                .get("params")
+                .and_then(|p| p.get("delta"))
+                .and_then(Value::as_str)?
+                .to_string(),
+            done: false,
+        }),
+        Some("thread/realtime/transcript/done") => Some(TranscriptEvent {
+            role: message
+                .get("params")
+                .and_then(|p| p.get("role"))
+                .and_then(Value::as_str)
+                .unwrap_or("unknown")
+                .to_string(),
+            text: message
+                .get("params")
+                .and_then(|p| p.get("text"))
+                .and_then(Value::as_str)?
+                .to_string(),
+            done: true,
+        }),
         _ => None,
     }
 }
