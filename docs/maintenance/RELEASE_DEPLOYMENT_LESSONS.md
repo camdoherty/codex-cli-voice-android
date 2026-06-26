@@ -79,6 +79,11 @@ explicitly confirms a billable audio smoke.
 10. Existing Termux shells may not immediately see newly installed wrappers.
     If `codex-voice` appears missing after deployment, run `hash -r`, start a
     new Termux shell, or call `$PREFIX/bin/codex-voice` directly.
+11. Wrapper smoke tests should exercise symlinked launch paths as well as
+    `$PREFIX/bin`. The deploy script links tools into `~/scripts`; wrappers
+    that resolve `libexec` from `$0` can pass direct `$PREFIX/bin` tests and
+    fail from Termux shortcuts. Resolve packaged `libexec` paths from
+    `$PREFIX` instead.
 
 ## Next Deployment Checklist
 
