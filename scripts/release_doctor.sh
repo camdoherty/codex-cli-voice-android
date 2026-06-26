@@ -48,11 +48,11 @@ done
     sha256sum -c "$cli_asset.sha256"
     sha256sum -c "$shim_asset.sha256"
     tar -tzf "$cli_asset" >/dev/null
-    tar -tzf "$cli_asset" | grep -qx './libexec/codex-cli-voice-android/codex-realtime-adapter' || {
+    tar -tzf "$cli_asset" | grep -Fx './libexec/codex-cli-voice-android/codex-realtime-adapter' >/dev/null || {
         echo "CLI package missing codex-realtime-adapter binary" >&2
         exit 1
     }
-    tar -tzf "$cli_asset" | grep -qx './bin/codex-realtime-adapter' || {
+    tar -tzf "$cli_asset" | grep -Fx './bin/codex-realtime-adapter' >/dev/null || {
         echo "CLI package missing codex-realtime-adapter wrapper" >&2
         exit 1
     }
