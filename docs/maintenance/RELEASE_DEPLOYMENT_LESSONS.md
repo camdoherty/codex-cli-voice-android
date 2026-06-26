@@ -31,13 +31,13 @@ Observed evidence:
   `--allow-realtime` billing guard.
 - `codex app-server --help` works on Android.
 - `codex app-server --stdio` accepts a JSON-RPC `initialize` request on Android.
-- `codex-voice --allow-realtime` can launch the Codex TUI with
-  `realtime_conversation` enabled, but this does not start or prove functional
-  Realtime audio.
+- `codex-voice --allow-realtime --version` is wrapper/version smoke only.
+- Adapter-capable builds add `codex-realtime-adapter --app-server-smoke` and
+  `codex-realtime-adapter --bridge-smoke` as non-billable checks.
 
-Do not publish a release as "Realtime functional" until a thin Android adapter
-drives app-server Realtime methods through the Bridge audio transport and the
-user explicitly confirms a billable audio smoke.
+Do not publish a release as "Realtime functional" until the adapter drives
+app-server Realtime methods through the Bridge audio transport and the user
+explicitly confirms a billable audio smoke.
 
 ## Findings
 
@@ -74,8 +74,8 @@ user explicitly confirms a billable audio smoke.
    this produced mixed `.1` and `.2` documentation paths. Preparation now uses
    the source release branch when its upstream version matches.
 9. `codex app-server --stdio` is a JSON-RPC server, not an interactive prompt.
-   For non-billable Realtime prep, send an `initialize` JSON-RPC request and
-   inspect the response before attempting billable audio.
+   For non-billable Realtime prep, use
+   `codex-realtime-adapter --app-server-smoke` before attempting billable audio.
 10. Existing Termux shells may not immediately see newly installed wrappers.
     If `codex-voice` appears missing after deployment, run `hash -r`, start a
     new Termux shell, or call `$PREFIX/bin/codex-voice` directly.

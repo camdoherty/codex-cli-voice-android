@@ -59,14 +59,12 @@ if [ -z "${OPENAI_API_KEY:-}" ]; then
 fi
 
 if [ -z "${OPENAI_API_KEY:-}" ]; then
-    echo "OPENAI_API_KEY is empty" >&2
+    echo "OPENAI_API_KEY is required for Realtime. Codex/Plus login is not enough for this app-server Realtime path." >&2
     exit 1
 fi
 
 export CODEX_ANDROID_AUDIO_WS_URL="${CODEX_ANDROID_AUDIO_WS_URL:-ws://127.0.0.1:8765/v1/audio}"
 
-exec codex \
-    --enable realtime_conversation \
-    -c 'realtime.transport="websocket"' \
+exec codex-realtime-adapter \
     "${FILTERED_ARGS[@]}" \
     2> >(grep -v -F "WARNING: flock unsupported on Android;" >&2)

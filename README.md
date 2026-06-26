@@ -11,7 +11,7 @@ Tested on Pixel6a and Pixel9 running Android 16.
 - Codex Bridge: local Android audio bridge for native microphone/TTS integration.
 - STTS: local speech-to-text / text-to-speech mode using Android speech services.
 - Guarded OpenAI Realtime launcher through `codex-voice --allow-realtime`.
-  Realtime audio on `v0.142.x` is pending the app-server adapter.
+  On adapter-capable builds this uses Codex app-server plus Codex Bridge audio.
 - Termux:Widget shortcuts and optional notification controls.
 - Wake-word entry through Codex Bridge. Pixel6a screen-off wake testing passed
   during alpha validation, but Android-wide lock-screen reliability is not
@@ -37,9 +37,9 @@ stts stop
 ### Realtime API Voice
 
 Realtime voice is the intended native OpenAI voice mode for CCAT. On `v0.142.x`,
-the old upstream TUI Realtime controls are gone, so Android Realtime audio is
-not considered functional until the app-server adapter is implemented and a
-billable smoke test passes.
+the old upstream TUI Realtime controls are gone; adapter-capable builds route
+audio through Codex app-server and Codex Bridge. Treat Realtime as unproven for
+a candidate until a user-approved billable smoke test passes.
 
 ```sh
 codex-voice --allow-realtime

@@ -239,9 +239,9 @@ any remaining Realtime process.
 
 `v0.142.x` note: upstream removed the old TUI Realtime audio controls after
 `v0.139.0`. The shortcut and `codex-voice --allow-realtime` preserve the
-explicit billing guard, but a successful TUI launch is not proof of functional
-Realtime audio. Treat Realtime audio as unproven until an app-server adapter is
-implemented and a billable smoke test passes.
+explicit billing guard. Adapter-capable builds route Realtime through Codex
+app-server and Codex Bridge audio, but Realtime remains unproven for a candidate
+until a user-approved billable smoke test passes.
 
 For Termux:Widget shortcuts to open visible terminal sessions from the Android
 home screen on Android 10+, grant:
@@ -536,14 +536,17 @@ The deploy helper runs these non-paid checks remotely:
 codex --version
 codex-api --version
 codex-voice --allow-realtime --version
+codex-realtime-adapter --version
 codex exec --help >/dev/null
 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" status
 ```
 
 It also verifies that an unguarded `codex-voice` launch exits before starting
-billable realtime usage. On `v0.142.x`, Realtime audio validation additionally
-requires the app-server control path and an adapter-capable build; a plain TUI
-launch is not enough.
+billable realtime usage. On `v0.142.x`, use
+`codex-realtime-adapter --app-server-smoke` for non-billable JSON-RPC capability
+validation and `codex-realtime-adapter --bridge-smoke` for non-billable Android
+audio transport validation. Real Realtime remains the user-approved billable
+`codex-voice --allow-realtime` smoke.
 
 On a clean device, `codex exec` with a real prompt requires a configured Codex
 login or API key. Treat a `401 Unauthorized` as a credential/setup issue, not as

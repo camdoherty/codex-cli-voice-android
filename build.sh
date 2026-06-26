@@ -121,6 +121,8 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$SCRIPT_DIR/../codex-cargo-cache}"
 echo "   Cargo target cache: $CARGO_TARGET_DIR"
 (cd "$WORK_DIR/codex-rs" && \
     cargo ndk -t arm64-v8a --platform "$API_LEVEL" -- build --package codex-cli --release)
+(cd "$SCRIPT_DIR/support/codex-realtime-adapter" && \
+    cargo ndk -t arm64-v8a --platform "$API_LEVEL" -- build --release)
 
 # -- Stage --
 check_public_release_source
@@ -132,6 +134,8 @@ mkdir -p "$STAGE/$INSTALL_DIR/support/termux-skills"
 
 cp "$CARGO_TARGET_DIR/aarch64-linux-android/release/codex" \
     "$STAGE/$INSTALL_DIR/codex.bin"
+cp "$CARGO_TARGET_DIR/aarch64-linux-android/release/codex-realtime-adapter" \
+    "$STAGE/$INSTALL_DIR/codex-realtime-adapter"
 cp "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" \
     "$STAGE/$INSTALL_DIR/"
 "$SCRIPT_DIR/scripts/android_tls_guard.sh" binary "$STAGE/$INSTALL_DIR/codex.bin"
@@ -171,11 +175,24 @@ chmod +x "$STAGE/bin/codex"
 
 cp "$SCRIPT_DIR/scripts/termux-codex-api" "$STAGE/bin/codex-api"
 cp "$SCRIPT_DIR/scripts/termux-codex-voice" "$STAGE/bin/codex-voice"
+cat > "$STAGE/bin/codex-realtime-adapter" <<'EOF'
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+LIBEXEC_DIR="$(dirname "$SCRIPT_DIR")/libexec/codex-cli-voice-android"
+
+export LD_LIBRARY_PATH="${LIBEXEC_DIR}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export SSL_CERT_FILE="${PREFIX}/etc/tls/cert.pem"
+export SSL_CERT_DIR="${PREFIX}/etc/tls/certs"
+
+exec "${LIBEXEC_DIR}/codex-realtime-adapter" "$@"
+EOF
 cp "$SCRIPT_DIR/scripts/install_stts_skill.sh" "$STAGE/bin/codex-install-stts"
 cp "$SCRIPT_DIR/scripts/install_termux_agent_assets.sh" "$STAGE/bin/codex-install-agent-assets"
 cp "$SCRIPT_DIR/scripts/ccva-tmux-run" "$STAGE/bin/ccva-tmux-run"
 cp "$SCRIPT_DIR/scripts/ccva-realtime-stop" "$STAGE/bin/ccva-realtime-stop"
-chmod +x "$STAGE/bin/codex-api" "$STAGE/bin/codex-voice" \
+chmod +x "$STAGE/bin/codex-api" "$STAGE/bin/codex-voice" "$STAGE/bin/codex-realtime-adapter" \
     "$STAGE/bin/codex-install-stts" "$STAGE/bin/codex-install-agent-assets" \
     "$STAGE/bin/ccva-tmux-run" "$STAGE/bin/ccva-realtime-stop"
 
@@ -203,6 +220,7 @@ META="$TARBALL.metadata"
     echo "api_level=$API_LEVEL"
     echo "sha256=$(cut -d ' ' -f1 "${TARBALL}.sha256")"
     echo "codex_bin_size_bytes=$(stat -c %s "$STAGE/$INSTALL_DIR/codex.bin")"
+    echo "codex_realtime_adapter_size_bytes=$(stat -c %s "$STAGE/$INSTALL_DIR/codex-realtime-adapter")"
 } > "$META"
 
 echo "✅ Build complete! Artifact: $TARBALL"

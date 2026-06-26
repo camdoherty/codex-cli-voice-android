@@ -13,6 +13,8 @@ android-toolchain/
 build-work/
 codex-build-*/
 codex-cargo-cache/
+target/
+support/codex-realtime-adapter/target/
 android-aec-shim/.gradle/
 android-aec-shim/build/
 android-aec-shim/app/build/

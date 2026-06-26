@@ -105,6 +105,7 @@ set --
 [ -e bin/codex ] && set -- "$@" bin/codex
 [ -e bin/codex-api ] && set -- "$@" bin/codex-api
 [ -e bin/codex-voice ] && set -- "$@" bin/codex-voice
+[ -e bin/codex-realtime-adapter ] && set -- "$@" bin/codex-realtime-adapter
 [ -e bin/codex-install-stts ] && set -- "$@" bin/codex-install-stts
 [ -e bin/codex-install-agent-assets ] && set -- "$@" bin/codex-install-agent-assets
 [ -e bin/ccva-tmux-run ] && set -- "$@" bin/ccva-tmux-run
@@ -129,6 +130,7 @@ fi
 
 rm -rf "$PREFIX/libexec/codex-cli-voice-android" "$PREFIX/opt/codex-termux"
 rm -f "$PREFIX/bin/codex" "$PREFIX/bin/codex-api" "$PREFIX/bin/codex-voice" \
+    "$PREFIX/bin/codex-realtime-adapter" \
     "$PREFIX/bin/codex-install-stts" "$PREFIX/bin/codex-install-agent-assets" \
     "$PREFIX/bin/ccva-tmux-run" "$PREFIX/bin/ccva-realtime-stop" \
     "$PREFIX/bin/codex-install-tts-stt" \
@@ -148,7 +150,7 @@ for old_script in \
     "$HOME/scripts/tts-stt-talk"; do
     [ ! -e "$old_script" ] || echo "old_script_present=$old_script"
 done
-for name in codex-api codex-voice codex-install-stts codex-install-agent-assets ccva-tmux-run ccva-realtime-stop; do
+for name in codex-api codex-voice codex-realtime-adapter codex-install-stts codex-install-agent-assets ccva-tmux-run ccva-realtime-stop; do
     if [ -e "$HOME/scripts/$name" ] && [ ! -L "$HOME/scripts/$name" ]; then
         mkdir -p "$HOME/codex-script-backups-$ts"
         mv "$HOME/scripts/$name" "$HOME/codex-script-backups-$ts/$name"
@@ -289,7 +291,9 @@ ssh "${SSH_OPTS[@]}" "$PIXEL_TARGET" 'sh -s' <<'REMOTE_SMOKE'
 set -eu
 codex --version
 codex-api --version
+# Wrapper/version smoke only. This does not start or prove functional Realtime.
 codex-voice --allow-realtime --version
+codex-realtime-adapter --version
 codex exec --help >/dev/null
 
 set +e
@@ -301,7 +305,7 @@ if [ "$guard_exit" -ne 2 ]; then
     exit 1
 fi
 
-for name in codex-api codex-voice codex-install-stts codex-install-agent-assets ccva-tmux-run ccva-realtime-stop; do
+for name in codex-api codex-voice codex-realtime-adapter codex-install-stts codex-install-agent-assets ccva-tmux-run ccva-realtime-stop; do
     target="$(readlink "$HOME/scripts/$name" 2>/dev/null || true)"
     if [ "$target" != "$PREFIX/bin/$name" ]; then
         echo "$HOME/scripts/$name does not point to $PREFIX/bin/$name" >&2

@@ -48,6 +48,14 @@ done
     sha256sum -c "$cli_asset.sha256"
     sha256sum -c "$shim_asset.sha256"
     tar -tzf "$cli_asset" >/dev/null
+    tar -tzf "$cli_asset" | grep -qx './libexec/codex-cli-voice-android/codex-realtime-adapter' || {
+        echo "CLI package missing codex-realtime-adapter binary" >&2
+        exit 1
+    }
+    tar -tzf "$cli_asset" | grep -qx './bin/codex-realtime-adapter' || {
+        echo "CLI package missing codex-realtime-adapter wrapper" >&2
+        exit 1
+    }
 )
 
 "$REPO_DIR/scripts/android_tls_guard.sh" package "$dist_dir/$cli_asset"
@@ -105,6 +113,8 @@ if find "$REPO_DIR" \
     -path "$REPO_DIR/android-aec-shim/.gradle" -prune -o \
     -path "$REPO_DIR/android-aec-shim/build" -prune -o \
     -path "$REPO_DIR/android-aec-shim/app/build" -prune -o \
+    -path "$REPO_DIR/support/codex-realtime-adapter/target" -prune -o \
+    -path "$REPO_DIR/target" -prune -o \
     -path "$REPO_DIR/dist" -prune -o \
     -path "$REPO_DIR/tmp" -prune -o \
     \( -name '*.pyc' -o -name __pycache__ \) -print | grep .; then
@@ -118,6 +128,8 @@ if rg -n '(/home/[c]ad|100\.[6]4\.|100\.[9]7\.|192\.[1]68\.|[m]intpad|sk-[A-Za-z
     --glob '!android-toolchain/**' \
     --glob '!android-aec-shim/app/build/**' \
     --glob '!android-aec-shim/.gradle/**' \
+    --glob '!support/codex-realtime-adapter/target/**' \
+    --glob '!target/**' \
     --glob '!codex-build-*/**' \
     --glob '!codex-cargo-cache/**' \
     --glob '!tmp/**'; then
