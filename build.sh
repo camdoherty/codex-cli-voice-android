@@ -159,8 +159,8 @@ cat > "$STAGE/bin/codex" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 set -eu
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-LIBEXEC_DIR="$(dirname "$SCRIPT_DIR")/libexec/codex-cli-voice-android"
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+LIBEXEC_DIR="${PREFIX}/libexec/codex-cli-voice-android"
 
 # Safe only for this process tree
 export LD_LIBRARY_PATH="${LIBEXEC_DIR}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
@@ -179,8 +179,8 @@ cat > "$STAGE/bin/codex-realtime-adapter" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/sh
 set -eu
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-LIBEXEC_DIR="$(dirname "$SCRIPT_DIR")/libexec/codex-cli-voice-android"
+PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+LIBEXEC_DIR="${PREFIX}/libexec/codex-cli-voice-android"
 
 export LD_LIBRARY_PATH="${LIBEXEC_DIR}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 export SSL_CERT_FILE="${PREFIX}/etc/tls/cert.pem"
