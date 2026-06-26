@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::Arc;
@@ -11,7 +12,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
-use tokio::time::timeout;
+use tokio::time::{interval, timeout, MissedTickBehavior};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -110,6 +111,9 @@ async fn realtime_session(args: Args) -> Result<()> {
         let _ = tokio::signal::ctrl_c().await;
         stop_signal.store(true, Ordering::Release);
     });
+    let mut playback_queue: VecDeque<Vec<u8>> = VecDeque::new();
+    let mut playback_tick = interval(Duration::from_millis(BRIDGE_FRAME_MS as u64));
+    playback_tick.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
     loop {
         if stop.load(Ordering::Acquire) {
@@ -128,6 +132,8 @@ async fn realtime_session(args: Args) -> Result<()> {
                     Message::Text(text) => {
                         if text.contains("\"type\":\"error\"") || text.contains("\"event\":\"error\"") {
                             eprintln!("bridge_event={text}");
+                        } else if text.contains("\"type\":\"stats\"") {
+                            eprintln!("bridge_stats={text}");
                         }
                     }
                     Message::Close(_) => break,
@@ -138,13 +144,25 @@ async fn realtime_session(args: Args) -> Result<()> {
                 let message = message?;
                 if let Some((sample_rate, channels, samples, data)) = output_audio_delta(&message)? {
                     let frames = normalize_pcm(sample_rate, channels, samples, &data)?;
-                    for frame in frames {
-                        bridge_write.send(Message::Binary(frame.into())).await.context("send Bridge playback frame")?;
-                    }
+                    let duration_ms = frames.len() as u64 * BRIDGE_FRAME_MS as u64;
+                    eprintln!(
+                        "output_audio_delta sample_rate={sample_rate} channels={channels} samples_per_channel={} bytes={} bridge_frames={} duration_ms={} playback_queue={}",
+                        samples.map(|s| s.to_string()).unwrap_or_else(|| "unknown".to_string()),
+                        data.len(),
+                        frames.len(),
+                        duration_ms,
+                        playback_queue.len()
+                    );
+                    playback_queue.extend(frames);
                 } else if let Some(text) = transcript_text(&message) {
                     println!("{text}");
                 } else if let Some(err) = realtime_error(&message) {
                     eprintln!("realtime_error={err}");
+                }
+            }
+            _ = playback_tick.tick(), if !playback_queue.is_empty() => {
+                if let Some(frame) = playback_queue.pop_front() {
+                    bridge_write.send(Message::Binary(frame.into())).await.context("send paced Bridge playback frame")?;
                 }
             }
         }

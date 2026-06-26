@@ -35,7 +35,7 @@ final class AudioEngine {
     private final AudioModeCoordinator modeCoordinator;
     private final AudioManager audioManager;
     private final PowerManager powerManager;
-    private final ArrayBlockingQueue<byte[]> playbackQueue = new ArrayBlockingQueue<>(25);
+    private final ArrayBlockingQueue<byte[]> playbackQueue = new ArrayBlockingQueue<>(250);
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean cleaningUp = new AtomicBoolean(false);
 
@@ -127,7 +127,9 @@ final class AudioEngine {
         }
         AecShimState.playBytesQueued.addAndGet(normalized.length);
         if (!playbackQueue.offer(normalized)) {
-            playbackQueue.poll();
+            if (playbackQueue.poll() != null) {
+                AecShimState.playDrops.incrementAndGet();
+            }
             if (!playbackQueue.offer(normalized)) {
                 AecShimState.playDrops.incrementAndGet();
             }
