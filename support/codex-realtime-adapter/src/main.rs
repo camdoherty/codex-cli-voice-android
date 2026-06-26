@@ -386,7 +386,7 @@ impl AppServer {
                 frame.len()
             );
         }
-        self.request(
+        self.send_request(
             "thread/realtime/appendAudio",
             json!({
                 "threadId": thread_id,
@@ -410,14 +410,7 @@ impl AppServer {
     }
 
     async fn request(&mut self, method: &str, params: Value) -> Result<Value> {
-        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
-        let request = json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "method": method,
-            "params": params
-        });
-        self.write_message(&request).await?;
+        let id = self.send_request(method, params).await?;
         loop {
             let message = self.read_message().await?;
             if message.get("id").and_then(Value::as_i64) == Some(id) {
@@ -427,6 +420,18 @@ impl AppServer {
                 return Ok(message.get("result").cloned().unwrap_or_else(|| json!({})));
             }
         }
+    }
+
+    async fn send_request(&mut self, method: &str, params: Value) -> Result<i64> {
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": method,
+            "params": params
+        });
+        self.write_message(&request).await?;
+        Ok(id)
     }
 
     async fn notify(&mut self, method: &str, params: Value) -> Result<()> {
