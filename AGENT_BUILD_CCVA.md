@@ -58,6 +58,9 @@ Android is a practical always-nearby agent intake surface:
   On `v0.142.x`, treat wrapper/version checks as launcher evidence only;
   adapter-capable builds still require a billable audio smoke before Realtime
   is considered functional.
+- Current `v0.142.2-ccva.4` candidates pace Realtime playback through
+  `codex-realtime-adapter`, clear queued playback on user speech-start events,
+  and keep verbose per-audio-chunk logs behind `CODEX_REALTIME_DEBUG=1`.
 
 ## Agent Operating Rules
 
@@ -204,19 +207,19 @@ scripts/setup_android_toolchain.sh
 For a publishable release candidate, use the release pipeline:
 
 ```bash
-scripts/release_prepare.sh rust-v0.142.2 --iteration 2
-scripts/release_build.sh v0.142.2-ccva.1
+scripts/release_prepare.sh rust-v0.142.2 --iteration 4
+scripts/release_build.sh v0.142.2-ccva.4
 ```
 
 Expected release outputs are under `dist/<release-tag>/`:
 
 ```text
-dist/v0.142.2-ccva.1/codex-cli-voice-android-rust-v0.142.2-ccva.1.tar.gz
-dist/v0.142.2-ccva.1/codex-cli-voice-android-rust-v0.142.2-ccva.1.tar.gz.sha256
-dist/v0.142.2-ccva.1/codex-cli-voice-android-rust-v0.142.2-ccva.1.tar.gz.metadata
-dist/v0.142.2-ccva.1/codex-aec-shim-v0.142.2-ccva.1-debug.apk
-dist/v0.142.2-ccva.1/codex-aec-shim-v0.142.2-ccva.1-debug.apk.sha256
-dist/v0.142.2-ccva.1/v0.142.2-ccva.1.json
+dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz
+dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz.sha256
+dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz.metadata
+dist/v0.142.2-ccva.4/codex-aec-shim-v0.142.2-ccva.4-debug.apk
+dist/v0.142.2-ccva.4/codex-aec-shim-v0.142.2-ccva.4-debug.apk.sha256
+dist/v0.142.2-ccva.4/v0.142.2-ccva.4.json
 ```
 
 For lower-level local iteration, build the Android shim APK directly:
@@ -253,7 +256,7 @@ sha256sum -c codex-cli-voice-android-rust-v0.142.2.tar.gz.sha256
 For a release candidate, prefer:
 
 ```bash
-scripts/release_doctor.sh v0.142.2-ccva.1
+scripts/release_doctor.sh v0.142.2-ccva.4
 ```
 
 ## Deploy With SSH
@@ -332,8 +335,8 @@ Deploy the CLI package:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  dist/v0.142.2-ccva.1/codex-cli-voice-android-rust-v0.142.2-ccva.1.tar.gz \
-  dist/v0.142.2-ccva.1/codex-cli-voice-android-rust-v0.142.2-ccva.1.tar.gz.sha256
+  dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz \
+  dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz.sha256
 ```
 
 Or use the release validation wrapper:
@@ -342,7 +345,7 @@ Or use the release validation wrapper:
 PIXEL_HOST=pixel6a-ccva \
 PIXEL_USER=termux-user \
 SSH_CONFIG="$HOME/.ssh/config" \
-scripts/release_validate_device.sh v0.142.2-ccva.1 --fresh --target Pixel6a
+scripts/release_validate_device.sh v0.142.2-ccva.4 --fresh --target Pixel6a
 ```
 
 The `--target` value is report metadata only. It does not select the SSH host.
@@ -355,7 +358,7 @@ repo/release asset path that exists on the phone.
 
 ```sh
 sh scripts/install_aec_shim_apk.sh \
-  /path/on/phone/to/codex-aec-shim-v0.142.2-ccva.1-debug.apk
+  /path/on/phone/to/codex-aec-shim-v0.142.2-ccva.4-debug.apk
 ```
 
 The helper stages the APK with its versioned basename in Android Downloads.
@@ -399,7 +402,7 @@ finally:
 PY
 ```
 
-For `v0.142.2-ccva.1`, also verify the installed binary does not contain the
+For `v0.142.2-ccva.4`, also verify the installed binary does not contain the
 Android RMCP platform verifier panic path:
 
 ```sh
@@ -444,6 +447,22 @@ Bridge audio transport. The billable smoke remains:
 codex-voice --allow-realtime
 ```
 
+For audio diagnostics only, enable verbose adapter logs:
+
+```sh
+CODEX_REALTIME_DEBUG=1 codex-voice --allow-realtime
+```
+
+Expected `v0.142.2-ccva.4` behavior:
+
+- Normal sessions are quiet by default; no per-chunk `output_audio_delta` spam.
+- Speech playback is paced and intelligible.
+- Saying a new utterance while the model is speaking clears queued playback via
+  app-server `input_audio_buffer.speech_started` plus Bridge
+  `playback.clear`.
+- Long responses are capped by the adapter playback queue; do not publish if
+  stale audio continues for many seconds after barge-in.
+
 ## Acceptance Criteria
 
 The build/deploy is successful when:
@@ -462,6 +481,9 @@ The build/deploy is successful when:
 - `codex-realtime-adapter --bridge-smoke` passes on Android.
 - Billable Realtime audio is tested only if the user explicitly approves it and
   only after an adapter-capable build exists.
+- For Realtime-capable releases, the user confirms normal-speed playback,
+  acceptable barge-in behavior, and clean `Ctrl-C` stop/cleanup on at least the
+  primary test device before publishing.
 
 ## Troubleshooting Pointers
 

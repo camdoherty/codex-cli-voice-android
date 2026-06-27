@@ -19,9 +19,27 @@ separate explicitly billable validation item unless recorded independently.
 
 ## v0.142.2 Candidate Notes
 
-The `v0.142.2-ccva.1` CLI package passed release-doctor, Android TLS guard,
-deployment validation, STTS status, Bridge install, Bridge loopback, and audible
-shim TTS smoke on Pixel 6a and Pixel 9.
+The `v0.142.2` release family refreshed the Android patches for upstream
+`rust-v0.142.2` and moved Realtime away from the removed upstream TUI audio
+controls. Evidence must be kept per candidate:
+
+- `v0.142.2-ccva.1` passed release-doctor, Android TLS guard, deployment
+  validation, STTS status, Bridge install, Bridge loopback, and audible shim
+  TTS smoke on Pixel 6a and Pixel 9.
+- `v0.142.2-ccva.2` added the first app-server Realtime adapter and passed
+  non-billable `--app-server-smoke` and `--bridge-smoke` on Pixel 6a and
+  Pixel 9. Billable Pixel 9 smoke proved the session could start but exposed
+  severely compressed playback.
+- `v0.142.2-ccva.3` fixed the playback-speed issue by pacing Bridge playback
+  and increasing Bridge playback buffering/drop accounting. User Pixel 9
+  billable smoke sounded much better, but long responses built large queued
+  audio backlogs and barge-in did not clear stale playback.
+- `v0.142.2-ccva.4` keeps verbose Realtime diagnostics behind
+  `CODEX_REALTIME_DEBUG=1`, caps adapter playback buffering, and clears queued
+  adapter/Bridge playback when app-server reports
+  `input_audio_buffer.speech_started`. Pixel 9 deploy smoke and non-billable
+  Realtime checks passed; final billable barge-in sign-off remains separate
+  until recorded.
 
 Realtime evidence must be separated from those passes. For `v0.142.x`, upstream
 removed the old TUI Realtime audio controls used by earlier CCVA builds.
@@ -84,6 +102,21 @@ explicitly confirms a billable audio smoke.
     that resolve `libexec` from `$0` can pass direct `$PREFIX/bin` tests and
     fail from Termux shortcuts. Resolve packaged `libexec` paths from
     `$PREFIX` instead.
+12. Realtime audio output arrives in bursts. Sending decoded audio chunks to
+    Bridge immediately caused the small Bridge playback queue to drop frames,
+    which made speech sound compressed or fast-forwarded. Pace 24 kHz mono
+    PCM playback at the Bridge frame cadence instead.
+13. Pacing alone can create long stale-audio backlogs on long responses. Clear
+    queued adapter playback and send Bridge `playback.clear` when app-server
+    emits `input_audio_buffer.speech_started`; otherwise barge-in and "stop"
+    requests may be recognized while old audio continues to play.
+14. Keep Realtime audio logs quiet by default. Per-chunk
+    `output_audio_delta` and Bridge stats logs are useful during diagnosis but
+    make normal phone use difficult. Gate them behind `CODEX_REALTIME_DEBUG=1`.
+15. AEC/NS evidence is separate from playback evidence. Bridge attempts Android
+    `VOICE_COMMUNICATION`, `MODE_IN_COMMUNICATION`, AcousticEchoCanceler, and
+    NoiseSuppressor, but playback-speed and stale-queue bugs can occur even in
+    a quiet room.
 
 ## Next Deployment Checklist
 
@@ -98,7 +131,11 @@ explicitly confirms a billable audio smoke.
 6. Record user confirmation for installation, Bridge port, `/v1/text-voice`,
    and audible TTS separately.
 7. Run Realtime only after explicit billable approval.
-8. Promote approved device-local managed-asset improvements back into the repo,
+8. For Realtime-capable candidates, test normal-speed playback, barge-in
+   clearing, and `Ctrl-C` cleanup separately. Use
+   `CODEX_REALTIME_DEBUG=1 codex-voice --allow-realtime` only when collecting
+   diagnostic logs.
+9. Promote approved device-local managed-asset improvements back into the repo,
    run a privacy scan, rebuild if packaged content changed, and then test a
    clean install.
 

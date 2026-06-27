@@ -32,7 +32,7 @@ validation wrapper before publishing:
 PIXEL_HOST=pixel6a-ccva \
 PIXEL_USER="$(ssh pixel6a-ccva whoami)" \
 SSH_CONFIG="$HOME/.ssh/config" \
-scripts/release_validate_device.sh v0.142.2-ccva.1 --target Pixel6a
+scripts/release_validate_device.sh v0.142.2-ccva.4 --target Pixel6a
 ```
 
 For a first install on a clean Termux target:
@@ -41,7 +41,7 @@ For a first install on a clean Termux target:
 PIXEL_HOST=pixel6a-ccva \
 PIXEL_USER="$(ssh pixel6a-ccva whoami)" \
 SSH_CONFIG="$HOME/.ssh/config" \
-scripts/release_validate_device.sh v0.142.2-ccva.1 --fresh --target Pixel6a
+scripts/release_validate_device.sh v0.142.2-ccva.4 --fresh --target Pixel6a
 ```
 
 The wrapper runs `release_doctor`, deploys the CLI package through
@@ -158,8 +158,8 @@ then reconnect. Do not disable host-key checking globally.
 
 ```bash
 scripts/deploy_termux_package.sh \
-  dist/v0.142.2-ccva.1/codex-cli-voice-android-rust-v0.142.2-ccva.1.tar.gz \
-  dist/v0.142.2-ccva.1/codex-cli-voice-android-rust-v0.142.2-ccva.1.tar.gz.sha256
+  dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz \
+  dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz.sha256
 ```
 
 The script refuses to continue if the remote checksum differs.
@@ -168,8 +168,8 @@ For a first install on a clean Termux device:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  dist/v0.142.2-ccva.1/codex-cli-voice-android-rust-v0.142.2-ccva.1.tar.gz \
-  dist/v0.142.2-ccva.1/codex-cli-voice-android-rust-v0.142.2-ccva.1.tar.gz.sha256
+  dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz \
+  dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz.sha256
 ```
 
 The deploy also installs or updates:
@@ -242,6 +242,12 @@ any remaining Realtime process.
 explicit billing guard. Adapter-capable builds route Realtime through Codex
 app-server and Codex Bridge audio, but Realtime remains unproven for a candidate
 until a user-approved billable smoke test passes.
+
+`v0.142.2-ccva.4` note: Realtime playback is paced by
+`codex-realtime-adapter`, queued playback is cleared when the user starts
+speaking, and verbose audio diagnostics are opt-in with
+`CODEX_REALTIME_DEBUG=1`. Use this flag only while collecting logs for audio
+latency, barge-in, or Bridge stats.
 
 For Termux:Widget shortcuts to open visible terminal sessions from the Android
 home screen on Android 10+, grant:
@@ -548,6 +554,15 @@ validation and `codex-realtime-adapter --bridge-smoke` for non-billable Android
 audio transport validation. Real Realtime remains the user-approved billable
 `codex-voice --allow-realtime` smoke.
 
+When diagnosing Realtime audio, run:
+
+```sh
+CODEX_REALTIME_DEBUG=1 codex-voice --allow-realtime
+```
+
+Without that flag, normal Realtime sessions should not print per-chunk
+`output_audio_delta` logs.
+
 On a clean device, `codex exec` with a real prompt requires a configured Codex
 login or API key. Treat a `401 Unauthorized` as a credential/setup issue, not as
 an install failure, after `codex --version` and `codex exec --help` pass.
@@ -586,7 +601,7 @@ private storage:
 
 ```sh
 sh scripts/install_aec_shim_apk.sh \
-  ./dist/v0.142.2-ccva.1/codex-aec-shim-v0.142.2-ccva.1-debug.apk
+  ./dist/v0.142.2-ccva.4/codex-aec-shim-v0.142.2-ccva.4-debug.apk
 ```
 
 The helper preserves the APK basename in Downloads. `termux-open` is an

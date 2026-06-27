@@ -120,7 +120,7 @@ sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" cleanup
 adapted for Termux/Android. It uses the AEC shim native audio path:
 
 ```text
-codex-voice -> ws://127.0.0.1:8765/v1/audio -> OpenAI Realtime
+codex-voice -> codex-realtime-adapter -> Codex app-server -> ws://127.0.0.1:8765/v1/audio -> OpenAI Realtime
 ```
 
 This mode requires an API key and can start OpenAI Realtime API billing. The
@@ -150,6 +150,23 @@ launch to disable it.
 Use `Realtime API Voice Stop` to stop the billable Realtime tmux session and
 terminate any remaining Realtime process.
 
+On `v0.142.x`, Realtime audio is adapter-driven rather than TUI-driven. The
+adapter paces 24 kHz mono PCM playback into Codex Bridge, clears queued
+playback when the user starts speaking, and caps queued playback so long
+responses cannot build unlimited stale audio. Detailed audio/chunk logs are
+disabled by default; enable them only for diagnosis:
+
+```sh
+CODEX_REALTIME_DEBUG=1 codex-voice --allow-realtime
+```
+
+Non-billable checks:
+
+```sh
+codex-realtime-adapter --app-server-smoke
+codex-realtime-adapter --bridge-smoke
+```
+
 ## Core CLI Surfaces
 
 The standard Codex surfaces remain available alongside voice:
@@ -174,6 +191,8 @@ sh scripts/install_termux_launchers.sh
 ```sh
 codex --version
 codex-voice
+codex-realtime-adapter --app-server-smoke
+codex-realtime-adapter --bridge-smoke
 codex-install-stts
 sh "$HOME/.codex/skills/stts/scripts/stts-session.sh" diag
 stts-diag --download

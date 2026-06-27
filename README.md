@@ -41,6 +41,11 @@ the old upstream TUI Realtime controls are gone; adapter-capable builds route
 audio through Codex app-server and Codex Bridge. Treat Realtime as unproven for
 a candidate until a user-approved billable smoke test passes.
 
+Current `v0.142.2-ccva.4` candidates use a thin `codex-realtime-adapter` that
+paces Bridge playback, clears queued playback when the user starts speaking,
+and keeps verbose audio diagnostics off by default. Set
+`CODEX_REALTIME_DEBUG=1` only when collecting detailed Realtime audio logs.
+
 ```sh
 codex-voice --allow-realtime
 ```
@@ -188,7 +193,7 @@ folders unless needed.
 ```sh
 git clone https://github.com/camdoherty/codex-cli-voice-android.git
 cd codex-cli-voice-android
-scripts/release_build.sh v0.142.2-ccva.1
+scripts/release_build.sh v0.142.2-ccva.4
 ```
 
 See [BUILD.md](BUILD.md).

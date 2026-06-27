@@ -25,11 +25,11 @@ That downloads a local JDK, Gradle, and Android SDK into `android-toolchain/`.
 For publishable releases, use the release scripts as the canonical path:
 
 ```bash
-scripts/release_prepare.sh rust-v0.142.2 --iteration 2
-scripts/release_build.sh v0.142.2-ccva.1
+scripts/release_prepare.sh rust-v0.142.2 --iteration 4
+scripts/release_build.sh v0.142.2-ccva.4
 PIXEL_HOST=pixel6a-ccva PIXEL_USER=termux-user SSH_CONFIG="$HOME/.ssh/config" \
-  scripts/release_validate_device.sh v0.142.2-ccva.1 --fresh --target Pixel6a
-scripts/release_publish.sh v0.142.2-ccva.1 --stable
+  scripts/release_validate_device.sh v0.142.2-ccva.4 --fresh --target Pixel6a
+scripts/release_publish.sh v0.142.2-ccva.4 --stable
 ```
 
 `release_publish.sh` is dry-run/check-only by default. Add `--execute` only
@@ -63,10 +63,23 @@ Android UI approvals, Codex sign-in, Bridge microphone permission, widget
 overlay permission, Wake Word human testing, and billable Realtime checks remain
 explicit validation steps.
 
-For `v0.142.2-ccva.1`, the release build also enforces the Android RMCP
+For `v0.142.2-ccva.4`, the release build also enforces the Android RMCP
 OAuth/TLS regression guard. The graph, staged binary, and packaged CLI tarball
 must not contain `rustls-platform-verifier`; Android RMCP OAuth bootstrap is
 routed through Codex's shared HTTP client instead.
+
+`v0.142.x` Realtime builds include `codex-realtime-adapter`. Non-billable
+validation is split into:
+
+```bash
+codex-realtime-adapter --app-server-smoke
+codex-realtime-adapter --bridge-smoke
+```
+
+Functional Realtime validation remains the explicit billable
+`codex-voice --allow-realtime` smoke. Adapter logs are quiet by default; set
+`CODEX_REALTIME_DEBUG=1` only when diagnosing audio chunking, queue depth, or
+Bridge stats.
 
 ## Lower-Level Build Commands
 
@@ -96,14 +109,14 @@ codex-cli-voice-android-rust-v0.142.2.tar.gz.metadata
 For publishable CCVA release artifacts, use the release wrapper:
 
 ```bash
-scripts/release_build.sh v0.142.2-ccva.1
+scripts/release_build.sh v0.142.2-ccva.4
 ```
 
-That writes versioned assets under `dist/v0.142.2-ccva.1/`, for example:
+That writes versioned assets under `dist/v0.142.2-ccva.4/`, for example:
 
 ```text
-codex-cli-voice-android-rust-v0.142.2-ccva.1.tar.gz
-codex-aec-shim-v0.142.2-ccva.1-debug.apk
+codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz
+codex-aec-shim-v0.142.2-ccva.4-debug.apk
 ```
 
 Cargo output is cached outside the source clone through:
