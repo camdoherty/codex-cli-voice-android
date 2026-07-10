@@ -3,10 +3,10 @@
   "upstream_codex": "rust-v0.144.1",
   "arch": "aarch64",
   "release_tag": "v0.144.1-ccva.1",
-  "ccva_source_commit": "4c8a5f2c9f2fdcda5436eddb9475c923dcc66ad5",
+  "ccva_source_commit": "6062f096aab8d10228762a0475217197f90cfa56",
   "validation_status": "validated",
   "cli_tarball": "codex-cli-voice-android-rust-v0.144.1-ccva.1.tar.gz",
-  "cli_sha256": "49298f8e9dd033c977cbf8f9999ac79b3af859ae2ac71aa9f6a6fdb5909af043",
+  "cli_sha256": "2ec03f895294a6d9ffd8bcde96045e52241917952f637b68e8d10bc5d8e6870f",
   "shim_apk": "codex-aec-shim-v0.144.1-ccva.1-debug.apk",
   "shim_sha256": "5be3b9203da0d215813da894aa29de96902a9bf8271cdc909f169b2d61b25d78",
   "tested_devices": ["Pixel9"]
