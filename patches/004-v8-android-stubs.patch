@@ -1,23 +1,32 @@
 diff --git a/codex-rs/code-mode/Cargo.toml b/codex-rs/code-mode/Cargo.toml
-index 09f1d73..56a2b34 100644
+index 011fee6..c85c486 100644
 --- a/codex-rs/code-mode/Cargo.toml
 +++ b/codex-rs/code-mode/Cargo.toml
-@@ -23,6 +23,8 @@ serde_json = { workspace = true }
- tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+@@ -18,12 +18,14 @@ workspace = true
+ [dependencies]
+ codex-code-mode-protocol = { workspace = true }
+ codex-protocol = { workspace = true }
+-deno_core_icudata = { workspace = true }
+ futures = { workspace = true }
+ serde_json = { workspace = true }
+ tokio = { workspace = true, features = ["io-util", "macros", "process", "rt", "sync", "time"] }
  tokio-util = { workspace = true, features = ["rt"] }
  tracing = { workspace = true }
 +
 +[target.'cfg(not(target_os = "android"))'.dependencies]
++deno_core_icudata = { workspace = true }
  v8 = { workspace = true }
  
  [dev-dependencies]
 diff --git a/codex-rs/code-mode/src/lib.rs b/codex-rs/code-mode/src/lib.rs
-index cbe8bfe..aafd62b 100644
+index 6d332bf..429bb5a 100644
 --- a/codex-rs/code-mode/src/lib.rs
 +++ b/codex-rs/code-mode/src/lib.rs
-@@ -1,9 +1,24 @@
+@@ -1,17 +1,47 @@
 +#[cfg(not(target_os = "android"))]
  mod cell_actor;
++#[cfg(not(target_os = "android"))]
+ mod remote_session;
 +#[cfg(not(target_os = "android"))]
  mod runtime;
 +#[cfg(not(target_os = "android"))]
@@ -26,124 +35,38 @@ index cbe8bfe..aafd62b 100644
 +mod service_stub;
 +#[cfg(not(target_os = "android"))]
  mod session_runtime;
++#[cfg(not(target_os = "android"))]
+ mod v8_init;
+ 
++#[cfg(not(target_os = "android"))]
+ pub(crate) type TaskFailureHandler = std::sync::Arc<dyn Fn(String) + Send + Sync>;
  
  pub use codex_code_mode_protocol::*;
 +#[cfg(not(target_os = "android"))]
- pub use service::CodeModeService;
+ pub use remote_session::ProcessOwnedCodeModeSession;
++#[cfg(not(target_os = "android"))]
+ pub use remote_session::ProcessOwnedCodeModeSessionProvider;
++#[cfg(target_os = "android")]
++pub use service_stub::ProcessOwnedCodeModeSession;
++#[cfg(target_os = "android")]
++pub use service_stub::ProcessOwnedCodeModeSessionProvider;
++#[cfg(not(target_os = "android"))]
+ pub use service::InProcessCodeModeSession;
 +#[cfg(not(target_os = "android"))]
  pub use service::InProcessCodeModeSessionProvider;
 +#[cfg(not(target_os = "android"))]
  pub use service::NoopCodeModeSessionDelegate;
 +#[cfg(target_os = "android")]
-+pub use service_stub::CodeModeService;
++pub use service_stub::InProcessCodeModeSession;
 +#[cfg(target_os = "android")]
 +pub use service_stub::InProcessCodeModeSessionProvider;
 +#[cfg(target_os = "android")]
 +pub use service_stub::NoopCodeModeSessionDelegate;
-diff --git a/codex-rs/code-mode/src/service_stub.rs b/codex-rs/code-mode/src/service_stub.rs
-new file mode 100644
-index 0000000..1a28bd2
---- /dev/null
-+++ b/codex-rs/code-mode/src/service_stub.rs
-@@ -0,0 +1,101 @@
-+use std::sync::Arc;
-+
-+use codex_code_mode_protocol::CellId;
-+use codex_code_mode_protocol::CodeModeSession;
-+use codex_code_mode_protocol::CodeModeSessionDelegate;
-+use codex_code_mode_protocol::CodeModeSessionProvider;
-+use codex_code_mode_protocol::CodeModeSessionProviderFuture;
-+use codex_code_mode_protocol::CodeModeSessionResultFuture;
-+use codex_code_mode_protocol::ExecuteRequest;
-+use codex_code_mode_protocol::RuntimeResponse;
-+use codex_code_mode_protocol::StartedCell;
-+use codex_code_mode_protocol::WaitOutcome;
-+use codex_code_mode_protocol::WaitRequest;
-+
-+pub struct NoopCodeModeSessionDelegate;
-+
-+impl CodeModeSessionDelegate for NoopCodeModeSessionDelegate {
-+    fn invoke_tool<'a>(
-+        &'a self,
-+        _invocation: codex_code_mode_protocol::CodeModeNestedToolCall,
-+        cancellation_token: tokio_util::sync::CancellationToken,
-+    ) -> codex_code_mode_protocol::ToolInvocationFuture<'a> {
-+        Box::pin(async move {
-+            cancellation_token.cancelled().await;
-+            Err("code mode nested tools are unavailable on Android".to_string())
-+        })
-+    }
-+
-+    fn notify<'a>(
-+        &'a self,
-+        _call_id: String,
-+        _cell_id: CellId,
-+        _text: String,
-+        _cancellation_token: tokio_util::sync::CancellationToken,
-+    ) -> codex_code_mode_protocol::NotificationFuture<'a> {
-+        Box::pin(async { Ok(()) })
-+    }
-+
-+    fn cell_closed(&self, _cell_id: &CellId) {}
-+}
-+
-+#[derive(Default)]
-+pub struct InProcessCodeModeSessionProvider;
-+
-+impl CodeModeSessionProvider for InProcessCodeModeSessionProvider {
-+    fn create_session<'a>(
-+        &'a self,
-+        _delegate: Arc<dyn CodeModeSessionDelegate>,
-+    ) -> CodeModeSessionProviderFuture<'a> {
-+        Box::pin(async { Ok(Arc::new(CodeModeService) as Arc<dyn CodeModeSession>) })
-+    }
-+}
-+
-+#[derive(Default)]
-+pub struct CodeModeService;
-+
-+impl CodeModeService {
-+    pub fn new() -> Self {
-+        Self
-+    }
-+
-+    pub fn with_delegate(_delegate: Arc<dyn CodeModeSessionDelegate>) -> Self {
-+        Self
-+    }
-+}
-+
-+impl CodeModeSession for CodeModeService {
-+    fn is_alive(&self) -> bool {
-+        true
-+    }
-+
-+    fn execute<'a>(
-+        &'a self,
-+        _request: ExecuteRequest,
-+    ) -> CodeModeSessionResultFuture<'a, StartedCell> {
-+        Box::pin(async { Err("code mode is unavailable on Android".to_string()) })
-+    }
-+
-+    fn wait<'a>(&'a self, request: WaitRequest) -> CodeModeSessionResultFuture<'a, WaitOutcome> {
-+        Box::pin(async move {
-+            Ok(WaitOutcome::MissingCell(RuntimeResponse::Result {
-+                cell_id: request.cell_id,
-+                content_items: Vec::new(),
-+                error_text: Some("code mode is unavailable on Android".to_string()),
-+            }))
-+        })
-+    }
-+
-+    fn terminate<'a>(&'a self, cell_id: CellId) -> CodeModeSessionResultFuture<'a, WaitOutcome> {
-+        Box::pin(async move {
-+            Ok(WaitOutcome::MissingCell(RuntimeResponse::Terminated {
-+                cell_id,
-+                content_items: Vec::new(),
-+            }))
-+        })
-+    }
-+
-+    fn shutdown<'a>(&'a self) -> CodeModeSessionResultFuture<'a, ()> {
-+        Box::pin(async { Ok(()) })
-+    }
-+}
++#[cfg(target_os = "android")]
++pub use service_stub::V8JitMode;
++#[cfg(target_os = "android")]
++pub use service_stub::initialize_v8;
++#[cfg(not(target_os = "android"))]
+ pub use v8_init::V8JitMode;
++#[cfg(not(target_os = "android"))]
+ pub use v8_init::initialize_v8;

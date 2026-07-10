@@ -58,7 +58,7 @@ Android is a practical always-nearby agent intake surface:
   On `v0.142.x`, treat wrapper/version checks as launcher evidence only;
   adapter-capable builds still require a billable audio smoke before Realtime
   is considered functional.
-- Current `v0.142.2-ccva.4` candidates pace Realtime playback through
+- Realtime-capable candidates pace Realtime playback through
   `codex-realtime-adapter`, clear queued playback on user speech-start events,
   and keep verbose per-audio-chunk logs behind `CODEX_REALTIME_DEBUG=1`.
 
@@ -207,19 +207,19 @@ scripts/setup_android_toolchain.sh
 For a publishable release candidate, use the release pipeline:
 
 ```bash
-scripts/release_prepare.sh rust-v0.142.2 --iteration 4
-scripts/release_build.sh v0.142.2-ccva.4
+scripts/release_prepare.sh rust-v0.144.0 --iteration 1
+scripts/release_build.sh v0.144.0-ccva.1
 ```
 
 Expected release outputs are under `dist/<release-tag>/`:
 
 ```text
-dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz
-dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz.sha256
-dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz.metadata
-dist/v0.142.2-ccva.4/codex-aec-shim-v0.142.2-ccva.4-debug.apk
-dist/v0.142.2-ccva.4/codex-aec-shim-v0.142.2-ccva.4-debug.apk.sha256
-dist/v0.142.2-ccva.4/v0.142.2-ccva.4.json
+dist/v0.144.0-ccva.1/codex-cli-voice-android-rust-v0.144.0-ccva.1.tar.gz
+dist/v0.144.0-ccva.1/codex-cli-voice-android-rust-v0.144.0-ccva.1.tar.gz.sha256
+dist/v0.144.0-ccva.1/codex-cli-voice-android-rust-v0.144.0-ccva.1.tar.gz.metadata
+dist/v0.144.0-ccva.1/codex-aec-shim-v0.144.0-ccva.1-debug.apk
+dist/v0.144.0-ccva.1/codex-aec-shim-v0.144.0-ccva.1-debug.apk.sha256
+dist/v0.144.0-ccva.1/v0.144.0-ccva.1.json
 ```
 
 For lower-level local iteration, build the Android shim APK directly:
@@ -239,9 +239,9 @@ export ANDROID_NDK_HOME=/path/to/android-ndk-r29
 Expected local outputs:
 
 ```text
-codex-cli-voice-android-rust-v0.142.2.tar.gz
-codex-cli-voice-android-rust-v0.142.2.tar.gz.sha256
-codex-cli-voice-android-rust-v0.142.2.tar.gz.metadata
+codex-cli-voice-android-rust-v0.144.0.tar.gz
+codex-cli-voice-android-rust-v0.144.0.tar.gz.sha256
+codex-cli-voice-android-rust-v0.144.0.tar.gz.metadata
 android-aec-shim/app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -249,14 +249,14 @@ Quick local checks:
 
 ```bash
 bash -n build.sh scripts/*.sh
-tar -tzf codex-cli-voice-android-rust-v0.142.2.tar.gz >/dev/null
-sha256sum -c codex-cli-voice-android-rust-v0.142.2.tar.gz.sha256
+tar -tzf codex-cli-voice-android-rust-v0.144.0.tar.gz >/dev/null
+sha256sum -c codex-cli-voice-android-rust-v0.144.0.tar.gz.sha256
 ```
 
 For a release candidate, prefer:
 
 ```bash
-scripts/release_doctor.sh v0.142.2-ccva.4
+scripts/release_doctor.sh v0.144.0-ccva.1
 ```
 
 ## Deploy With SSH
@@ -335,8 +335,8 @@ Deploy the CLI package:
 
 ```bash
 ALLOW_FRESH_INSTALL=1 scripts/deploy_termux_package.sh \
-  dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz \
-  dist/v0.142.2-ccva.4/codex-cli-voice-android-rust-v0.142.2-ccva.4.tar.gz.sha256
+  dist/v0.144.0-ccva.1/codex-cli-voice-android-rust-v0.144.0-ccva.1.tar.gz \
+  dist/v0.144.0-ccva.1/codex-cli-voice-android-rust-v0.144.0-ccva.1.tar.gz.sha256
 ```
 
 Or use the release validation wrapper:
@@ -345,7 +345,7 @@ Or use the release validation wrapper:
 PIXEL_HOST=pixel6a-ccva \
 PIXEL_USER=termux-user \
 SSH_CONFIG="$HOME/.ssh/config" \
-scripts/release_validate_device.sh v0.142.2-ccva.4 --fresh --target Pixel6a
+scripts/release_validate_device.sh v0.144.0-ccva.1 --fresh --target Pixel6a
 ```
 
 The `--target` value is report metadata only. It does not select the SSH host.
@@ -358,7 +358,7 @@ repo/release asset path that exists on the phone.
 
 ```sh
 sh scripts/install_aec_shim_apk.sh \
-  /path/on/phone/to/codex-aec-shim-v0.142.2-ccva.4-debug.apk
+  /path/on/phone/to/codex-aec-shim-v0.144.0-ccva.1-debug.apk
 ```
 
 The helper stages the APK with its versioned basename in Android Downloads.
@@ -402,7 +402,7 @@ finally:
 PY
 ```
 
-For `v0.142.2-ccva.4`, also verify the installed binary does not contain the
+For release candidates, also verify the installed binary does not contain the
 Android RMCP platform verifier panic path:
 
 ```sh
@@ -453,7 +453,7 @@ For audio diagnostics only, enable verbose adapter logs:
 CODEX_REALTIME_DEBUG=1 codex-voice --allow-realtime
 ```
 
-Expected `v0.142.2-ccva.4` behavior:
+Expected Realtime-capable candidate behavior:
 
 - Normal sessions are quiet by default; no per-chunk `output_audio_delta` spam.
 - Speech playback is paced and intelligible.
