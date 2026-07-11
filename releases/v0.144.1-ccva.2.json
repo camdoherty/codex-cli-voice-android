@@ -1,0 +1,13 @@
+{
+  "version": "v0.144.1-ccva.2",
+  "upstream_codex": "rust-v0.144.1",
+  "arch": "aarch64",
+  "release_tag": "v0.144.1-ccva.2",
+  "ccva_source_commit": "b5ebde5f6aaa844e0cf718c2e74054322177d966",
+  "validation_status": "validated",
+  "cli_tarball": "codex-cli-voice-android-rust-v0.144.1-ccva.2.tar.gz",
+  "cli_sha256": "a12cd6b9174769717f60ec1e683ba847903641993893a9dc1dfed4f260fc6b9a",
+  "shim_apk": "codex-aec-shim-v0.144.1-ccva.2-debug.apk",
+  "shim_sha256": "5be3b9203da0d215813da894aa29de96902a9bf8271cdc909f169b2d61b25d78",
+  "tested_devices": ["Pixel9"]
+}
