@@ -106,6 +106,7 @@ echo "🩹 Applying patches..."
 done)
 
 "$SCRIPT_DIR/scripts/android_tls_guard.sh" graph "$WORK_DIR/codex-rs"
+"$SCRIPT_DIR/scripts/android_code_mode_guard.sh" "$WORK_DIR/codex-rs"
 
 if [ "$CHECK_PATCHES_ONLY" = "1" ]; then
     echo "🔎 Verifying locked Cargo metadata..."

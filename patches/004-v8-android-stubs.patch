@@ -281,3 +281,15 @@ index 0000000..aa3bc38
 +        Box::pin(ProcessOwnedCodeModeSession::shutdown(self))
 +    }
 +}
+diff --git a/codex-rs/core/src/tools/mod.rs b/codex-rs/core/src/tools/mod.rs
+index 9bca3d3..4cca915 100644
+--- a/codex-rs/core/src/tools/mod.rs
++++ b/codex-rs/core/src/tools/mod.rs
+@@ -63 +63,7 @@
++#[cfg(target_os = "android")]
++fn effective_tool_mode(_turn_context: &TurnContext) -> ToolMode {
++    ToolMode::Direct
++}
++
++#[cfg(not(target_os = "android"))]
+ fn effective_tool_mode(turn_context: &TurnContext) -> ToolMode {
